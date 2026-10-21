@@ -160,7 +160,12 @@
             if (!a[0]) { o('cat: Datei angeben', 'e'); break; }
             const p = this.resolve(a[0]);
             const f = this.file(p);
-            if (f === null) { o('cat: ' + a[0] + ': Datei nicht gefunden', 'e'); break; }
+            if (f === null) {
+              o('cat: ' + a[0] + ': Datei nicht gefunden', 'e');
+              const alt = '/home/vesper/' + p.split('/').pop();
+              if (p.indexOf('/home/sitz9/') === 0 && this.file(alt) !== null) o('Hinweis: Im Arbeitsbereich von IX-alt existiert ' + alt, 'd');
+              break;
+            }
             if (p === '/home/vesper/.verlauf') KY.flag('history', true);
             if (p === '/home/vesper/.kythera') KY.flag('kytheraCoords', true);
             f.split('\n').forEach(l => o(l));
