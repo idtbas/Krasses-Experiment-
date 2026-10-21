@@ -8,7 +8,9 @@ KYTHERA ist eine vollständig lokale, interaktive Simulation im Stil einer stren
 
 ## Starten
 
-Eine der folgenden Möglichkeiten:
+**Online:** https://idtbas.github.io/Krasses-Experiment-/
+
+Oder lokal, eine der folgenden Möglichkeiten:
 
 - `index.html` im Browser öffnen (funktioniert direkt von der Festplatte, kein Server nötig)
 - `dist/kythera-standalone.html` öffnen: dieselbe Anwendung als einzelne Datei
@@ -33,6 +35,7 @@ Mehr wird hier nicht verraten.
 - Simulationskern mit Märkten, Regionen, Ereignissen, Abstimmungen, Forschung und Abwesenheitsberechnung
 - Synthetische Signaltöne über die Web Audio API
 - `node tools/build.js` erzeugt die Einzeldateien in `dist/`
+- Jeder Push auf `claude/kythera` baut die Seite neu und veröffentlicht sie über GitHub Pages (`.github/workflows/pages.yml`)
 - `node tools/shot.js` erstellt geschwärzte Kontroll-Screenshots (`dev-screenshots/SECRET_*.png`)
 
 ```

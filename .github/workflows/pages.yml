@@ -1,0 +1,43 @@
+# Baut KYTHERA bei jeder Änderung neu und veröffentlicht die Einzeldatei auf dem Branch gh-pages,
+# den GitHub Pages unter https://idtbas.github.io/Krasses-Experiment-/ ausliefert.
+name: GitHub Pages
+
+on:
+  push:
+    branches: [claude/kythera, main]
+    paths-ignore: ['dev-screenshots/**', 'README.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Einzeldatei bauen
+        run: node tools/build.js
+
+      - name: Seite zusammenstellen
+        run: |
+          mkdir -p _site
+          cp dist/kythera-standalone.html _site/index.html
+          touch _site/.nojekyll
+
+      - name: Auf gh-pages veröffentlichen
+        working-directory: _site
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "KYTHERA veröffentlichen (Stand ${GITHUB_SHA::7})"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
