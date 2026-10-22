@@ -56,6 +56,7 @@
     glitch(t) { for (let i = 0; i < 6; i++) tone(200 + Math.random() * 2000, t + i * 0.04, 0.04, 'square', 0.03); noise(t, 0.3, 0.06, 800); },
     deep(t) { tone(41, t, 3.2, 'sine', 0.18, 38); tone(82, t + 0.2, 2.8, 'triangle', 0.04, 80); },
     type(t) { tone(1900 + Math.random() * 300, t, 0.015, 'square', 0.012); },
+    heart(t) { tone(62, t, 0.16, 'sine', 0.22, 44); tone(58, t + 0.24, 0.18, 'sine', 0.16, 40); },
   };
 
   let on = true, vol = 0.5;

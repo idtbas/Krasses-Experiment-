@@ -254,7 +254,7 @@
   ui.toast = function (o) {
     const el = U.el(`<div class="toast ${o.kind || ''}"><span class="ic-c">${ic(o.icon || 'info', 17)}</span><div class="m"><div class="t">${U.esc(o.t)}</div>${o.d ? '<div class="d">' + U.esc(o.d) + '</div>' : ''}</div></div>`);
     ui.$toasts.appendChild(el);
-    while (ui.$toasts.children.length > 4) ui.$toasts.firstElementChild.remove();
+    while (ui.$toasts.children.length > 3) ui.$toasts.firstElementChild.remove();
     const kill = () => { el.classList.add('out'); setTimeout(() => el.remove(), 300); };
     el.addEventListener('click', () => { if (o.onClick) o.onClick(); kill(); });
     setTimeout(kill, o.ms || 5200);
@@ -325,6 +325,9 @@
     if (n) { daysSince += n; KY.map.dataChanged(n); }
     accUi += dt; accPanel += dt; accTicker += dt;
     if (accUi > 0.2) { accUi = 0; ui.updateBar(); }
+    // Herzschlag bei kritischem Druck (nur wenn die Zeit läuft)
+    const S = SIM.S;
+    if (S && !S.paused && S.g.pressure > 78) { ui.beat = (ui.beat || 0) + dt; if (ui.beat > (S.g.pressure > 90 ? 1.1 : 1.6)) { ui.beat = 0; KY.audio.play('heart'); } }
     if (accPanel > 0.6 && (daysSince || ui.forceRefresh)) {
       accPanel = 0; daysSince = 0; ui.forceRefresh = false;
       ui.renderPanel(); ui.renderInsp();
@@ -370,7 +373,11 @@
     KY.bus.on('report', d => { KY.engine.pause('jahresbericht'); setTimeout(() => KY.crisis.report(d), 300); });
     KY.bus.on('election', () => KY.map.dataChanged(1));
     KY.bus.on('news', a => { if (a.breaking) { ui.rebuildTicker(); } });
-    KY.bus.on('month', () => { if (SIM.S.ui.autosave !== false) ui.save('auto'); KY.map.invalidate(); });
+    KY.bus.on('month', () => {
+      KY.map.invalidate();
+      // Höchstens alle 25 Sekunden automatisch sichern, damit hohe Geschwindigkeiten flüssig bleiben
+      if (SIM.S.ui.autosave !== false && Date.now() - (ui.lastAuto || 0) > 25000) { ui.lastAuto = Date.now(); ui.save('auto'); }
+    });
     KY.bus.on('speed', () => ui.updateBar());
   };
 

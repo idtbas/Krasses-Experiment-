@@ -164,6 +164,12 @@
       // Grundsatz „Hilfe bei jeder Katastrophe mit Todesopfern“
       if (!ev.breakChecked && age >= 14) {
         ev.breakChecked = true;
+        // Wo bekannt ist, dass es einen reichen Geldgeber gibt, fällt fehlende Hilfe auf
+        const nn = S.nations[ev.n];
+        if (ev.sev >= 3 && ev.deadNow >= 100 && !Object.keys(ev.helped).length && nn.aware > 35) {
+          SIM.opImpulse(ev.n, [-0.3, -0.4, -0.5, -0.4, -0.3], 1.2 + ev.sev * 0.4);
+          if (Math.random() < 0.5) KY.media.story(null, { n: ev.n }, { h: 'Milliarden für Prestigeprojekte, nichts für die Opfer? Kritik am anonymen Geldgeber in ' + SIM.nName(ev.n), tone: -0.4, heat: 20, about: true, key: 'donor_absent' });
+        }
         if (SIM.hasPrinciple('relief') && ev.deadNow >= 25 && ev.sev >= 2 && !Object.keys(ev.helped).length) KY.incidents.principleBreak({ id: 'relief', n: 'Hilfe bei jeder Katastrophe mit Todesopfern' }, null);
       }
       // Epidemien können übergreifen

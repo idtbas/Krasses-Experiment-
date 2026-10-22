@@ -18,7 +18,7 @@
     KY.audio.play('alert');
     const ring = setInterval(() => KY.audio.play('alert'), 2600);
     const end = () => { clearInterval(ring); if (callEl) { callEl.remove(); callEl = null; } };
-    U.$('#call-ok', callEl).addEventListener('click', () => { end(); C.open(inc.id); });
+    U.$('#call-ok', callEl).addEventListener('click', () => { end(); if (inc.lon !== undefined && inc.lon !== null) KY.map.focus(inc.lon, inc.lat, 3.2); C.open(inc.id); });
     U.$('#call-no', callEl).addEventListener('click', () => { end(); ui.toast({ t: 'Der Krisenstab wartet', d: 'Frist bis ' + U.dateStr(inc.deadline, true) + ' · Taste E öffnet den Krisenstab.', icon: 'clock', kind: 'warn' }); });
     setTimeout(() => { if (callEl) end(); }, 14000);
   };

@@ -1079,6 +1079,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     glitch(t) { for (let i = 0; i < 6; i++) tone(200 + Math.random() * 2000, t + i * 0.04, 0.04, 'square', 0.03); noise(t, 0.3, 0.06, 800); },
     deep(t) { tone(41, t, 3.2, 'sine', 0.18, 38); tone(82, t + 0.2, 2.8, 'triangle', 0.04, 80); },
     type(t) { tone(1900 + Math.random() * 300, t, 0.015, 'square', 0.012); },
+    heart(t) { tone(62, t, 0.16, 'sine', 0.22, 44); tone(58, t + 0.24, 0.18, 'sine', 0.16, 40); },
   };
 
   let on = true, vol = 0.5;
@@ -6862,6 +6863,12 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       // Grundsatz „Hilfe bei jeder Katastrophe mit Todesopfern“
       if (!ev.breakChecked && age >= 14) {
         ev.breakChecked = true;
+        // Wo bekannt ist, dass es einen reichen Geldgeber gibt, fällt fehlende Hilfe auf
+        const nn = S.nations[ev.n];
+        if (ev.sev >= 3 && ev.deadNow >= 100 && !Object.keys(ev.helped).length && nn.aware > 35) {
+          SIM.opImpulse(ev.n, [-0.3, -0.4, -0.5, -0.4, -0.3], 1.2 + ev.sev * 0.4);
+          if (Math.random() < 0.5) KY.media.story(null, { n: ev.n }, { h: 'Milliarden für Prestigeprojekte, nichts für die Opfer? Kritik am anonymen Geldgeber in ' + SIM.nName(ev.n), tone: -0.4, heat: 20, about: true, key: 'donor_absent' });
+        }
         if (SIM.hasPrinciple('relief') && ev.deadNow >= 25 && ev.sev >= 2 && !Object.keys(ev.helped).length) KY.incidents.principleBreak({ id: 'relief', n: 'Hilfe bei jeder Katastrophe mit Todesopfern' }, null);
       }
       // Epidemien können übergreifen
@@ -8083,7 +8090,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
   ui.toast = function (o) {
     const el = U.el(`<div class="toast ${o.kind || ''}"><span class="ic-c">${ic(o.icon || 'info', 17)}</span><div class="m"><div class="t">${U.esc(o.t)}</div>${o.d ? '<div class="d">' + U.esc(o.d) + '</div>' : ''}</div></div>`);
     ui.$toasts.appendChild(el);
-    while (ui.$toasts.children.length > 4) ui.$toasts.firstElementChild.remove();
+    while (ui.$toasts.children.length > 3) ui.$toasts.firstElementChild.remove();
     const kill = () => { el.classList.add('out'); setTimeout(() => el.remove(), 300); };
     el.addEventListener('click', () => { if (o.onClick) o.onClick(); kill(); });
     setTimeout(kill, o.ms || 5200);
@@ -8154,6 +8161,9 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     if (n) { daysSince += n; KY.map.dataChanged(n); }
     accUi += dt; accPanel += dt; accTicker += dt;
     if (accUi > 0.2) { accUi = 0; ui.updateBar(); }
+    // Herzschlag bei kritischem Druck (nur wenn die Zeit läuft)
+    const S = SIM.S;
+    if (S && !S.paused && S.g.pressure > 78) { ui.beat = (ui.beat || 0) + dt; if (ui.beat > (S.g.pressure > 90 ? 1.1 : 1.6)) { ui.beat = 0; KY.audio.play('heart'); } }
     if (accPanel > 0.6 && (daysSince || ui.forceRefresh)) {
       accPanel = 0; daysSince = 0; ui.forceRefresh = false;
       ui.renderPanel(); ui.renderInsp();
@@ -8199,7 +8209,11 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     KY.bus.on('report', d => { KY.engine.pause('jahresbericht'); setTimeout(() => KY.crisis.report(d), 300); });
     KY.bus.on('election', () => KY.map.dataChanged(1));
     KY.bus.on('news', a => { if (a.breaking) { ui.rebuildTicker(); } });
-    KY.bus.on('month', () => { if (SIM.S.ui.autosave !== false) ui.save('auto'); KY.map.invalidate(); });
+    KY.bus.on('month', () => {
+      KY.map.invalidate();
+      // Höchstens alle 25 Sekunden automatisch sichern, damit hohe Geschwindigkeiten flüssig bleiben
+      if (SIM.S.ui.autosave !== false && Date.now() - (ui.lastAuto || 0) > 25000) { ui.lastAuto = Date.now(); ui.save('auto'); }
+    });
     KY.bus.on('speed', () => ui.updateBar());
   };
 
@@ -10271,7 +10285,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     KY.audio.play('alert');
     const ring = setInterval(() => KY.audio.play('alert'), 2600);
     const end = () => { clearInterval(ring); if (callEl) { callEl.remove(); callEl = null; } };
-    U.$('#call-ok', callEl).addEventListener('click', () => { end(); C.open(inc.id); });
+    U.$('#call-ok', callEl).addEventListener('click', () => { end(); if (inc.lon !== undefined && inc.lon !== null) KY.map.focus(inc.lon, inc.lat, 3.2); C.open(inc.id); });
     U.$('#call-no', callEl).addEventListener('click', () => { end(); ui.toast({ t: 'Der Krisenstab wartet', d: 'Frist bis ' + U.dateStr(inc.deadline, true) + ' · Taste E öffnet den Krisenstab.', icon: 'clock', kind: 'warn' }); });
     setTimeout(() => { if (callEl) end(); }, 14000);
   };
