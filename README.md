@@ -1,51 +1,41 @@
-# KYTHERA
+# KYTHERA · MANDAT
 
-**Kuratoriales Lage- und Steuerungssystem · Version 7.4.2**
+**Online spielen:** https://idtbas.github.io/Krasses-Experiment-/
+(die erste Fassung „KYTHERA“ bleibt unter https://idtbas.github.io/Krasses-Experiment-/v1/ erreichbar)
 
-Sie wurden soeben zum Inhaber von **Sitz IX** ernannt. Ihr Zugang ist eingerichtet.
+Ein fiktives Rollenspiel in einer prozedural erzeugten Welt. Sie sind kein Gott, sondern eine einzelne, anonyme Person mit einem gewaltigen Vermögen – und Sie tragen die Verantwortung für alles, was Sie damit anstoßen.
 
-KYTHERA ist eine vollständig lokale, interaktive Simulation im Stil einer streng vertraulichen Spezialsoftware. Alle Personen, Organisationen, Staaten, Unternehmen und Ereignisse sind frei erfunden und spielen in einer fiktiven Welt. Es gibt keine Verbindung zu realen Systemen.
+Alle Staaten, Personen, Organisationen, Sender und Ereignisse sind frei erfunden.
 
-## Starten
+## Gerät
 
-**Online:** https://idtbas.github.io/Krasses-Experiment-/
+Gestaltet für das **iPad im Querformat mit Magic Keyboard** (Safari). Bedienung über Trackpad und Tastatur; ein Desktop-Browser im Querformat funktioniert ebenfalls. Eine Handy-Fassung gibt es bewusst nicht.
 
-Oder lokal, eine der folgenden Möglichkeiten:
+| Taste | Wirkung |
+|---|---|
+| Leertaste | Zeit anhalten oder fortsetzen |
+| 1 – 4 | Geschwindigkeit |
+| ⌘ K oder / | Suche und Befehle |
+| A | Handlungskatalog |
+| E | Krisenstab |
+| G | Kartenebene wechseln |
+| ? | Einweisung |
 
-- `index.html` im Browser öffnen (funktioniert direkt von der Festplatte, kein Server nötig)
-- `dist/kythera-standalone.html` öffnen: dieselbe Anwendung als einzelne Datei
-- oder einen beliebigen statischen Server im Projektordner starten, z. B. `npx serve .`
-
-Der Sitzungsstand wird automatisch im Browser gespeichert. Die Welt läuft während Ihrer Abwesenheit weiter (bis zu einer Stunde wird nachgerechnet).
-
-## Hinweise für den Einstieg
-
-- Die **Einweisung** im Lagebild führt in sieben Schritten durch die wichtigsten Bereiche.
-- Fast jede Zahl erklärt sich, wenn Sie mit dem Mauszeiger darauf zeigen.
-- `Strg + K` öffnet den Schnellzugriff, `` ` `` das Terminal, `?` die Tastaturkürzel.
-- Krisenvorlagen haben Fristen. Was nach Fristablauf geschieht, steht im Kleingedruckten.
-- Lesen Sie Ihre Post.
-
-Mehr wird hier nicht verraten.
+Zwei Finger auf dem Trackpad verschieben die Karte, Zusammenziehen zoomt.
 
 ## Technik
 
-- Reines HTML, CSS und JavaScript ohne Abhängigkeiten oder Build-Schritt; Schriften von Google Fonts (mit Ersatzschriften)
-- Prozedural erzeugte Weltkarte, Satellitenbilder und Porträts
-- Simulationskern mit Märkten, Regionen, Ereignissen, Abstimmungen, Forschung und Abwesenheitsberechnung
-- Synthetische Signaltöne über die Web Audio API
-- `node tools/build.js` erzeugt die Einzeldateien in `dist/`
-- Jeder Push auf `claude/kythera` baut die Seite neu und veröffentlicht sie über GitHub Pages (`.github/workflows/pages.yml`)
-- `node tools/shot.js` erstellt geschwärzte Kontroll-Screenshots (`dev-screenshots/SECRET_*.png`)
+- Reines HTML, CSS und JavaScript ohne Abhängigkeiten; Spielstände im Browser-Speicher
+- `index.html` lädt die Quelldateien einzeln (läuft auch direkt von der Festplatte)
+- `node tools/build.js` erzeugt die eigenständige Einzeldatei `dist/kythera-standalone.html`
+- Jeder Push auf `claude/kythera` veröffentlicht automatisch über GitHub Pages (`.github/workflows/pages.yml`)
 
 ```
-index.html            Einstieg
-css/kythera.css       Gestaltungssystem
-js/core/              Hilfsfunktionen, Zustand, Ton
-js/data/              Welt, Regionen, Wirtschaft, Akteure, Texte, Archiv
-js/sim/               Simulationskern
-js/ui/                Rahmen, Bausteine, Karte, Anmeldung
-js/mod/               Arbeitsbereiche
-tools/                Build- und Screenshot-Werkzeuge
-dist/                 gebündelte Einzeldateien
+js/core   Grundfunktionen, Symbole, Ton
+js/world  Weltgenerator und Geländetextur
+js/data   Handlungen, Verträge, Medien, Ereignisse, Forschung, Personen
+js/sim    Simulation
+js/ui     Oberfläche
 ```
+
+Die Aufnahmen in `dev-screenshots/` sind absichtlich geschwärzt.

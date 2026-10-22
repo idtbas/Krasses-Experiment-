@@ -1,86 +1,80 @@
-/* KYTHERA · Netzwerk: Partner, Fachleute, Vertretungen */
+/* KYTHERA · MANDAT · Personen, Milieus, Parteien, Tarnstrukturen (frei erfunden) */
 (function () {
   'use strict';
-  const D = (window.KY.data = window.KY.data || {});
+  const KY = window.KY;
+  const D = (KY.data = KY.data || {});
 
-  // tags: INF Infrastruktur · ENE Energie · MED Medizin · DIP Diplomatie · FIN Finanzen · FOR Forschung · LOG Logistik · ARC Archäologie/Archiv · BIL Bildung · KLI Klima
-  D.people = [
-    { id: 'P01', n: 'Dr. Ilse Marr', role: 'Leiterin Archivanlage Gotthelm', org: 'Kuratorium', r: 'KAL', tags: ['ARC', 'FOR'], trust: 52,
-      bio: 'Hütet seit 22 Jahren die Bestände in Gotthelm. Kennt jede Signatur, jede Lücke und jeden, der nach Mitternacht Akten anfordert.', story: true },
-    { id: 'P02', n: 'Kapitän Teodor Halvorsen', role: 'Kommandant FS HALVORSEN', org: 'Stiftung Serrano', r: 'MER', tags: ['LOG', 'ARC'], trust: 47,
-      bio: 'Führt das Forschungsschiff, das nach seinem Großvater benannt ist. Hat VESPER im August nach Kythera gebracht und nicht wieder abgeholt.', story: true },
-    { id: 'P03', n: 'Amara Okonkwo-Lind', role: 'Direktorin Entwicklungsbank Umora', org: 'Zambra Development Bank', r: 'ZAM', tags: ['FIN', 'INF'], trust: 41,
-      bio: 'Finanziert Straßen, Netze und Schulen schneller als jede Behörde. Fragt nie, woher das Geld kommt, nur wohin es geht.' },
-    { id: 'P04', n: 'Prof. Kenji Arakawa', role: 'Materialforscher, Universität Shiren', org: 'Universität Shiren', r: 'KAI', tags: ['FOR', 'ENE'], trust: 33,
-      bio: 'Arbeitet an Fusionsmaterialien. Hält Stiftungsgeld für eine Ablenkung, nimmt es aber trotzdem.' },
-    { id: 'P05', n: 'Sofía Barrantes', role: 'Ministerin für Bergbau a. D.', org: 'Beraterin', r: 'PAM', tags: ['DIP', 'FIN'], trust: 29,
-      bio: 'Kennt jede Mine Pamperas und jede Gewerkschaft, die sie stilllegen kann. Unbestechlich und deshalb unbezahlbar.' },
-    { id: 'P06', n: 'Yusuf al-Qasimi', role: 'Leiter Wasserbehörde Qadir', org: 'Tarsis Water Authority', r: 'TAR', tags: ['INF', 'KLI'], trust: 38,
-      bio: 'Plant Entsalzungsanlagen für 30 Millionen Menschen. Braucht Kapital, Zeit und Geduld der Regierung, in dieser Reihenfolge.' },
-    { id: 'P07', n: 'Marguerite Vasseur', role: 'Generalsekretärin Hafenverband Meridia', org: 'Hafenverband', r: 'MER', tags: ['LOG', 'DIP'], trust: 45,
-      bio: 'Verhandelt mit Reedern, Gewerkschaften und Ministerien zugleich. Hat drei Hafenstreiks in einer Nacht beendet.' },
-    { id: 'P08', n: 'Henrik Solberg', role: 'Vorstand Nordlys Energi', org: 'Nordlys Energi', r: 'KAL', tags: ['ENE', 'INF'], trust: 56,
-      bio: 'Langjähriger Partner. Seine Netze versorgen Kaldfjord. Seine Loyalität gilt dem Netz, nicht den Menschen daran.' },
-    { id: 'P09', n: 'Dr. Priya Raman', role: 'Epidemiologin, Gesundheitsrat Sundara', org: 'Gesundheitsrat', r: 'SUN', tags: ['MED', 'KLI'], trust: 43,
-      bio: 'Hat das Frühwarnsystem des Archipels für Ausbrüche aufgebaut. Spricht Klartext, auch gegenüber Ministern.' },
-    { id: 'P10', n: 'Lukas Brenner', role: 'Gewerkschaftssprecher Stahl Ostmark', org: 'IG Stahl', r: 'OSM', tags: ['DIP', 'INF'], trust: 24,
-      bio: 'Will Arbeitsplätze, nicht Versprechen. Wer ihn überzeugt, überzeugt eine ganze Region.' },
-    { id: 'P11', n: 'Celeste Moreau-Diaz', role: 'Chefvolkswirtin Havenstad Bankhaus', org: 'Havenstad Bankhaus', r: 'WES', tags: ['FIN'], trust: 49,
-      bio: 'Ihre Quartalsprognosen bewegen Märkte. Ihre privaten Einschätzungen bewegen das Kuratorium.' },
-    { id: 'P12', n: 'Tomasz Wierzba', role: 'Bauleiter Grauwald Bau', org: 'Grauwald Bau', r: 'OSM', tags: ['INF', 'LOG'], trust: 37,
-      bio: 'Hat den Varnow-Tunnel zwei Monate vor Plan fertiggestellt. Seitdem baut niemand in Ostmark ohne ihn.' },
-    { id: 'P13', n: 'Nalani Kahale', role: 'Meeresbiologin, Station Meridian-Süd', org: 'Polarforschung', r: 'HAL', tags: ['FOR', 'KLI'], trust: 40,
-      bio: 'Überwintert seit vier Jahren am Pol. Ihre Eisbohrkerne erzählen die Klimageschichte von 400.000 Jahren.' },
-    { id: 'P14', n: 'Botschafter Elias Grünwald', role: 'Sonderbeauftragter für Vermittlung', org: 'Neutraler Dienst', r: 'MER', tags: ['DIP'], trust: 51,
-      bio: 'Hat sieben Waffenstillstände ausgehandelt. Arbeitet nur für Auftraggeber, die nicht genannt werden wollen.' },
-    { id: 'P15', n: 'Zhou Meilin', role: 'Vizepräsidentin Shiren Semiconductor', org: 'Shiren Semiconductor', r: 'KAI', tags: ['FOR', 'FIN'], trust: 35,
-      bio: 'Verantwortet die Fertigungsstrategie. Ihre Entscheidungen bestimmen, welche Länder in fünf Jahren Chips haben.' },
-    { id: 'P16', n: 'Dr. Aziz Barakzai', role: 'Leiter Erdbebenwarte Tamyr', org: 'Yaru Geoinstitut', r: 'YAR', tags: ['KLI', 'FOR'], trust: 32,
-      bio: 'Misst die Spannung der Platten unter dem Hochland. Seine Modelle sind gut genug, um ernst genommen zu werden.' },
-    { id: 'P17', n: 'Isabela Fontes', role: 'Präsidentin Agrargenossenschaft Solenne', org: 'Cooperativa del Sol', r: 'SOL', tags: ['DIP', 'KLI'], trust: 36,
-      bio: 'Vertritt 600.000 Kleinbauern. Kann eine Ernte retten oder einen Markt blockieren.' },
-    { id: 'P18', n: 'Oskar Lindqvist', role: 'Leiter Rechenzentrum Kaldfjord', org: 'Kuratorium', r: 'KAL', tags: ['FOR', 'INF'], trust: 58,
-      bio: 'Betreibt die Maschinen, auf denen PYTHIA läuft. Hat im September eine Wartung gemeldet, die nie beauftragt wurde.', story: true },
-    { id: 'P19', n: 'Fatou Diallo', role: 'Gründerin Solarschulen Zambra', org: 'Stiftung Lumen Zambra', r: 'ZAM', tags: ['BIL', 'ENE'], trust: 50,
-      bio: 'Baut Schulen mit eigenem Solardach. 212 bisher. Ihr Ziel sind tausend.' },
-    { id: 'P20', n: 'Rafael Montoya', role: 'Hafenkapitän San Lucan', org: 'Hafenbehörde', r: 'PAM', tags: ['LOG'], trust: 30,
-      bio: 'Kontrolliert den einzigen Tiefwasserhafen Pamperas. Wer Lithium exportieren will, kommt an ihm nicht vorbei.' },
-    { id: 'P21', n: 'Dr. Hana Sato', role: 'Leitende Klimamodelliererin', org: 'Kaidan Meteorological Agency', r: 'KAI', tags: ['KLI', 'FOR'], trust: 39,
-      bio: 'Ihre Taifunvorhersagen sind auf sechs Stunden genau. Sie möchte wissen, wie das Kuratorium auf vier kommt.' },
-    { id: 'P22', n: 'Benedikt Aurel', role: 'Notar des Kuratoriums', org: 'Kuratorium', r: 'MER', tags: ['ARC', 'FIN'], trust: 55,
-      bio: 'Beglaubigt Beschlüsse, Ernennungen und den Proxy von Sitz VIII. Hat den Proxy nie persönlich gesehen.', story: true },
-    { id: 'P23', n: 'Leilani Torres', role: 'Bürgermeisterin von Pelangi', org: 'Stadt Pelangi', r: 'SUN', tags: ['DIP', 'INF', 'KLI'], trust: 42,
-      bio: 'Regiert eine Stadt, die langsam im Meer versinkt. Hat keine Zeit für Diplomatie, nur für Deiche.' },
-    { id: 'P24', n: 'General a. D. Viktor Haas', role: 'Berater für Krisenlogistik', org: 'Beratung', r: 'WES', tags: ['LOG', 'DIP'], trust: 34,
-      bio: 'Hat Hilfslieferungen in Regionen gebracht, in die keine Straße führt. Spricht nicht über die Jahre davor.' },
-    { id: 'P25', n: 'Mira Ekström', role: 'Chefredakteurin Havenstad Courant', org: 'Havenstad Courant', r: 'WES', tags: ['BIL'], trust: 21,
-      bio: 'Recherchiert seit Jahren zu anonymen Großstiftungen. Höflich, hartnäckig, gut informiert. Kein Gegner, aber auch keine Verbündete.' },
-    { id: 'P26', n: 'Dr. Samuel Achterberg', role: 'Mediziner, Lumen Pharmaceutica', org: 'Lumen Pharmaceutica', r: 'WES', tags: ['MED', 'FOR'], trust: 44,
-      bio: 'Leitet die Impfstoffentwicklung. Bekannt dafür, Patente freizugeben, wenn es Menschenleben kostet, sie zu halten.' },
-    { id: 'P27', n: 'Ayasha Redcloud', role: 'Ingenieurin Windparks Yaru', org: 'Yaru Wind', r: 'YAR', tags: ['ENE', 'INF'], trust: 31,
-      bio: 'Hat das Windregime des Hochlands vermessen. Braucht Finanzierung für die nächste Ausbaustufe.' },
-    { id: 'P28', n: 'Pater Anselm Corvo', role: 'Archivar, Bibliothek von Alamar', org: 'Bibliotheca Alamarensis', r: 'MER', tags: ['ARC'], trust: 46,
-      bio: 'Verwahrt Seekarten aus fünf Jahrhunderten. Besitzt angeblich eine Skizze des Mechanismus von 1901, die es offiziell nicht gibt.', story: true },
-    { id: 'P29', n: 'Grace Mwangi', role: 'Koordinatorin Katastrophenhilfe', org: 'Rotes Netz Zambra', r: 'ZAM', tags: ['MED', 'LOG'], trust: 48,
-      bio: 'Ist bei jeder Flut als Erste vor Ort. Hat gelernt, nicht zu fragen, wer die Hubschrauber bezahlt.' },
-    { id: 'P30', n: 'Dmitri Volkov-Esterhazy', role: 'Investor, Varnow Capital', org: 'Varnow Capital', r: 'OSM', tags: ['FIN'], trust: 27,
-      bio: 'Kauft, was andere aufgeben. Verkauft, wenn andere wieder Hoffnung haben. Respektiert das Kuratorium, aber nur so weit wie nötig.' },
-    { id: 'P31', n: 'Dr. Noor Haddad', role: 'Solarforscherin, Universität Qadir', org: 'Universität Qadir', r: 'TAR', tags: ['ENE', 'FOR', 'BIL'], trust: 37,
-      bio: 'Hat den Wirkungsgrad von Wüstenmodulen um 4 Punkte gesteigert. Sucht Partner für eine Pilotfabrik.' },
-    { id: 'P32', n: 'Ingrid Falk', role: 'Kapitänin FS NORDLICHT', org: 'Stiftung Serrano', r: 'KAL', tags: ['LOG', 'KLI'], trust: 44,
-      bio: 'Fährt die Nordroute, wenn alle anderen umkehren. Hat einen Eisbrecher durch einen Sturm gebracht, der in keinem Modell stand.' },
+  /* Bevölkerungsmilieus: jedes Milieu bewertet Vorhaben nach eigenen Interessen */
+  D.MILIEUS = [
+    { id: 'urb', n: 'Städtische Mittelschicht', short: 'Stadt', color: '#7aa7d9', text: 'Angestellte, Selbstständige, Akademiker in den Metropolen' },
+    { id: 'arb', n: 'Arbeiterschaft', short: 'Arbeit', color: '#d9a35f', text: 'Industrie, Handwerk, Dienstleistungen, Gewerkschaften' },
+    { id: 'land', n: 'Landbevölkerung', short: 'Land', color: '#8fbf6a', text: 'Bauern, Fischer, Kleinstädte und Dörfer' },
+    { id: 'jung', n: 'Junge Generation', short: 'Jugend', color: '#c98ad6', text: 'Studierende, Berufseinsteiger, Klimabewegung' },
+    { id: 'kons', n: 'Traditionelle und Ältere', short: 'Tradition', color: '#b9b2a6', text: 'Rentner, Kirchen- und Vereinsmilieu, Konservative' },
   ];
+  D.MIL_IDX = { urb: 0, arb: 1, land: 2, jung: 3, kons: 4 };
 
-  D.tagNames = { INF: 'Infrastruktur', ENE: 'Energie', MED: 'Medizin', DIP: 'Diplomatie', FIN: 'Finanzen', FOR: 'Forschung', LOG: 'Logistik', ARC: 'Archiv', BIL: 'Bildung', KLI: 'Klima' };
+  /* Reaktionsvektoren je Handlung: [urb, arb, land, jung, kons] von −1 bis +1 */
+  D.REACT = {
+    HSR: [0.6, 0.3, -0.3, 0.4, -0.1], BRUECKE: [0.5, 0.5, 0.1, 0.4, 0.1], HAFEN: [0.2, 0.6, 0, 0.1, 0], FLUGHAFEN: [0.3, 0.4, -0.2, 0.1, -0.4],
+    METRO: [0.8, 0.3, -0.1, 0.5, 0], SEEKABEL: [0.4, 0.1, 0, 0.4, 0], HGUE: [0.2, 0.2, -0.4, 0.2, -0.1], WOHNEN: [0.3, 0.6, 0, 0.6, 0.1],
+    SOLAR: [0.4, 0.2, -0.1, 0.7, -0.2], WIND: [0.4, 0.2, -0.3, 0.7, -0.3], DAMM: [0.1, 0.3, -0.8, -0.4, -0.2], GEO: [0.3, 0.2, -0.1, 0.4, 0],
+    KERN: [-0.2, 0.4, -0.4, -0.6, 0.1], FUSION: [0.6, 0.4, 0.1, 0.6, 0.3], SPEICHER: [0.2, 0.1, 0, 0.3, 0],
+    KLINIK: [0.6, 0.7, 0.7, 0.5, 0.8], UNI: [0.5, 0.2, 0.1, 0.8, 0.2], SCHULEN: [0.5, 0.5, 0.5, 0.4, 0.5], IMPF: [0.5, 0.5, 0.5, 0.4, 0.1],
+    WASSER: [0.4, 0.6, 0.8, 0.4, 0.5], GRUNDEINK: [0, 0.4, 0.2, 0.6, -0.5], KULTUR: [0.5, 0.1, -0.1, 0.8, -0.1], SPIELE: [0.3, 0.3, -0.1, 0.4, 0.3],
+    PRESSE: [0.5, 0.1, 0, 0.3, -0.1], FIRMA: [0.2, 0.7, 0, 0.3, 0.1], SWZ: [0.2, 0, -0.1, 0.1, -0.2], ANLEIHE: [0, -0.1, -0.1, -0.1, -0.2],
+    MIKRO: [0.1, 0.4, 0.7, 0.3, 0.2], AGRAR: [0, 0.2, 0.9, 0.1, 0.4], WALD: [0.3, 0.1, 0.2, 0.5, 0.2], MEER: [0.3, -0.1, -0.5, 0.5, 0],
+    WUESTE: [0.3, 0.2, 0.6, 0.4, 0.3], DEICH: [0.5, 0.4, 0.3, 0.3, 0.4], VERMITTLUNG: [0.4, 0.2, 0.2, 0.3, 0.3], HANDEL: [0.3, -0.1, -0.1, 0.1, 0],
+    GIPFEL: [0.4, 0, -0.1, 0.6, -0.1], HILFSFONDS: [0.4, 0.4, 0.5, 0.5, 0.5], RAUMHAFEN: [0.4, 0.3, -0.2, 0.5, 0], SATNETZ: [0.3, 0.1, 0.1, 0.3, 0],
+    LUFTBRUECKE: [0.8, 0.8, 0.9, 0.8, 0.8], LAZARETT: [0.8, 0.8, 0.9, 0.7, 0.8], WIEDERAUFBAU: [0.7, 0.8, 0.8, 0.6, 0.8],
+  };
 
-  // Bekanntschaften (ungerichtete Kanten) für den Beziehungsgraphen
-  D.links = [
-    ['P01', 'P18'], ['P01', 'P28'], ['P01', 'P22'], ['P02', 'P32'], ['P02', 'P07'], ['P02', 'P28'],
-    ['P03', 'P19'], ['P03', 'P29'], ['P03', 'P11'], ['P04', 'P15'], ['P04', 'P21'], ['P05', 'P20'],
-    ['P05', 'P30'], ['P06', 'P31'], ['P07', 'P14'], ['P08', 'P18'], ['P08', 'P32'], ['P09', 'P23'],
-    ['P09', 'P26'], ['P10', 'P12'], ['P10', 'P30'], ['P11', 'P30'], ['P11', 'P25'], ['P13', 'P21'],
-    ['P14', 'P24'], ['P15', 'P11'], ['P16', 'P27'], ['P17', 'P29'], ['P18', 'P22'], ['P20', 'P07'],
-    ['P21', 'P16'], ['P23', 'P24'], ['P25', 'P26'], ['P26', 'P09'], ['P27', 'P31'], ['P28', 'P22'],
-    ['P12', 'P06'], ['P19', 'P31'], ['P13', 'P32'], ['P24', 'P29'], ['P17', 'P05'],
+  /* Politische Landschaft */
+  D.PARTIES = {
+    left: ['Soziale Allianz', 'Partei der Arbeit', 'Linksbund', 'Solidarische Union'],
+    green: ['Ökologische Liste', 'Bündnis Zukunft', 'Grüne Erneuerung'],
+    center: ['Bürgerliche Mitte', 'Liberale Union', 'Fortschrittspartei', 'Demokratische Sammlung'],
+    right: ['Nationale Erneuerung', 'Heimatbund', 'Konservative Union', 'Partei der Ordnung'],
+    pop: ['Bewegung Souveränität', 'Volkes Stimme', 'Neue Unabhängigkeit'],
+  };
+  /* Haltung je Richtung zu ausländischen Investoren (Offenheit) und zum Stifter */
+  D.PARTY_LEAN = { left: { open: -5, donor: 4 }, green: { open: 0, donor: 6 }, center: { open: 12, donor: 2 }, right: { open: -8, donor: -4 }, pop: { open: -22, donor: -16 } };
+  D.PARTY_COLOR = { left: '#c0504d', green: '#5f9e5a', center: '#d6a23c', right: '#4a6fa5', pop: '#8a5a9e' };
+  D.PARTY_NAME = { left: 'Links', green: 'Grün', center: 'Mitte', right: 'Konservativ', pop: 'Souveränisten' };
+
+  /* Beraterstab der Mandatsperson */
+  D.ADVISORS = {
+    haddad: { id: 'haddad', name: 'Leila Haddad', role: 'Krisenkoordinatorin', short: 'Krisenstab', color: '#d0634f', init: 'LH' },
+    dobrev: { id: 'dobrev', name: 'Milena Dobrev', role: 'Recht und Tarnung', short: 'Recht', color: '#8c7ad6', init: 'MD' },
+    brennan: { id: 'brennan', name: 'Aled Brennan', role: 'Medien- und Stimmungsanalyse', short: 'Medien', color: '#4fa3c9', init: 'AB' },
+    kuratorium: { id: 'kuratorium', name: 'Dr. h. c. Ingeborg Lindqvist', role: 'Vorsitzende des Kuratoriums', short: 'Kuratorium', color: '#c9a94f', init: 'IL' },
+    halvorsen: { id: 'halvorsen', name: 'Ingrid Halvorsen', role: 'Treuhand · Halvorsen & Aasen', short: 'Treuhand', color: '#6fae8a', init: 'IH', house: 'Halvorsen & Aasen Treuhand' },
+    castellan: { id: 'castellan', name: 'Teodoro Castellan', role: 'Treuhand · Castellan Fiduciaria', short: 'Treuhand', color: '#6fae8a', init: 'TC', house: 'Castellan Fiduciaria' },
+    mensah: { id: 'mensah', name: 'Kofi Mensah', role: 'Treuhand · Mensah Kariuki Development Trust', short: 'Treuhand', color: '#6fae8a', init: 'KM', house: 'Mensah Kariuki Development Trust' },
+    vidal: { id: 'vidal', name: 'Inés Vidal', role: 'Leitende Gesandte · Vermittlung', short: 'Gesandte', color: '#d69a4f', init: 'IV' },
+    takeda: { id: 'takeda', name: 'Kenji Takeda', role: 'Leitender Gesandter · Handel', short: 'Gesandter', color: '#d69a4f', init: 'KT' },
+    okonkwo: { id: 'okonkwo', name: 'Dr. Thandiwe Okonkwo', role: 'Leitende Gesandte · Krisenhilfe', short: 'Gesandte', color: '#d69a4f', init: 'TO' },
+  };
+
+  /* Tarnstrukturen */
+  D.FRONT_KINDS = [
+    { id: 'stiftung', n: 'Stiftung', suf: ['Stiftung', 'Stiftung für Gemeinwohl', 'Foundation', 'Stiftung für Entwicklung'], note: 'Unauffällig bei sozialen Vorhaben' },
+    { id: 'holding', n: 'Holding', suf: ['Holding', 'Infrastruktur Holding', 'Capital Partners', 'Beteiligungs-AG'], note: 'Unauffällig bei Infrastruktur und Wirtschaft' },
+    { id: 'fonds', n: 'Fonds', suf: ['Entwicklungsfonds', 'Impact Fund', 'Zukunftsfonds', 'Klimafonds'], note: 'Unauffällig bei Energie und Natur' },
+    { id: 'kanzlei', n: 'Kanzlei', suf: ['& Partner', 'Rechtsanwälte', 'Advisory', 'Consulting'], note: 'Unauffällig bei Diplomatie und Anleihen' },
+    { id: 'initiative', n: 'Initiative', suf: ['Initiative', 'Allianz', 'Netzwerk', 'Forum'], note: 'Unauffällig bei Kultur und Krisenhilfe' },
+  ];
+  D.FRONT_FIT = {
+    stiftung: ['society', 'relief', 'science'], holding: ['infra', 'economy'], fonds: ['energy', 'nature', 'economy'],
+    kanzlei: ['diplo', 'economy'], initiative: ['society', 'relief', 'diplo', 'nature'],
+  };
+  D.FRONT_ROOTS = ['Aurelia', 'Nordlicht', 'Meridian', 'Halcyon', 'Corvina', 'Solenne', 'Vesper', 'Lumen', 'Astrea', 'Calder', 'Orvieta', 'Silvaris', 'Brightwater', 'Kestrel', 'Ostara', 'Marlow', 'Tidewell', 'Valcourt', 'Arcadia', 'Polaris', 'Seraphin', 'Linden', 'Quillon', 'Esmeray', 'Northgate', 'Albion Vale', 'Cerulean', 'Fernhill', 'Elmstead', 'Rosmarin'];
+  D.SEATS = ['Port Aurelio', 'Holmvik', 'Lirani-Inseln', 'Freihafen Calder', 'Sankt Esmeray', 'Velmora'];
+
+  /* Öffentliches Gesicht (Kandidaten) */
+  D.FACES = [
+    { id: 'aster', name: 'Helena Aster', role: 'Philanthropin, ehemalige Intendantin', cred: 70, cost: 1.5, note: 'Elegant, beliebt beim Feuilleton' },
+    { id: 'ndlovu', name: 'Jabari Ndlovu', role: 'Ehemaliger Entwicklungsökonom', cred: 78, cost: 2.1, note: 'Seriös, international respektiert' },
+    { id: 'solberg', name: 'Liv Solberg', role: 'Unternehmerin, Gründerin einer Reederei', cred: 62, cost: 1.1, note: 'Nahbar, aber angreifbar' },
   ];
 })();

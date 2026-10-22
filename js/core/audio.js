@@ -1,4 +1,4 @@
-/* KYTHERA · Akustische Signale (synthetisch, ohne Audiodateien) */
+/* KYTHERA · MANDAT · Akustische Signale (synthetisch, ohne Audiodateien) */
 (function () {
   'use strict';
   const KY = window.KY;
@@ -58,16 +58,19 @@
     type(t) { tone(1900 + Math.random() * 300, t, 0.015, 'square', 0.012); },
   };
 
+  let on = true, vol = 0.5;
   KY.audio = {
     unlock() { if (init() && ctx.state === 'suspended') ctx.resume(); },
+    setOn(v) { on = !!v; },
+    setVol(v) { vol = v; },
     play(name) {
-      const S = KY.S;
-      if (S && !S.user.prefs.sound) return;
-      if (!init() || !SOUNDS[name]) return;
+      const S = KY.sim && KY.sim.S;
+      if (S && S.ui && S.ui.sound === false) return;
+      if (!on || !init() || !SOUNDS[name]) return;
       const now = ctx.currentTime;
       if (last[name] && now - last[name] < 0.06) return;
       last[name] = now;
-      if (S) master.gain.value = S.user.prefs.vol;
+      master.gain.value = vol;
       try { SOUNDS[name](now + 0.01); } catch (e) { /* stumm */ }
     },
   };

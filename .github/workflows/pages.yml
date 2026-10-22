@@ -1,5 +1,5 @@
-# Baut KYTHERA bei jeder Änderung neu und veröffentlicht die Einzeldatei auf dem Branch gh-pages,
-# den GitHub Pages unter https://idtbas.github.io/Krasses-Experiment-/ ausliefert.
+# Baut KYTHERA · MANDAT bei jeder Änderung neu und veröffentlicht die Einzeldatei auf dem Branch gh-pages,
+# den GitHub Pages unter https://idtbas.github.io/Krasses-Experiment-/ ausliefert (Version 1 unter /v1/).
 name: GitHub Pages
 
 on:
@@ -26,8 +26,9 @@ jobs:
 
       - name: Seite zusammenstellen
         run: |
-          mkdir -p _site
+          mkdir -p _site/v1
           cp dist/kythera-standalone.html _site/index.html
+          cp v1/index.html _site/v1/index.html
           touch _site/.nojekyll
 
       - name: Auf gh-pages veröffentlichen

@@ -1,80 +1,77 @@
-/* KYTHERA · Taktgeber und Abwesenheitsberechnung */
+/* KYTHERA · MANDAT · Taktgeber der Simulation */
 (function () {
   'use strict';
-  const KY = window.KY, U = KY.U;
-  const E = KY.engine = { running: false, paused: false };
-  let timer = null, lastReal = 0, saveAcc = 0;
+  const KY = window.KY;
+  const SIM = KY.sim;
+  const E = (KY.engine = {});
+  E.SPEEDS = [0, 1, 4, 12, 30];
+  E.SPEED_NAMES = ['Pause', '1 Tag/s', '4 Tage/s', '12 Tage/s', '30 Tage/s'];
+  let acc = 0;
 
-  E.step = function (dt) {
-    const S = KY.S;
-    S.t += dt;
-    KY.market.tick(dt);
-    KY.wsim.tickRegions(dt);
-    KY.wsim.tickEvents();
-    KY.crisis.tick();
-    KY.proj.tick();
-    KY.council.tick();
-    KY.research.tick(dt);
-    KY.dsp.tick(dt);
-    KY.infra.tick();
-    KY.integ.tick(dt);
-    KY.resTick(dt);
-    KY.story.tick();
-    KY.story.autopilotTick();
+  E.start = function (S, W, isNew) {
+    SIM.bind(S, W);
+    KY.events.reset();
+    KY.nations.init();
+    KY.media.initMarkets();
+    if (isNew) KY.advisors.welcome();
   };
 
-  E.start = function () {
-    if (E.running) return;
-    E.running = true;
-    lastReal = performance.now();
-    timer = setInterval(loop, 1000);
+  E.stepDay = function () {
+    const S = SIM.S;
+    S.day++;
+    KY.finance.daily();
+    KY.projects.daily();
+    KY.incidents.daily();
+    KY.events.daily();
+    KY.nations.daily();
+    KY.cover.daily();
+    KY.research.daily();
+    KY.media.daily();
+    if (S.day % 30 === 0) {
+      KY.nations.monthly();
+      KY.finance.monthly();
+      KY.incidents.monthly();
+      KY.advisors.monthly();
+      KY.bus.emit('month', S.day);
+    }
+    if (S.day % 365 === 0) {
+      KY.advisors.yearly();
+      KY.finance.yearly();
+    }
+    KY.bus.emit('day', S.day);
   };
-  E.stop = function () { E.running = false; clearInterval(timer); };
 
-  function loop() {
-    const now = performance.now();
-    let el = (now - lastReal) / 1000;
-    lastReal = now;
-    if (E.paused) return;
-    if (el > 8) { E.catchUp(Math.min(el, 3600), true); return; }
-    const dt = Math.max(1, Math.round(el));
-    try { E.step(dt); } catch (e) { console.error(e); }
-    KY.bus.emit('tick', dt);
-    saveAcc += dt;
-    if (saveAcc >= 10) { saveAcc = 0; KY.save(); }
-  }
-
-  /* Simuliert eine Abwesenheit im Schnelldurchlauf und liefert eine Zusammenfassung */
-  E.catchUp = function (sec, live) {
-    const S = KY.S;
-    sec = Math.min(sec, 3600);
-    if (sec < 5) return null;
-    const before = {
-      nw: KY.market.netWorth(), kap: S.res.kap, log: S.log.length, done: S.projects.done.length, past: S.council.past.length,
-      news: S.news.length, msgs: S.msgs.length, dsp: S.dsp.list.length, stab: KY.wsim.globalStab(), crisesAuto: S.stats.crisesAuto,
-    };
-    const startLogTs = Date.now();
-    KY.silent = true;
-    const step = 2;
-    let n = Math.floor(sec / step);
-    try { while (n-- > 0) E.step(step); } catch (e) { console.error(e); }
-    KY.silent = false;
-    const sum = {
-      sec,
-      nw: KY.market.netWorth() - before.nw,
-      events: S.log.filter(l => l.ts >= startLogTs && l.cat === 'welt').length,
-      projects: S.projects.done.length - before.done,
-      votes: S.council.past.length - before.past,
-      news: S.news.length - before.news,
-      msgs: S.msgs.length - before.msgs,
-      dsp: S.dsp.list.length - before.dsp,
-      stab: KY.wsim.globalStab() - before.stab,
-      regel7: S.stats.crisesAuto - before.crisesAuto,
-      lines: S.log.filter(l => l.ts >= startLogTs).slice(-8).map(l => l.text),
-    };
-    KY.bus.emit('tick', step);
-    ['res', 'regions', 'projects', 'council', 'dsp', 'msgs', 'news', 'research', 'infra', 'integ', 'notifs'].forEach(ev => KY.bus.emit(ev));
-    if (live && KY.ui && KY.ui.absence) KY.ui.absence(sum);
-    return sum;
+  /* dt in Sekunden Echtzeit; liefert Anzahl simulierter Tage */
+  E.tick = function (dt) {
+    const S = SIM.S;
+    if (!S || S.paused) { acc = 0; return 0; }
+    acc += Math.min(0.25, dt) * E.SPEEDS[S.speed];
+    let n = 0;
+    while (acc >= 1 && n < 12) {
+      acc -= 1;
+      E.stepDay();
+      n++;
+      if (S.paused) { acc = 0; break; }
+    }
+    return n;
+  };
+  E.setSpeed = function (s) {
+    const S = SIM.S;
+    if (!S) return;
+    if (s === 0) { S.paused = true; }
+    else { S.speed = s; S.paused = false; }
+    KY.bus.emit('speed', { speed: S.speed, paused: S.paused });
+  };
+  E.toggle = function () {
+    const S = SIM.S;
+    if (!S) return;
+    S.paused = !S.paused;
+    KY.bus.emit('speed', { speed: S.speed, paused: S.paused });
+  };
+  E.pause = function (why) {
+    const S = SIM.S;
+    if (!S || S.paused) return;
+    S.paused = true;
+    KY.bus.emit('speed', { speed: S.speed, paused: true, why });
   };
 })();
