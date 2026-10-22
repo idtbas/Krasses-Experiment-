@@ -27,7 +27,7 @@ async function boot() {
     fail('Die Physik-Engine konnte nicht geladen werden.');
     return;
   }
-  msg.textContent = 'Werkstatt wird eingerichtet …';
+  msg.textContent = 'TESTHALLE WIRD AUFGEBAUT …';
   await new Promise((r) => setTimeout(r, 20));
   const app = new App(RAPIER);
   window.kinetik = app;
@@ -38,4 +38,4 @@ async function boot() {
   setTimeout(() => loader.remove(), 500);
 }
 
-boot().catch((e) => { console.error(e); fail('Beim Start ist etwas schiefgegangen: ' + e.message); });
+boot().catch((e) => { console.error(e); fail('Startfehler: ' + e.message); });

@@ -30,9 +30,21 @@ export class Physics {
     );
     this.ground = ground;
     this.info.set(c.handle, { kind: 'floor', color: 'weiß' });
+    // Hallenwände und Stützen (für LiDAR, Radar und Funk sichtbar)
+    const env = groups(BIT.ENV, 0xffff & ~BIT.ENV);
+    const box = (hx, hy, hz, x, y, z, kind) => {
+      const cc = this.world.createCollider(R.ColliderDesc.cuboid(hx, hy, hz).setTranslation(x, y, z).setCollisionGroups(env), ground);
+      this.info.set(cc.handle, { kind, color: 'grau' });
+    };
+    const X = 16, Z = 16, H = 9;
+    box(X, H / 2, 0.1, 0, H / 2, -Z - 0.1, 'halle'); box(X, H / 2, 0.1, 0, H / 2, Z + 0.1, 'halle');
+    box(0.1, H / 2, Z, -X - 0.1, H / 2, 0, 'halle'); box(0.1, H / 2, Z, X + 0.1, H / 2, 0, 'halle');
+    for (const cx of [-12, -4, 4, 12]) for (const cz of [-12, 12]) box(0.25, H / 2, 0.25, cx, H / 2, cz, 'halle');
   }
 
   get groupsEnv() { return groups(BIT.ENV, 0xffff & ~BIT.ENV); }
+  // Strahlabfrage, die nur feste Umgebung trifft (Wände, Halle, Boden, Anlagenteile)
+  get rayEnvOnly() { return groups(BIT.OBJ, BIT.ENV); }
   get groupsObj() { return groups(BIT.OBJ, 0xffff); }
   groupsRobot(k) { const b = robotBit(k); return groups(b, 0xffff & ~b); }
   rayGroupsFor(k) { return groups(robotBit(k), 0xffff); }
@@ -48,10 +60,10 @@ export class Physics {
   }
 
   // Strahl: liefert { dist, collider, info, point, normal } oder null
-  ray(origin, dir, maxDist, queryGroups, excludeBody) {
+  ray(origin, dir, maxDist, queryGroups, excludeBody, solid = true) {
     const R = this.R;
     const ray = new R.Ray(origin, dir);
-    const hit = this.world.castRayAndGetNormal(ray, maxDist, true, R.QueryFilterFlags.EXCLUDE_SENSORS, queryGroups, undefined, excludeBody);
+    const hit = this.world.castRayAndGetNormal(ray, maxDist, solid, R.QueryFilterFlags.EXCLUDE_SENSORS, queryGroups, undefined, excludeBody);
     if (!hit) return null;
     const t = hit.timeOfImpact ?? hit.toi;
     return {

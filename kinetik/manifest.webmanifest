@@ -1,11 +1,11 @@
 {
-  "name": "KINETIK · Robotik-Werkstatt",
+  "name": "KINETIK · Robotik-Labor",
   "short_name": "KINETIK",
   "start_url": "./",
   "display": "standalone",
   "orientation": "landscape",
-  "background_color": "#0b0d12",
-  "theme_color": "#0b0d12",
+  "background_color": "#0e1013",
+  "theme_color": "#0e1013",
   "lang": "de",
   "icons": [
     { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },

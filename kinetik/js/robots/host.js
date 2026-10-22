@@ -1,9 +1,9 @@
-// Verbindung zwischen Klartext-Laufzeit und Roboter bzw. Welt
-import { friendly } from './robot.js';
+// Verbindung zwischen Ablaufsprache und Roboter bzw. Anlage
+import { friendly, needText } from './robot.js';
 import { show } from '../lang/interp.js';
-import { CMD_BY_ID } from '../lang/commands.js';
+import { CMD_BY_ID, missingNeed } from '../lang/commands.js';
 
-const TYPE_NAMES = { arm: 'Der Roboterarm', humanoid: 'Der Humanoid', rover: 'Der Fahrroboter' };
+const TYPE_NAMES = { arm: 'Knickarm', humanoid: 'Humanoid', rover: 'Mobile Plattform' };
 
 export class RobotHost {
   constructor(robot, world) {
@@ -23,10 +23,11 @@ export class RobotHost {
         return null;
       }
       case 'piepe': this.world.audio && this.world.audio.beep(880, 0.12); return null;
+      case 'hupe': r.needDevice('hupe'); this.world.audio && this.world.audio.horn && this.world.audio.horn(); return null;
       case 'spiele_ton': this.world.audio && this.world.audio.beep(Math.max(40, Math.min(4000, Number(args.hoehe) || 440)), 0.25); return null;
       case 'band_an': case 'band_aus': case 'band_tempo': {
         const bands = sim.ofKind('band');
-        if (!bands.length) throw friendly('In dieser Welt gibt es kein Förderband.');
+        if (!bands.length) throw friendly('In dieser Anlage gibt es kein Förderband.');
         for (const b of bands) {
           if (id === 'band_an') b.on = true;
           else if (id === 'band_aus') b.on = false;
@@ -36,25 +37,25 @@ export class RobotHost {
       }
       case 'lampe': case 'lampe_aus': {
         const lamps = sim.ofKind('lampe');
-        if (!lamps.length) throw friendly('In dieser Welt gibt es keine Lampe.');
+        if (!lamps.length) throw friendly('In dieser Anlage gibt es keine Signalleuchte.');
         for (const l of lamps) l.setColor(id === 'lampe' ? String(args.farbe).toLowerCase() : null);
         return null;
       }
       case 'spende': {
         const d = sim.ofKind('spender');
-        if (!d.length) throw friendly('In dieser Welt gibt es keinen Würfelspender.');
-        if (!d[0].spawn()) r.warn('Der Spender ist leer.');
+        if (!d.length) throw friendly('In dieser Anlage gibt es keine Teilezuführung.');
+        if (!d[0].spawn()) r.warn('Teilezuführung leer.');
         return null;
       }
       default: break;
     }
+    const def = CMD_BY_ID[id];
+    const miss = def && missingNeed(def, r.caps());
+    if (miss) throw friendly(`Für „${def.p.replace(/\{\w+:\w+\}/g, '…')}“ fehlt ${needText(miss)}. In der Konfiguration nachrüsten.`);
     const fn = r['cmd_' + id];
-    if (!fn) {
-      const def = CMD_BY_ID[id];
-      throw friendly(`${TYPE_NAMES[r.type] || 'Dieser Roboter'} kann „${def ? def.p.replace(/\{\w+:\w+\}/g, '…') : id}“ nicht.`);
-    }
+    if (!fn) throw friendly(`Befehl „${def ? def.p.replace(/\{\w+:\w+\}/g, '…') : id}“ ist für ${TYPE_NAMES[r.type] || 'diesen Roboter'} nicht verfügbar.`);
     if (r.status === 'akku leer' && !['tempo', 'leuchte', 'leuchte_aus', 'stopp', 'greifkraft'].includes(id)) {
-      throw friendly('Der Akku ist leer. Setze die Welt zurück oder baue einen größeren Akku ein.');
+      throw friendly('Akku entladen. Anlage zurücksetzen oder größeren Akku konfigurieren.');
     }
     return fn.call(r, args, show);
   }
@@ -65,19 +66,18 @@ export class RobotHost {
     switch (id) {
       case 'r_schranke': {
         const s = sim.ofKind('lichtschranke');
-        if (!s.length) throw friendly('In dieser Welt gibt es keine Lichtschranke.');
+        if (!s.length) throw friendly('In dieser Anlage gibt es keine Lichtschranke.');
         return s.some((x) => x.broken);
       }
       case 'r_taster': {
         const s = sim.ofKind('taster');
-        if (!s.length) throw friendly('In dieser Welt gibt es keinen Taster.');
+        if (!s.length) throw friendly('In dieser Anlage gibt es keinen Taster.');
         return s.some((x) => x.pressed);
       }
       default: break;
     }
-    const key = { r_abstand: 'abstand', r_farbe: 'farbe', r_helligkeit: 'helligkeit', r_linie: 'linie', r_beruehrt: 'beruehrt', r_haelt: 'haelt', r_kraft: 'kraft', r_gewicht: 'gewicht', r_neigung: 'neigung', r_kompass: 'kompass', r_position: 'position', r_winkel: 'winkel', r_sieht: 'sieht', r_richtung_zu: 'richtung_zu', r_entfernung_zu: 'entfernung_zu', r_umgefallen: 'umgefallen', r_akku: 'akku' }[id];
-    const fn = key && r['rep_' + key];
-    if (!fn) throw friendly('Diesen Sensorwert kennt der Roboter nicht.');
+    const fn = r['rep_' + id.slice(2)];
+    if (!fn) throw friendly('Dieser Messwert ist an diesem Roboter nicht verfügbar.');
     return fn.call(r, args);
   }
 

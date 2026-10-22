@@ -1,4 +1,4 @@
-// KINETIK · App: Bildschirme, Werkbank, Ausführung, Missionen und Speichern.
+// KINETIK · App: Bildschirme, Arbeitsplatz, Ausführung, Prüfaufträge und Speichern.
 import * as THREE from 'three';
 import { Renderer } from '../render/renderer.js';
 import { OrbitCam } from '../render/camera.js';
@@ -11,6 +11,7 @@ import { BlockEditor } from '../blocks/editor.js';
 import { Configurator } from './configurator.js';
 import { WorldPanel } from './worldpanel.js';
 import { HelpPanel } from './help.js';
+import { DeviceMonitor } from './devices.js';
 import { Home } from './home.js';
 import { MissionsScreen, MissionCard } from './missionsui.js';
 import { MISSION_BY_ID, MISSIONS, countStatements } from '../missions/missions.js';
@@ -19,7 +20,7 @@ import { Store } from '../core/store.js';
 import { h, $, clear, uid, rng, fmtNum, clamp } from '../core/util.js';
 import { icon, LOGO } from '../core/icons.js';
 import { toast, modal, closeModal, modalOpen, closePop, popOpen, confirmBox, ask } from './dialogs.js';
-import { ROBOT_TYPES, withDefaults } from '../robots/parts.js';
+import { ROBOT_TYPES, withDefaults, bom, fmtEuro } from '../robots/parts.js';
 import { show, Runtime } from '../lang/interp.js';
 import { RobotHost } from '../robots/host.js';
 
@@ -63,7 +64,7 @@ export class App {
       onSay: () => {},
       onWarn: (robot, text) => {
         this.log(text, 'warn', robot);
-        if (!robot.speech || this.sim.time > robot.speech.until) robot.speech = { text: '⚠ ' + text.split(/[–.:]/)[0].trim(), t: this.sim.time, until: this.sim.time + 2.5, warn: true };
+        if (!robot.speech || this.sim.time > robot.speech.until) robot.speech = { text: text.split(/[–.]/)[0].trim(), t: this.sim.time, until: this.sim.time + 2.5, warn: true };
         this.mctx && this.mctx.onWarn && this.mctx.onWarn(text);
       },
       onError: (slot, err) => this.runtimeError(slot, err),
@@ -71,6 +72,7 @@ export class App {
       onStop: () => {},
       onCommand: (robot, id) => { if (this.mctx) this.mctx.flags['cmd_' + id] = true; },
       onGrip: (robot, what, thing) => { if (what === 'greift') this.audio.grip(); this.mctx && this.mctx.onGrip && this.mctx.onGrip(what, thing, robot); },
+      onSafety: (robot, on) => { if (this.mctx && this.mctx.onSafety) this.mctx.onSafety(robot, on); },
     });
     this.viewport = new Viewport(this);
   }
@@ -87,21 +89,22 @@ export class App {
     const bench = $('#bench');
     this.benchEl = bench;
     // Kopfzeile
-    const homeBtn = h('button.btn.ghost', { title: 'Zur Startseite', 'aria-label': 'Startseite', html: `<span class="logo">${LOGO}</span>` });
+    const homeBtn = h('button.btn.ghost', { title: 'Startseite', 'aria-label': 'Startseite', html: `<span class="logo">${LOGO}</span>` });
     homeBtn.addEventListener('click', () => this.goHome());
     this.titleEl = h('div.title', h('b', ''), h('span', ''));
     this.robotsBar = h('div#robots-bar');
-    this.runBtn = h('button.btn.primary', { html: icon('play') + '<span>Start</span>', title: 'Programm starten (⌘↩)' });
+    this.runBtn = h('button.btn.go', { html: icon('play') + '<span>START</span>', title: 'Ablauf starten (⌘↩)' });
     this.runBtn.addEventListener('click', () => this.toggleRun());
-    const resetBtn = h('button.btn', { html: icon('reset') + '<span>Zurücksetzen</span>', title: 'Welt zurücksetzen' });
+    const resetBtn = h('button.btn', { html: icon('reset') + '<span>Reset</span>', title: 'Anlage zurücksetzen' });
     resetBtn.addEventListener('click', () => this.resetWorld());
-    this.speedBtn = h('button.btn.icon', { title: 'Geschwindigkeit der Simulation', html: '<b style="font-size:13px">1×</b>' });
+    this.speedBtn = h('button.btn.icon', { title: 'Simulationsgeschwindigkeit', html: '<b class="mono" style="font-size:12px">1×</b>' });
     this.speedBtn.addEventListener('click', () => this.cycleSpeed());
     this.pauseBtn = h('button.btn.icon', { title: 'Physik anhalten', html: icon('pause') });
     this.pauseBtn.addEventListener('click', () => this.togglePause());
     this.saveBtn = h('button.btn.icon', { title: 'Projekt', html: icon('folder') });
     this.saveBtn.addEventListener('click', () => this.projectMenu());
-    const topbar = h('div#topbar', homeBtn, this.titleEl, this.robotsBar, h('div.spacer'), h('div.run', this.pauseBtn, this.speedBtn, resetBtn, this.runBtn, this.saveBtn));
+    this.clockEl = h('span.simclock', 'T+0,0 s');
+    const topbar = h('div#topbar', homeBtn, this.titleEl, this.robotsBar, h('div.spacer'), this.clockEl, h('div.run', this.pauseBtn, this.speedBtn, resetBtn, this.runBtn, this.saveBtn));
 
     // Hauptbereich
     this.viewEl = h('div#view');
@@ -122,7 +125,7 @@ export class App {
     // Seitenleiste
     this.modeSeg = h('div.seg',
       this.segBtn('blocks', 'Bausteine', 'blocks'),
-      this.segBtn('text', 'Text', 'code'));
+      this.segBtn('text', 'Skript', 'code'));
     this.tabBtns = {};
     const tab = (id, label, ic) => {
       const b = h('button.btn.small.ghost', { html: icon(ic) + `<span>${label}</span>` });
@@ -130,7 +133,7 @@ export class App {
       this.tabBtns[id] = b;
       return b;
     };
-    this.sideTabs = h('div#side-tabs', this.modeSeg, h('div', { style: { flex: 1 } }), tab('build', 'Bauen', 'wrench'), tab('world', 'Welt', 'globe'), tab('help', 'Hilfe', 'help'));
+    this.sideTabs = h('div#side-tabs', this.modeSeg, h('div', { style: { flex: 1 } }), tab('devices', 'Geräte', 'monitor'), tab('build', 'Konfiguration', 'sliders'), tab('world', 'Umgebung', 'globe'), tab('help', 'Referenz', 'help'));
     this.sideBody = h('div#side-body');
     this.side.append(this.sideTabs, this.sideBody);
 
@@ -148,7 +151,8 @@ export class App {
     this.config = new Configurator(this);
     this.worldPanel = new WorldPanel(this);
     this.help = new HelpPanel(this);
-    this.sideBody.append(this.blockEd.el, this.textEd.el, this.config.el, this.worldPanel.el, this.help.el);
+    this.devices = new DeviceMonitor(this);
+    this.sideBody.append(this.blockEd.el, this.textEd.el, this.devices.el, this.config.el, this.worldPanel.el, this.help.el);
     this.bindSplitter();
   }
 
@@ -164,7 +168,7 @@ export class App {
     this.consoleCount = h('span.n', '');
     const tog = h('button.btn.icon.small.ghost', { html: icon('chevDown'), title: 'Ein-/Ausklappen' });
     const clr = h('button.btn.icon.small.ghost', { html: icon('trash'), title: 'Leeren' });
-    this.console = h('div#console.ov', h('div.h', h('span', { html: icon('terminal') }), 'Konsole', this.consoleCount, h('div', { style: { flex: 1 } }), clr, tog), this.consoleLog);
+    this.console = h('div#console.ov', h('div.h', h('span', { html: icon('terminal') }), 'Protokoll', this.consoleCount, h('div', { style: { flex: 1 } }), clr, tog), this.consoleLog);
     tog.addEventListener('click', () => { this.console.classList.toggle('min'); Store.setSetting('consoleMin', this.console.classList.contains('min')); });
     clr.addEventListener('click', () => { clear(this.consoleLog); this.logCount = 0; this.consoleCount.textContent = ''; });
     if (Store.setting('consoleMin', false)) this.console.classList.add('min');
@@ -173,24 +177,36 @@ export class App {
 
   buildViewTools() {
     const mk = (ic, title, fn, id) => { const b = h('button.btn.icon', { title, 'aria-label': title, html: icon(ic) }); b.addEventListener('click', fn); if (id) b.dataset.tool = id; return b; };
-    this.toolHand = mk('hand', 'Anfassen & werfen', () => this.setTool('hand'), 'hand');
-    this.toolMove = mk('grid', 'Verschieben (Bau-Modus)', () => this.setTool('move'), 'move');
+    this.toolHand = mk('hand', 'Greifen und werfen', () => this.setTool('hand'), 'hand');
+    this.toolMove = mk('grid', 'Verschieben (Aufbau)', () => this.setTool('move'), 'move');
     this.toolPath = mk('pencil', 'Pfad zeichnen (Apple Pencil)', () => this.setTool('path'), 'path');
-    this.toolSensors = mk('eye', 'Sensorstrahlen zeigen', () => { this.showSensors = !this.showSensors; this.toolSensors.classList.toggle('on', this.showSensors); Store.setSetting('sensors', this.showSensors); });
+    this.toolSensors = mk('eye', 'Sensorik einblenden (Strahlen, Punktwolke, Radar)', () => { this.showSensors = !this.showSensors; this.toolSensors.classList.toggle('on', this.showSensors); Store.setSetting('sensors', this.showSensors); });
+    this.toolMonitor = mk('pip', 'Geräteansicht einblenden', () => this.togglePip());
     this.toolFollow = mk('follow', 'Roboter folgen', () => this.toggleFollow());
-    this.toolCam = mk('camera', 'Kamera zurücksetzen', () => this.resetCamera());
-    this.viewTools = h('div#view-tools.ov', this.toolHand, this.toolMove, this.toolPath, h('div', { style: { height: '6px' } }), this.toolSensors, this.toolFollow, this.toolCam);
+    this.toolCam = mk('camera', 'Ansicht zurücksetzen', () => this.resetCamera());
+    this.viewTools = h('div#view-tools.ov', this.toolHand, this.toolMove, this.toolPath, h('div.sep'), this.toolSensors, this.toolMonitor, this.toolFollow, this.toolCam);
     this.viewEl.appendChild(this.viewTools);
     this.showSensors = Store.setting('sensors', true);
     this.toolSensors.classList.toggle('on', this.showSensors);
     this.setTool('hand');
   }
 
+  // Bild-in-Bild: erste Kamera bzw. erstes bildgebendes Gerät in der 3D-Ansicht
+  togglePip() {
+    const dm = this.devices;
+    if (dm.pip) { dm.setPip(null); this.toolMonitor.classList.remove('on'); return; }
+    dm.render();
+    const t = dm.tiles.find((x) => ['rgb', 'thermal', 'lidar', 'radar', 'depth', 'cloud'].includes(x.kind));
+    if (!t) { toast('Kein bildgebendes Gerät verbaut (Kamera, Wärmebild, LiDAR oder Radar).'); return; }
+    dm.setPip(t);
+    this.toolMonitor.classList.add('on');
+  }
+
   setTool(t) {
-    if (t === 'move' && !this.canEditWorld()) { toast('Verschieben geht in der Sandbox, solange kein Programm läuft.'); t = 'hand'; }
+    if (t === 'move' && !this.canEditWorld()) { toast('Verschieben nur auf der freien Testfläche bei gestopptem Ablauf.'); t = 'hand'; }
     this.viewport.tool = t;
     for (const b of [this.toolHand, this.toolMove, this.toolPath]) b.classList.toggle('on', b.dataset.tool === t);
-    if (t === 'path') toast('Zeichne mit dem Apple Pencil (oder Finger) einen Pfad auf den Boden. „folge dem pfad“ fährt ihn ab.', '', 3500);
+    if (t === 'path') toast('Pfad mit Apple Pencil oder Finger auf den Boden zeichnen – „folge dem pfad“ fährt ihn ab.', '', 3200);
   }
 
   bindSplitter() {
@@ -213,8 +229,9 @@ export class App {
 
   showTab(id) {
     this.tab = id;
-    for (const p of [this.blockEd.el, this.textEd.el, this.config.el, this.worldPanel.el, this.help.el]) p.classList.remove('on');
+    for (const p of [this.blockEd.el, this.textEd.el, this.devices.el, this.config.el, this.worldPanel.el, this.help.el]) p.classList.remove('on');
     if (id === 'program') (this.mode === 'blocks' ? this.blockEd.el : this.textEd.el).classList.add('on');
+    if (id === 'devices') { this.devices.show(); this.devices.el.classList.add('on'); } else this.devices.hide();
     if (id === 'build') { this.config.render(); this.config.el.classList.add('on'); }
     if (id === 'world') { this.worldPanel.render(); this.worldPanel.el.classList.add('on'); }
     if (id === 'help') { this.help.render(); this.help.el.classList.add('on'); }
@@ -226,7 +243,7 @@ export class App {
     const doc = this.currentDoc();
     if (m === this.mode) return;
     if (m === 'blocks' && doc && doc.error) {
-      toast('Erst den Fehler im Text beheben – dann geht es zurück zu den Bausteinen.', 'err', 3500);
+      toast('Syntaxfehler im Skript – erst beheben, dann zu den Bausteinen wechseln.', 'err', 3500);
       this.textEd.setError(doc.error);
       return;
     }
@@ -294,12 +311,11 @@ export class App {
       if (d.config.name) config.name = d.config.name;
       return { id: 'r' + i, config, spawn: { ...d.spawn }, code: s ? s.code : (d.code ?? m.starter ?? 'beim start\n  \nende\n'), layout: s ? s.layout : [] };
     });
-    this.project = { kind: 'mission', missionId: id, name: m.title, robots: defs, objects: m.objects };
+    this.project = { kind: 'mission', missionId: id, name: m.title, robots: defs, objects: m.objects, env: m.env || null };
     this.loadProject(this.project);
     this.missionCard.show(m);
     this.enterBench();
     this.applyCamera(m.camera);
-    if (!saved && !Store.setting('seenIntro', false)) this.home.tour && this.home.tour();
   }
 
   openSandbox(project) {
@@ -314,6 +330,7 @@ export class App {
 
   loadProject(p) {
     this.stopProgram();
+    if (this.devices) { this.devices.setPip(null); this.toolMonitor && this.toolMonitor.classList.remove('on'); }
     this.docs.clear();
     for (const d of p.robots) this.docs.set(d.id, new ProgramDoc(d.code || '', d.layout || []));
     this.currentId = p.robots[0] ? p.robots[0].id : null;
@@ -324,7 +341,7 @@ export class App {
     clear(this.consoleLog);
     this.logCount = 0;
     this.consoleCount.textContent = '';
-    this.log(this.mission ? `Mission „${this.mission.title}“ geladen.` : `Projekt „${p.name}“ geöffnet.`, 'sys');
+    this.log(this.mission ? `Prüfauftrag ${this.mission.code} „${this.mission.title}“ geladen.` : `Projekt „${p.name}“ geöffnet.`, 'sys');
   }
 
   buildWorld() {
@@ -372,7 +389,7 @@ export class App {
     const p = this.project;
     if (!p || p.robots.length < 2) return;
     for (const d of p.robots) {
-      const b = h('button.chip' + (d.id === this.currentId ? '.on' : ''), h('i', { style: { background: d.config.accent } }), d.config.name || ROBOT_TYPES[d.config.type].name);
+      const b = h('button.chip' + (d.id === this.currentId ? '.on' : ''), h('i', { style: { background: d.config.lack || '#888' } }), d.config.name || ROBOT_TYPES[d.config.type].name);
       b.addEventListener('click', () => this.selectRobot(d.id));
       this.robotsBar.appendChild(b);
     }
@@ -381,12 +398,11 @@ export class App {
   updateTitle() {
     const [b, s] = this.titleEl.children;
     if (this.mission) {
-      const idx = MISSIONS.indexOf(this.mission) + 1;
       b.textContent = this.mission.title;
-      s.textContent = `Mission ${idx} von ${MISSIONS.length}`;
+      s.textContent = `${this.mission.code} · Prüfauftrag`;
     } else {
       b.textContent = this.project.name;
-      s.textContent = 'Sandbox';
+      s.textContent = 'Freie Testfläche';
     }
   }
 
@@ -448,9 +464,10 @@ export class App {
     if (this.mission) {
       const m = this.mission;
       import('./dialogs.js').then(({ menu }) => menu(this.saveBtn, [
-        { label: 'Missionsübersicht', icon: 'grid', run: () => this.showMissions() },
-        { label: 'Programm als Text ansehen', icon: 'code', run: () => this.showCode() },
-        { label: 'Mission neu beginnen', icon: 'reset', danger: true, run: async () => { if (await confirmBox('Neu beginnen?', 'Dein Programm für diese Mission wird gelöscht.', 'Neu beginnen', true)) { Store.setMissionCode(m.id, null); this.openMission(m.id); } } },
+        { label: 'Alle Prüfaufträge', icon: 'clipboard', run: () => this.showMissions() },
+        { label: 'Referenzlösung laden', icon: 'check', run: () => this.loadReference() },
+        { label: 'Ablauf als Skript anzeigen', icon: 'code', run: () => this.showCode() },
+        { label: 'Prüfauftrag zurücksetzen', icon: 'reset', danger: true, run: async () => { if (await confirmBox('Zurücksetzen?', 'Ablauf und Konfiguration für diesen Prüfauftrag werden auf den Ausgangszustand gesetzt.', 'Zurücksetzen', true)) { Store.setMissionCode(m.id, null); this.openMission(m.id); } } },
       ]));
       return;
     }
@@ -458,7 +475,7 @@ export class App {
       { label: 'Speichern', icon: 'save', run: () => { this.autosave(); toast('Gespeichert.', 'ok'); } },
       { label: 'Umbenennen', icon: 'pencil', run: async () => { const n = await ask('Projekt umbenennen', 'Neuer Name:', this.project.name); if (n) { this.project.name = n; this.updateTitle(); this.autosave(); } } },
       { label: 'Als Datei exportieren', icon: 'download', run: () => this.exportProject() },
-      { label: 'Programm als Text ansehen', icon: 'code', run: () => this.showCode() },
+      { label: 'Ablauf als Skript anzeigen', icon: 'code', run: () => this.showCode() },
       '-',
       { label: 'Alle Projekte', icon: 'folder', run: () => { this.goHome(); this.home.projects(); } },
     ]));
@@ -475,7 +492,7 @@ export class App {
   showCode() {
     this.syncDocFromEditor();
     const doc = this.currentDoc();
-    modal({ title: 'Programm in Klartext', body: h('pre.code', doc ? doc.text : ''), wide: true, actions: [{ label: 'Kopieren', icon: 'copy', keep: true, run: () => { navigator.clipboard && navigator.clipboard.writeText(doc.text).then(() => toast('Kopiert.', 'ok')); } }, { label: 'Schließen', primary: true }] });
+    modal({ title: 'Ablauf als Skript', body: h('pre.code', doc ? doc.text : ''), wide: true, actions: [{ label: 'Kopieren', icon: 'copy', keep: true, run: () => { navigator.clipboard && navigator.clipboard.writeText(doc.text).then(() => toast('Kopiert.', 'ok')); } }, { label: 'Schließen', primary: true }] });
   }
 
   /* ================= Bearbeiten ================= */
@@ -501,7 +518,7 @@ export class App {
   markDirty() {
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => this.autosave(), 1500);
-    if (this.scenario.running) this.textEd.setInfo('Geändert – starte neu, damit die Änderung wirkt.');
+    if (this.scenario.running) this.textEd.setInfo('Geändert – Neustart nötig, damit die Änderung wirkt.');
   }
 
   /* ================= Ausführen ================= */
@@ -537,7 +554,7 @@ export class App {
     this.pauseBtn.innerHTML = icon('pause');
     this.updateRunBtn();
     this.audio.start();
-    this.log('▶ Programm gestartet', 'sys');
+    this.log('▶ Ablauf gestartet', 'sys');
   }
 
   stopProgram(user) {
@@ -547,18 +564,18 @@ export class App {
     this.updateRunBtn();
     this.blockEd && this.blockEd.setActive(new Set());
     this.textEd && this.textEd.setRunLines(new Set());
-    if (was && user) this.log('■ Programm angehalten', 'sys');
+    if (was && user) this.log('■ Ablauf gestoppt', 'sys');
   }
 
   updateRunBtn() {
     const r = this.scenario.running;
-    this.runBtn.className = 'btn ' + (r ? 'stop' : 'primary');
-    this.runBtn.innerHTML = r ? icon('stop') + '<span>Stopp</span>' : icon('play') + '<span>Start</span>';
+    this.runBtn.className = 'btn ' + (r ? 'stop' : 'go');
+    this.runBtn.innerHTML = r ? icon('stop') + '<span>STOPP</span>' : icon('play') + '<span>START</span>';
   }
 
   programFinished() {
     this.updateRunBtn();
-    this.log('✓ Programm beendet', 'ok');
+    this.log('✓ Ablauf beendet', 'ok');
     this.blockEd.setActive(new Set());
     this.textEd.setRunLines(new Set());
   }
@@ -577,25 +594,25 @@ export class App {
     this.stopProgram();
     this.buildWorld();
     this.dirtyWorld = false;
-    this.log('⟲ Welt zurückgesetzt', 'sys');
+    this.log('⟲ Anlage zurückgesetzt', 'sys');
   }
 
   togglePause() {
     this.sim.running = !this.sim.running;
     this.pauseBtn.innerHTML = icon(this.sim.running ? 'pause' : 'play');
     this.pauseBtn.classList.toggle('on', !this.sim.running);
-    toast(this.sim.running ? 'Physik läuft weiter.' : 'Physik angehalten.');
+    toast(this.sim.running ? 'Simulation läuft.' : 'Simulation angehalten.');
   }
 
   cycleSpeed() {
     const opts = [1, 0.5, 0.25, 2];
     const i = (opts.indexOf(this.sim.speed) + 1) % opts.length;
     this.sim.speed = opts[i];
-    this.speedBtn.innerHTML = `<b style="font-size:13px">${opts[i] === 0.5 ? '½' : opts[i] === 0.25 ? '¼' : opts[i]}×</b>`;
+    this.speedBtn.innerHTML = `<b class="mono" style="font-size:12px">${opts[i]}×</b>`;
   }
 
   tryStack(item) {
-    if (this.scenario.running) { toast('Während das Programm läuft, starte ich keine einzelnen Stapel.'); return; }
+    if (this.scenario.running) { toast('Einzelne Stapel lassen sich nur bei gestopptem Ablauf ausführen.'); return; }
     const doc = this.currentDoc();
     const th = this.scenario.tryStack(this.currentDef(), doc, item);
     if (th) { this.trying = true; this.updateRunBtn(); }
@@ -616,7 +633,7 @@ export class App {
     const ctx = { sim: this.sim, scenario: this.scenario, robot: this.scenario.slots[0] && this.scenario.slots[0].robot, robots: this.scenario.slots.map((s) => s.robot), log: [], flags: {}, latched: new Set(), t: 0, mission: m };
     if (m.setup) m.setup(ctx);
     const prevBroadcast = this.scenario.broadcast.bind(this.scenario);
-    this.scenario.broadcast = (msg) => { ctx.flags.message = true; return prevBroadcast(msg); };
+    this.scenario.broadcast = (msg, from) => { ctx.flags.message = true; return prevBroadcast(msg, from); };
     return ctx;
   }
 
@@ -624,10 +641,13 @@ export class App {
     const ctx = this.mctx;
     if (!ctx || ctx.done) return;
     ctx.t = this.sim.time - this.runStart;
+    ctx.dt = this.sim.time - (ctx.lastT ?? this.sim.time);
+    ctx.lastT = this.sim.time;
+    if (ctx.tick && this.scenario.running) ctx.tick();
     if (ctx.watchBump) {
       for (const r of ctx.robots) {
         const ph = this.sim.physics;
-        for (const p of r.parts.values()) for (const c of p.colliders) ph.contacts(c, (o) => { const i = ph.infoOf(o); if (i && i.entity && i.entity.kind === 'wand') ctx.flags.bump = true; });
+        for (const p of r.parts.values()) for (const c of p.colliders) ph.contacts(c, (o) => { const i = ph.infoOf(o); if (i && ((i.entity && ['wand', 'zaun', 'hindernis', 'regal', 'fahrzeug', 'dummy'].includes(i.entity.kind)) || i.kind === 'halle')) ctx.flags.bump = true; });
       }
     }
     const res = ctx.mission.goals.map((g, i) => {
@@ -647,21 +667,37 @@ export class App {
 
   missionSuccess(ctx) {
     const m = this.mission;
-    const doc = this.docs.get(this.project.robots[0].id);
     let stmts = 0;
     for (const d of this.project.robots) { const dd = this.docs.get(d.id); if (dd && dd.ast) stmts += countStatements(dd.ast); }
     const t = ctx.okTime - this.runStart;
-    let stars = 1;
-    if (t <= m.par.time * 1.3) stars++;
-    if (stmts <= m.par.stmts) stars++;
+    const cost = this.project.robots.reduce((sum, d) => sum + bom(d.config).total, 0);
+    const res = { time: t, stmts, cost, okTime: t <= m.par.time * 1.3, okStmts: stmts <= m.par.stmts, okCost: !m.budget || cost <= m.budget };
+    const grade = 1 + (res.okTime ? 1 : 0) + (res.okStmts ? 1 : 0) + (m.budget ? (res.okCost ? 1 : 0) : 0);
+    const max = m.budget ? 4 : 3;
     const prev = Store.progress(m.id);
-    Store.setProgress(m.id, { stars, best: Math.round(t * 10) / 10, done: true });
+    Store.setProgress(m.id, { stars: Math.max(grade, prev && prev.stars || 0), grade, max, best: Math.min(Math.round(t * 10) / 10, prev && prev.best || Infinity), cost: Math.round(cost), done: true });
     this.autosave();
     this.audio.success();
-    this.log(`★ Mission geschafft in ${fmtNum(t, 1)} s mit ${stmts} Anweisungen!`, 'ok');
-    this.missionCard.success(stars);
-    void doc;
-    setTimeout(() => this.missionsScreen.successModal(m, stars, t, stmts, prev), 700);
+    this.log(`✓ Prüfung bestanden · ${fmtNum(t, 1)} s · ${stmts} Anweisungen · ${fmtEuro(cost)}`, 'ok');
+    this.missionCard.success(grade, max);
+    setTimeout(() => this.missionsScreen.successModal(m, res, grade, max, prev), 600);
+  }
+
+  // Referenzlösung (Ablauf und ggf. Konfiguration) in den Arbeitsplatz laden
+  async loadReference() {
+    const m = this.mission;
+    if (!m) return;
+    if (!(await confirmBox('Referenzlösung laden?', 'Der aktuelle Ablauf wird durch die Referenzlösung ersetzt.', 'Laden'))) return;
+    const sols = m.solutions || [m.solution];
+    const cfgs = m.solutionConfigs || (m.solutionConfig ? [m.solutionConfig] : []);
+    this.project.robots.forEach((d, i) => { if (cfgs[i]) d.config = withDefaults({ ...d.config, ...cfgs[i], type: d.config.type }); });
+    this.buildWorld();
+    this.renderRobotsBar();
+    sols.forEach((src, i) => { const d = this.project.robots[i]; const doc = d && this.docs.get(d.id); if (doc) { doc.layout = []; doc.setText(src); } });
+    this.loadEditors();
+    this.blockEd.renderPalette();
+    this.autosave();
+    this.log('Referenzlösung geladen.', 'sys');
   }
 
   /* ================= Welt-Interaktion ================= */
@@ -723,7 +759,7 @@ export class App {
     if (!this.consoleLog) return;
     if (this.mctx && kind === 'say') this.mctx.log.push({ kind, text });
     const line = h('div.' + kind);
-    if (this.scenario && this.scenario.running && kind !== 'sys') line.appendChild(h('span', { style: { color: 'var(--muted)', marginRight: '6px' } }, fmtNum(this.sim.time - this.runStart, 1) + ' s'));
+    if (this.scenario && this.scenario.running) line.appendChild(h('span.t', (this.sim.time - this.runStart).toFixed(2).padStart(6, ' ')));
     if (robot && this.project && this.project.robots.length > 1) line.appendChild(h('b', robot.name + ': '));
     else if (kind === 'say' && robot) line.appendChild(h('b', robot.name + ': '));
     line.appendChild(document.createTextNode(text));
@@ -742,23 +778,32 @@ export class App {
     const add = (k, v) => rows.push(h('span', k), h('span', v));
     const sens = r.sensors;
     try {
+      if (r.type === 'arm') {
+        const tcp = r.fk(r.currentAngles(false));
+        add('TCP x / y / z', `${fmtNum(-tcp.x * 100, 0)} / ${fmtNum(tcp.y * 100, 0)} / ${fmtNum(tcp.z * 100, 0)}`);
+        add('A1 · A2 · A3', ['basis', 'schulter', 'ellbogen'].map((n) => fmtNum(r.servos.get(n).display, 0) + '°').join(' · '));
+      } else {
+        add('Position', `${fmtNum(-r.frame().p.x * 100, 0)} / ${fmtNum(r.frame().p.z * 100, 0)} cm`);
+        add('Orientierung', fmtNum(r.rep_kompass(), 0) + '°');
+        const v = r.baseBody().linvel();
+        add('Geschwindigkeit', fmtNum(Math.hypot(v.x, v.z), 2) + ' m/s');
+      }
+      if (r.type === 'humanoid') add('Neigung', fmtNum(r.rep_neigung(), 1) + '°');
       if (sens.abstand) add('Abstand', fmtNum(sens.abstand.value, 1) + ' cm');
-      if (sens.farbe) add('Farbe', sens.farbe.read());
-      if (sens.linie) add('Linie L / R', (sens.linie.read('links') ? '●' : '○') + ' ' + (sens.linie.read('rechts') ? '●' : '○'));
-      if (sens.beruehrung) add('Berührung', sens.beruehrung.read() ? 'ja' : 'nein');
+      if (sens.lidar) { const n = sens.lidar.nearest(); add('LiDAR min.', fmtNum(n.dist * 100, 0) + ' cm @ ' + fmtNum(n.bearing, 0) + '°'); }
+      if (sens.radar) { const t = sens.radar.nearest(); add('Radar', t ? `${fmtNum(t.dist, 1)} m · ${fmtNum(t.vr, 1)} m/s` : 'kein Ziel'); }
+      if (sens.farbe) add('Farbsensor', sens.farbe.read());
+      if (sens.linie) add('Spur L / R', (sens.linie.read('links') ? '■' : '□') + ' ' + (sens.linie.read('rechts') ? '■' : '□'));
+      if (sens.waerme) add('Wärmebild max.', fmtNum(sens.waerme.maxTemp(), 1) + ' °C');
     } catch { /* während des Umbaus */ }
     const g = Object.values(r.grippers).find((x) => x.held) || r.grippers.main || r.grippers.rechts;
-    if (g) add('Greifer', g.held ? `hält (${Math.round(g.held.mass * 1000)} g)` : (g.type === 'zange' ? (g.isOpen ? 'offen' : 'zu') : (g.on ? 'an' : 'aus')));
-    if (r.type === 'arm') for (const n of ['basis', 'schulter', 'ellbogen', 'handgelenk']) add(r.servos.get(n).label, fmtNum(r.servos.get(n).display, 0) + '°');
-    if (r.type !== 'arm') { add('Position', `${fmtNum(-r.frame().p.x * 100, 0)}, ${fmtNum(r.frame().p.z * 100, 0)} cm`); add('Kompass', fmtNum(r.rep_kompass(), 0) + '°'); }
-    if (r.type === 'humanoid') add('Neigung', fmtNum(r.rep_neigung(), 1) + '°');
-    if (isFinite(r.battery.wh)) add('Akku', Math.round(r.batteryPct) + ' %');
-    // Variablen
+    if (g) add('Werkzeug', g.held ? `hält ${Math.round(g.held.mass * 1000)} g` : (g.type === 'zange' ? (g.isOpen ? 'offen' : 'geschlossen') : (g.on ? 'aktiv' : 'aus')));
+    add('Antrieb max.', fmtNum(r.temperature(), 0) + ' °C');
+    add('Leistung', fmtNum(r.power || 0, 0) + ' W' + (isFinite(r.battery.wh) ? ` · ${Math.round(r.batteryPct)} %` : ''));
     const slot = this.scenario.slotOf(r.defId);
-    if (slot && slot.runtime) for (const [k, v] of slot.runtime.variables().slice(0, 6)) add('▸ ' + k, show(v).slice(0, 18));
-    const st = r.status === 'umgefallen' ? h('span.st.bad', 'umgefallen') : r.status === 'akku leer' ? h('span.st.bad', 'Akku leer') : this.scenario.running ? h('span.st.run', '● läuft') : h('span.st', 'bereit');
+    if (slot && slot.runtime) for (const [k, v] of slot.runtime.variables().slice(0, 5)) add(k, show(v).slice(0, 18));
+    const st = r.status === 'umgefallen' ? h('span.st.bad', h('i.led.err'), 'STURZ') : r.status === 'akku leer' ? h('span.st.bad', h('i.led.err'), 'AKKU LEER') : r.paused ? h('span.st.hold', h('i.led.warn'), 'SICHERER HALT') : this.scenario.running ? h('span.st.run', h('i.led.ok'), 'AKTIV') : h('span.st', h('i.led'), 'BEREIT');
     const head = h('div.h', h('span', { html: icon(r.type) }), r.name, st);
-    head.style.cursor = 'pointer';
     head.addEventListener('click', () => { this.hud.classList.toggle('min'); Store.setSetting('hudMin', this.hud.classList.contains('min')); });
     clear(this.hud);
     this.hud.append(head, h('div.grid', rows));
@@ -772,7 +817,7 @@ export class App {
       const typing = e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT');
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (this.screen === 'bench') this.toggleRun(); return; }
       if ((e.metaKey || e.ctrlKey) && (e.key === 'e' || e.key === 'E')) { e.preventDefault(); if (this.screen === 'bench') { this.setMode(this.mode === 'blocks' ? 'text' : 'blocks'); this.showTab('program'); } return; }
-      if ((e.metaKey || e.ctrlKey) && ['1', '2', '3', '4'].includes(e.key) && this.screen === 'bench') { e.preventDefault(); this.showTab(['program', 'build', 'world', 'help'][+e.key - 1]); return; }
+      if ((e.metaKey || e.ctrlKey) && ['1', '2', '3', '4', '5'].includes(e.key) && this.screen === 'bench') { e.preventDefault(); const tb = ['program', 'devices', 'build', 'world', 'help'][+e.key - 1]; if (tb !== 'world' || this.isSandbox()) this.showTab(tb); return; }
       if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); this.autosave(); toast('Gespeichert.', 'ok'); return; }
       if (e.key === 'Escape') {
         if (popOpen()) { closePop(); return; }
@@ -852,7 +897,7 @@ export class App {
         if (this.mctx && this.scenario.running) this.checkMission();
         else if (this.mission && this.mctx && !this.scenario.running && !this.mctx.done) this.checkMission();
         this.highlightRunning();
-        if (t - this.lastHud > 150) { this.lastHud = t; this.updateHud(); }
+        if (t - this.lastHud > 150) { this.lastHud = t; this.updateHud(); this.clockEl.textContent = 'T+' + fmtNum(this.scenario.running ? this.sim.time - this.runStart : 0, 1) + ' s'; }
         let lvl = 0;
         for (const r of this.sim.robots) for (const s of r.servos.values()) lvl += Math.min(1, Math.abs(s.vel)) * (s.hidden ? 0.2 : 1);
         this.audio.servo(Math.min(1, lvl / 3));
@@ -889,25 +934,28 @@ export class App {
 App.prototype.frameCount = 0;
 
 // Automatischer Prüflauf: Musterlösung einer Mission so schnell wie möglich durchrechnen
-App.prototype.testMission = function (id, maxSeconds = 240) {
+App.prototype.testMission = function (id, maxSeconds = 240, opts = {}) {
   const m = MISSION_BY_ID[id];
+  Store.setMissionCode(id, null);
   this.openMission(id);
-  document.querySelectorAll('.tour, .tour-spot').forEach((e) => e.remove());
-  const sols = m.solutions || [m.solution];
+  const sols = opts.code || m.solutions || [m.solution];
+  const cfgs = opts.noConfig ? [] : (m.solutionConfigs || (m.solutionConfig ? [m.solutionConfig] : []));
+  const extra = opts.config || [];
+  if (cfgs.length || extra.length) { this.project.robots.forEach((d, i) => { const c = { ...(cfgs[i] || {}), ...(extra[i] || {}) }; d.config = withDefaults({ ...d.config, ...c, type: d.config.type }); }); this.buildWorld(); }
   sols.forEach((s, i) => { const d = this.project.robots[i]; const doc = this.docs.get(d.id); doc.layout = []; doc.setText(s); });
   this.loadEditors();
   this.startProgram();
   const t0 = performance.now();
-  let errors = [];
+  let errors = [], maxTemp = 0, hotAxis = '';
   const origErr = this.scenario.hooks.onError;
   this.scenario.hooks.onError = (slot, err) => { errors.push(err.message); origErr(slot, err); };
   while (this.sim.time - this.runStart < maxSeconds && !(this.mctx && this.mctx.done)) {
     this.sim.substep();
-    if (this.sim.stepCount % 6 === 0) this.checkMission();
+    if (this.sim.stepCount % 6 === 0) { this.checkMission(); for (const r of this.sim.robots) for (const sv of r.servos.values()) if (!sv.hidden && sv.temp > maxTemp) { maxTemp = sv.temp; hotAxis = sv.label; } }
     if (errors.length) break;
   }
   this.scenario.hooks.onError = origErr;
   const res = this.mission.goals.map((g, i) => { try { return this.mctx.latched.has(i) || !!g.check(this.mctx); } catch { return false; } });
-  return { id, done: !!(this.mctx && this.mctx.done), simTime: +(this.sim.time - this.runStart).toFixed(1), wall: Math.round(performance.now() - t0), goals: res, errors, log: [...this.consoleLog.children].slice(-6).map((d) => d.textContent) };
+  return { id, done: !!(this.mctx && this.mctx.done), simTime: +(this.sim.time - this.runStart).toFixed(1), wall: Math.round(performance.now() - t0), goals: res, errors, maxTemp: Math.round(maxTemp), hotAxis, log: [...this.consoleLog.children].slice(-6).map((d) => d.textContent) };
 };
 export { uid };

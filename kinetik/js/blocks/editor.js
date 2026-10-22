@@ -280,7 +280,7 @@ export class BlockEditor {
   renderPalette() {
     const vars = [...new Set([...collectVars(this.ast), ...this.extraVars])].sort();
     const funcs = this.ast.items.filter((i) => i.type === 'func');
-    const groups = paletteFor(this.robotType, vars, funcs);
+    const groups = paletteFor(this.robotType, vars, funcs, this.robot ? this.robot.caps() : null);
     const keepScroll = this.fly.scrollTop;
     clear(this.rail); clear(this.fly);
     this.palInfo = new Map();

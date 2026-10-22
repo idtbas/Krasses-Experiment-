@@ -4,7 +4,7 @@
 // geben nach einer festen Zahl von Schritten freiwillig ab – so friert nichts ein.
 
 import { KlartextError } from './lexer.js';
-import { UNITS, COLORS, CONSTANTS, BUILTINS, CMD_BY_ID, REP_BY_ID } from './commands.js';
+import { UNITS, COLORS, CONSTANTS, BUILTINS, CMD_BY_ID, REP_BY_ID, NEED_TEXT, missingNeed } from './commands.js';
 import { fmtNum, closest, rng as makeRng } from '../core/util.js';
 
 export class RuntimeError extends KlartextError {}
@@ -617,13 +617,13 @@ export class Runtime {
 
 /* ---------------- Prüfen vor dem Start ---------------- */
 
-const ROBOT_NAMES = { arm: 'Ein Roboterarm', humanoid: 'Ein Humanoid', rover: 'Ein Fahrroboter' };
+const ROBOT_NAMES = { arm: 'den Knickarm', humanoid: 'den Humanoiden', rover: 'die mobile Plattform' };
 const ALT_HINT = {
   gehe_vor: 'fahre … vor', gehe_zurueck: 'fahre … zurück', gehe_zu: 'fahre zu …', gehe_los: 'fahre los',
   fahre_vor: 'gehe … vor', fahre_zurueck: 'gehe … zurück', fahre_zu: 'gehe zu …', fahre_los: 'gehe los',
 };
 
-export function checkProgram(program, robotType, jointNames = []) {
+export function checkProgram(program, robotType, jointNames = [], caps = null) {
   const errors = [];
   const funcs = new Map(program.items.filter((i) => i.type === 'func').map((f) => [f.name, f]));
   const add = (msg, node) => errors.push(new KlartextError(msg, node ? node.line : 0, 0, { nodeId: node && node.id }));
@@ -645,10 +645,11 @@ export function checkProgram(program, robotType, jointNames = []) {
         break;
       case 'rep': {
         const def = REP_BY_ID[e.rep];
-        if (robotType && def.robots && !def.robots.includes(robotType)) add(`${ROBOT_NAMES[robotType]} hat keinen Sensor für „${def.p.replace(/\{\w+:\w+\}/g, '…')}“.`, node);
+        if (robotType && def.robots && !def.robots.includes(robotType)) add(`Messwert „${def.p.replace(/\{\w+:\w+\}/g, '…')}“ gibt es für ${ROBOT_NAMES[robotType]} nicht.`, node);
+        else { const miss = missingNeed(def, caps); if (miss) add(`Für „${def.p.replace(/\{\w+:\w+\}/g, '…')}“ fehlt ${NEED_TEXT[miss] || miss}. In der Konfiguration nachrüsten.`, node); }
         for (const sl of def.slots) {
           const a = e.args[sl.slot];
-          if (sl.type === 'joint' && joints.size && !joints.has(a)) add(`Ein Gelenk „${a}“ hat dieser Roboter nicht. Es gibt: ${[...joints].join(', ')}.`, node);
+          if (sl.type === 'joint' && joints.size && !joints.has(a)) add(`Achse „${a}“ existiert nicht. Verfügbar: ${[...joints].join(', ')}.`, node);
           expr(a, node);
         }
         break;
@@ -663,11 +664,11 @@ export function checkProgram(program, robotType, jointNames = []) {
         const def = CMD_BY_ID[s.cmd];
         if (robotType && def.robots && !def.robots.includes(robotType)) {
           const alt = ALT_HINT[s.cmd];
-          add(`${ROBOT_NAMES[robotType]} kann „${def.p.replace(/\{\w+:\w+\}/g, '…')}“ nicht.${alt ? ` Versuch es mit „${alt}“.` : ''}`, s);
-        }
+          add(`Befehl „${def.p.replace(/\{\w+:\w+\}/g, '…')}“ ist für ${ROBOT_NAMES[robotType]} nicht verfügbar.${alt ? ` Stattdessen: „${alt}“.` : ''}`, s);
+        } else { const miss = missingNeed(def, caps); if (miss) add(`Für „${def.p.replace(/\{\w+:\w+\}/g, '…')}“ fehlt ${NEED_TEXT[miss] || miss}. In der Konfiguration nachrüsten.`, s); }
         for (const sl of def.slots) {
           const a = s.args[sl.slot];
-          if (sl.type === 'joint' && joints.size && !joints.has(a)) add(`Ein Gelenk „${a}“ hat dieser Roboter nicht. Es gibt: ${[...joints].join(', ')}.`, s);
+          if (sl.type === 'joint' && joints.size && !joints.has(a)) add(`Achse „${a}“ existiert nicht. Verfügbar: ${[...joints].join(', ')}.`, s);
           if (a == null && sl.type !== 'var') add('In diesem Baustein ist noch eine Lücke leer.', s);
           expr(a, s);
         }

@@ -44,10 +44,32 @@ const P = {
   zoomIn: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M11 8v6M8 11h6"/>',
   zoomOut: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4M8 11h6"/>',
   fit: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
+  pip: '<rect x="3" y="5" width="18" height="14" rx="1.5"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor" stroke="none"/>',
+  plug: '<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>',
+  antenna: '<path d="M12 10v11M8.5 21h7"/><circle cx="12" cy="8" r="1.6"/><path d="M8 4.5a5.5 5.5 0 0 0 0 7M16 4.5a5.5 5.5 0 0 1 0 7M5.5 2.5a9 9 0 0 0 0 11M18.5 2.5a9 9 0 0 1 0 11"/>',
+  truck: '<rect x="2.5" y="7" width="12" height="9" rx="1"/><path d="M14.5 10h4l3 3v3h-7z"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17.5" cy="17.5" r="1.8"/>',
+  person: '<circle cx="12" cy="5" r="2.2"/><path d="M8.5 21l1.5-8-2-3.5 4-1.5 4 1.5-2 3.5 1.5 8"/>',
+  box: '<rect x="4" y="6" width="16" height="13" rx="1"/><path d="M4 10h16M10 6v4M14 6v4"/>',
+  rack: '<path d="M4 3v18M20 3v18M4 8h16M4 14h16M4 20h16"/><rect x="6" y="9.5" width="4" height="3.5"/><rect x="12" y="15.5" width="5" height="3.5"/>',
+  fence: '<path d="M4 4v16M20 4v16M4 7h16M4 17h16M8 7l8 10M16 7l-8 10"/>',
+  monitor: '<rect x="3" y="4" width="18" height="12.5" rx="1.5"/><path d="M8 20.5h8M12 16.5v4"/><path d="M6.5 13l3-4 3 2.5 3.5-5"/>',
+  sliders: '<path d="M5 4v16M12 4v16M19 4v16"/><rect x="3" y="13" width="4" height="3" rx="1" fill="currentColor" stroke="none"/><rect x="10" y="7" width="4" height="3" rx="1" fill="currentColor" stroke="none"/><rect x="17" y="15" width="4" height="3" rx="1" fill="currentColor" stroke="none"/>',
+  list: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/>',
+  clipboard: '<rect x="5" y="4.5" width="14" height="16.5" rx="1.5"/><path d="M9 4.5V3h6v1.5"/><path d="M8.5 10l1.5 1.5 3-3M8.5 16h7"/>',
+  cpu: '<rect x="6.5" y="6.5" width="11" height="11" rx="1"/><rect x="9.5" y="9.5" width="5" height="5"/><path d="M9 3v3.5M15 3v3.5M9 17.5V21M15 17.5V21M3 9h3.5M3 15h3.5M17.5 9H21M17.5 15H21"/>',
+  motor: '<rect x="3" y="7" width="12" height="10" rx="1.5"/><path d="M15 10.5h3v3h-3M18 12h3M6 7v10M9 7v10M12 7v10"/>',
+  radar: '<path d="M12 20L4 6a12 12 0 0 1 16 0z"/><path d="M12 20l-3.6-6.5a5 5 0 0 1 7.2 0z"/>',
+  lidar: '<rect x="8" y="10" width="8" height="8" rx="1.5"/><path d="M5 9a9 9 0 0 1 14 0M2.5 6.5a12.5 12.5 0 0 1 19 0"/>',
+  thermo: '<path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0z"/><path d="M12 10v7"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.2 5.2l1.8 1.8M17 17l1.8 1.8M5.2 18.8L7 17M17 7l1.8-1.8"/>',
+  fog: '<path d="M4 9h16M3 13h18M5 17h14"/>',
+  euro: '<path d="M17.5 6.5A6.5 6.5 0 1 0 17.5 17.5"/><path d="M4.5 10.5h9M4.5 13.5h9"/>',
+  estop: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none"/>',
+  gauge: '<path d="M4.5 16a8 8 0 1 1 15 0"/><path d="M12 14l4-5"/><circle cx="12" cy="14.5" r="1.3" fill="currentColor"/>',
   // Robotertypen
   humanoid: '<rect x="9" y="2.5" width="6" height="5" rx="1.6"/><path d="M10.5 5h.01M13.5 5h.01"/><rect x="7.5" y="8.5" width="9" height="7" rx="2"/><path d="M7.5 10l-3 4M16.5 10l3 4M10 15.5V21M14 15.5V21"/>',
-  arm: '<path d="M4 21h9"/><rect x="5.5" y="17.5" width="6" height="3.5" rx="1"/><path d="M8.5 17.5V14l5-6.5 4 3"/><circle cx="8.5" cy="14" r="1.6"/><circle cx="13.5" cy="7.5" r="1.6"/><path d="M17.5 10.5l2.5-1M17.5 10.5l1 2.5"/>',
-  rover: '<rect x="4" y="9" width="16" height="7" rx="2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/><path d="M14 9V5.5h3M17 5.5h.01"/>',
+  arm: '<path d="M3.5 21h10"/><path d="M5.5 21v-3h6v3"/><path d="M8.5 18v-3.5l5.5-6 4.5 3.5"/><circle cx="8.5" cy="14.5" r="1.7"/><circle cx="14" cy="8.5" r="1.7"/><path d="M18.5 12l2 -1.2M18.5 12l.8 2.2"/>',
+  rover: '<rect x="3" y="9.5" width="18" height="6.5" rx="1.5"/><path d="M3 12.5h18"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/><rect x="10" y="6.5" width="4" height="3" rx="1"/>',
   // Gegenstände
   cube: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>',
   ball: '<circle cx="12" cy="12" r="8"/><path d="M5 9c4 2 10 2 14 0M5 15c4-2 10-2 14 0"/>',
@@ -79,4 +101,4 @@ export function iconEl(name, cls = '') {
   return t.content.firstChild;
 }
 
-export const LOGO = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5l11.7 6.75v13.5L16 29.5 4.3 22.75V9.25z" fill="#ff7a1a"/><path d="M16 2.5l11.7 6.75v6.75L16 16z" fill="#ffa25c"/><circle cx="16" cy="16" r="5.2" fill="#1b0d00"/><circle cx="16" cy="16" r="2.2" fill="#ffd2b0"/><path d="M16 2.5v8.3M27.7 22.75l-7.2-4.15M4.3 22.75l7.2-4.15" stroke="#1b0d00" stroke-width="2.2"/></svg>`;
+export const LOGO = `<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="3" fill="#e8a33d"/><path d="M10.5 8v16M10.5 17l9-9M14.2 13.4L21 24" stroke="#14171a" stroke-width="3.2" fill="none" stroke-linecap="square"/></svg>`;

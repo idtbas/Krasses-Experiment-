@@ -1,6 +1,6 @@
 // Baustein-Modell: Wie jeder Knoten des Syntaxbaums als Baustein aussieht,
 // welche Lücken er hat und welche Vorlagen die Palette anbietet.
-import { CMD, REP, CMD_BY_ID, REP_BY_ID, CAT, CATEGORIES, BUILTINS, ENUMS, COLOR_NAMES, defaultFor } from '../lang/commands.js';
+import { CMD, REP, CMD_BY_ID, REP_BY_ID, CAT, CATEGORIES, BUILTINS, ENUMS, COLOR_NAMES, defaultFor, missingNeed } from '../lang/commands.js';
 import { nid } from '../lang/parser.js';
 
 export const OP_LABEL = { '+': '+', '-': '−', '*': '×', '/': '÷', '%': 'Rest', '^': 'hoch', '==': '=', '=': '=', '!=': '≠', '<': '<', '>': '>', '<=': '≤', '>=': '≥', und: 'und', oder: 'oder' };
@@ -147,17 +147,17 @@ export function repNode(def, robotType) {
 const S = (type, extra) => ({ type, id: nid(), ...extra });
 
 // Palette: Liste von { cat, items: [{ kind: 'stmt'|'hat'|'expr', make: () => Knoten }] }
-export function paletteFor(robotType, vars = [], funcs = []) {
+export function paletteFor(robotType, vars = [], funcs = [], caps = null) {
   const out = [];
   const byCat = {};
   for (const c of CATEGORIES) byCat[c.id] = [];
-  const ok = (d) => !d.robots || d.robots.includes(robotType);
+  const ok = (d) => !d.hidden && (!d.robots || d.robots.includes(robotType)) && !missingNeed(d, caps);
   // Ereignisse
   byCat.ereignis.push(
     { kind: 'hat', make: () => S('event', { ev: 'start', arg: null, body: [] }) },
     { kind: 'hat', make: () => S('event', { ev: 'taste', arg: 'leertaste', body: [] }) },
     { kind: 'hat', make: () => S('event', { ev: 'nachricht', arg: 'los', body: [] }) },
-    { kind: 'hat', make: () => S('event', { ev: 'sobald', arg: { type: 'bin', id: nid(), op: '<', a: repNode(REP_BY_ID.r_abstand, robotType), b: num(10) }, body: [] }) },
+    { kind: 'hat', make: () => S('event', { ev: 'sobald', arg: caps && !caps.has('abstand') ? { type: 'bin', id: nid(), op: '>', a: repNode(REP_BY_ID.r_zeit, robotType), b: num(10) } : { type: 'bin', id: nid(), op: '<', a: repNode(REP_BY_ID.r_abstand, robotType), b: num(10) }, body: [] }) },
     { kind: 'hat', make: () => S('event', { ev: 'antippen', arg: null, body: [] }) },
   );
   for (const def of CMD) {

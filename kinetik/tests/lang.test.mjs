@@ -137,7 +137,7 @@ test('Prüfung: Befehl passt nicht zum Roboter', () => {
   assert.equal(errs.length, 1);
   assert.match(errs[0].message, /fahre … vor/);
   const e2 = checkProgram(parse('drehe knie auf 3\n'), 'arm', ['basis', 'schulter']);
-  assert.match(e2[0].message, /Gelenk „knie“/);
+  assert.match(e2[0].message, /Achse „knie“/);
 });
 
 /* ---------------- Interpreter ---------------- */

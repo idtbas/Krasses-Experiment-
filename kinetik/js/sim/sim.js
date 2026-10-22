@@ -1,6 +1,7 @@
 // Simulation: verwaltet Physikwelt, alle Dinge in der Welt und den festen Zeittakt.
 import * as THREE from 'three';
 import { Physics } from '../physics/physics.js';
+import { Radio } from './radio.js';
 
 export class Entity {
   constructor(sim) {
@@ -58,6 +59,21 @@ export class Sim {
     this.postHooks = [];   // nach jedem Physikschritt
     this.robotSeq = 0;
     this.stepCount = 0;
+    this.env = { light: 1, fog: 0, ambient: 22 };
+    this.radio = new Radio(this);
+  }
+
+  // Umgebung: Grundhelligkeit (0…1), Nebel (0…1), Hallentemperatur (°C)
+  setEnv(env = {}) {
+    this.env = { light: env.licht ?? env.light ?? 1, fog: env.nebel ?? env.fog ?? 0, ambient: env.temperatur ?? env.ambient ?? 22 };
+    if (this.renderer.setEnvironment) this.renderer.setEnvironment(this.env);
+  }
+  ambient() { return this.env.ambient; }
+  // Beleuchtungsstärke an einem Punkt (relativ; 1 = normale Hallenbeleuchtung)
+  illumination(p) {
+    let L = this.env.light;
+    for (const e of this.entities) if (e.lightAt) L += e.lightAt(p);
+    return L;
   }
 
   get dt() { return this.physics.dt; }

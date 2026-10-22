@@ -1,4 +1,4 @@
-// „Welt“ in der Sandbox: Gegenstände und Roboter hinzufügen, auswählen, einfärben, drehen, löschen.
+// Umgebung der freien Testfläche: Beleuchtung, Nebel und Temperatur; Anlagenteile, Testobjekte und Roboter platzieren und bearbeiten.
 import { h, clear, uid } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { OBJECT_TYPES, MATERIALS } from '../world/objects.js';
@@ -8,7 +8,14 @@ import { toast } from './dialogs.js';
 import { ProgramDoc } from './program.js';
 
 const COLORABLE = new Set(['würfel', 'kugel', 'zylinder', 'zone', 'kiste', 'ziel', 'taster', 'wand']);
-const SHELF = ['würfel', 'kugel', 'zylinder', 'tisch', 'wand', 'rampe', 'zone', 'kiste', 'ziel', 'band', 'spender', 'lichtschranke', 'taster', 'lampe'];
+const SHELF = [
+  ['Werkstücke', ['würfel', 'zylinder', 'kugel']],
+  ['Anlage', ['tisch', 'band', 'spender', 'lichtschranke', 'taster', 'lampe', 'kiste', 'zone']],
+  ['Halle', ['wand', 'zaun', 'regal', 'hindernis', 'rampe', 'linie', 'ziel', 'ladestation', 'basisstation', 'markierung']],
+  ['Testobjekte', ['fahrzeug', 'dummy']],
+];
+const LIGHT = [['Tag', 1], ['Dämmerung', 0.25], ['Dunkel', 0.04]];
+const FOG = [['klar', 0], ['dunstig', 0.4], ['Nebel', 0.75]];
 
 export class WorldPanel {
   constructor(app) {
@@ -22,28 +29,49 @@ export class WorldPanel {
   render() {
     clear(this.el);
     const app = this.app;
-    if (!app.isSandbox()) { this.el.appendChild(h('p.muted', 'Die Welt lässt sich nur in der Sandbox umbauen.')); return; }
-    this.el.appendChild(h('h3.muted', { style: { margin: '0 0 10px', fontSize: '13px', letterSpacing: '.08em', textTransform: 'uppercase' } }, 'Hinzufügen'));
-    const shelf = h('div.shelf');
-    for (const t of SHELF) {
-      const o = OBJECT_TYPES[t];
-      const b = h('button' + (this.placing === t ? '.on' : ''), { html: icon(o.icon) + `<span>${o.name}</span>` });
-      b.addEventListener('click', () => this.startPlacing(t));
-      shelf.appendChild(b);
+    if (!app.isSandbox()) { this.el.appendChild(h('p.muted', 'Die Umgebung ist nur auf der freien Testfläche änderbar.')); return; }
+    // Hallenbedingungen
+    const env = this.project.env || (this.project.env = {});
+    const sub = (t) => h('div.cap', { style: { margin: '0 0 6px' } }, t);
+    const seg = (opts, cur, pick) => {
+      const s2 = h('div.seg');
+      for (const [label, v] of opts) {
+        const b = h('button' + (cur === v ? '.on' : ''), label);
+        b.addEventListener('click', () => { pick(v); app.buildWorld(); app.autosave(); this.render(); });
+        s2.appendChild(b);
+      }
+      return s2;
+    };
+    this.el.appendChild(h('div.envbar',
+      h('div', sub('Hallenbeleuchtung'), seg(LIGHT, env.licht ?? 1, (v) => { env.licht = v; })),
+      h('div', sub('Sicht'), seg(FOG, env.nebel ?? 0, (v) => { env.nebel = v; }))));
+    this.el.appendChild(h('div.envbar', h('div', sub('Hallentemperatur'), seg([['12 °C', 12], ['22 °C', 22], ['35 °C', 35]], env.temperatur ?? 22, (v) => { env.temperatur = v; })), h('div')));
+    for (const [title, list] of SHELF) {
+      this.el.appendChild(h('div.cap', { style: { margin: '14px 0 6px' } }, title));
+      const shelf = h('div.shelf');
+      for (const t of list) {
+        const o = OBJECT_TYPES[t];
+        const b = h('button' + (this.placing === t ? '.on' : ''), { html: icon(o.icon) + `<span>${o.name}</span>` });
+        b.addEventListener('click', () => this.startPlacing(t));
+        shelf.appendChild(b);
+      }
+      this.el.appendChild(shelf);
     }
+    this.el.appendChild(h('div.cap', { style: { margin: '14px 0 6px' } }, 'Roboter'));
+    const rs = h('div.shelf');
     for (const [id, t] of Object.entries(ROBOT_TYPES)) {
-      const b = h('button' + (this.placing === 'robot:' + id ? '.on' : ''), { html: icon(id) + `<span>+ ${t.name}</span>` });
+      const b = h('button' + (this.placing === 'robot:' + id ? '.on' : ''), { html: icon(id) + `<span>${t.name}<br><small class="muted">${t.label}</small></span>` });
       b.addEventListener('click', () => this.startPlacing('robot:' + id));
-      shelf.appendChild(b);
+      rs.appendChild(b);
     }
-    this.el.appendChild(shelf);
-    this.el.appendChild(h('p.muted', { style: { fontSize: '12.5px' } }, 'Tippe auf ein Teil und dann auf den Boden. Mit dem Verschieben-Werkzeug (rechts in der 3D-Ansicht) ziehst du Dinge an einen anderen Platz.'));
+    this.el.appendChild(rs);
+    this.el.appendChild(h('p.muted', { style: { fontSize: '12px' } }, 'Teil wählen und auf den Hallenboden tippen. Verschieben mit dem Aufbauwerkzeug rechts in der 3D-Ansicht.'));
     this.renderInspector();
   }
 
   startPlacing(t) {
     this.placing = this.placing === t ? null : t;
-    if (this.placing) toast('Tippe in der 3D-Ansicht auf die Stelle, an der es stehen soll.');
+    if (this.placing) toast('Zielposition in der 3D-Ansicht antippen.');
     this.render();
   }
 
@@ -56,9 +84,7 @@ export class WorldPanel {
     if (t.startsWith('robot:')) {
       const type = t.slice(6);
       const n = this.project.robots.filter((r) => r.config.type === type).length;
-      const cfg = withDefaults({ ...DEFAULT_CONFIGS[type], name: DEFAULT_CONFIGS[type].name + (n ? ' ' + (n + 1) : '') });
-      const accents = ['#ff7a1a', '#3b82f6', '#22c55e', '#a855f7', '#ef4444', '#14b8a6'];
-      cfg.accent = accents[this.project.robots.length % accents.length];
+      const cfg = withDefaults({ ...DEFAULT_CONFIGS[type], name: DEFAULT_CONFIGS[type].name + (n ? '-' + (n + 1) : '') });
       const def = { id: uid('r'), config: cfg, spawn: { x, y: 0, z, yaw: 0 }, code: 'beim start\n  \nende\n', layout: [] };
       this.project.robots.push(def);
       app.docs.set(def.id, new ProgramDoc(def.code, []));
@@ -67,6 +93,8 @@ export class WorldPanel {
       app.renderRobotsBar();
     } else {
       const spec = { type: t, x, z };
+      if (t === 'fahrzeug') spec.path = [[x - 2, z], [x + 2, z]];
+      if (t === 'dummy') spec.route = [[0, x, z], [4, x, z], [7, x + 1.5, z], [11, x + 1.5, z], [14, x, z]];
       if (COLORABLE.has(t)) spec.color = t === 'zone' ? 'grün' : t === 'kiste' ? 'blau' : t === 'ziel' ? 'orange' : 'rot';
       // auf Tischen ablegen
       for (const e of app.sim.entities) if (e.surfaceAt && (t === 'würfel' || t === 'kugel' || t === 'zylinder' || t === 'zone' || t === 'kiste')) { const top = e.surfaceAt(x, z); if (top != null) spec.y = t === 'zone' || t === 'kiste' ? top : top + 0.05; }
@@ -101,7 +129,7 @@ export class WorldPanel {
       rot.addEventListener('click', () => { def.spawn.yaw = ((def.spawn.yaw || 0) + Math.PI / 4) % (Math.PI * 2); app.buildWorld(); app.selected = app.robotEntity(def.id); app.autosave(); this.render(); });
       const del = h('button.btn.small.danger', { html: icon('trash') + '<span>Entfernen</span>' });
       del.addEventListener('click', () => {
-        if (this.project.robots.length < 2) { toast('Ein Roboter muss bleiben.'); return; }
+        if (this.project.robots.length < 2) { toast('Mindestens ein Roboter muss in der Anlage bleiben.'); return; }
         this.project.robots = this.project.robots.filter((d) => d !== def);
         app.docs.delete(def.id);
         app.currentId = this.project.robots[0].id;
@@ -143,6 +171,49 @@ export class WorldPanel {
         }
         box.appendChild(r2);
       }
+    }
+    if (['würfel', 'zylinder'].includes(spec.type)) {
+      const row = h('div.row', h('span', 'Temperatur'));
+      for (const v of [null, 45, 80, 150]) {
+        const b = h('button.btn.small' + ((spec.temp ?? null) === v ? '.on' : ''), v == null ? 'Halle' : v + ' °C');
+        b.addEventListener('click', () => { if (v == null) delete spec.temp; else spec.temp = v; this.rebuild(idx); });
+        row.appendChild(b);
+      }
+      box.appendChild(row);
+      const r3 = h('div.row', h('span', 'Kennung'));
+      for (const v of [null, 'A-1001', 'B-2002', 'C-3003']) {
+        const b = h('button.btn.small' + ((spec.code ?? null) === v ? '.on' : ''), v || 'ohne');
+        b.addEventListener('click', () => { if (v == null) delete spec.code; else spec.code = v; this.rebuild(idx); });
+        r3.appendChild(b);
+      }
+      box.appendChild(r3);
+    }
+    if (spec.type === 'wand') {
+      const row = h('div.row', h('span', 'Material'));
+      for (const [k, n] of [[undefined, 'Trockenbau'], ['beton', 'Beton'], ['stahlbeton', 'Stahlbeton'], ['blech', 'Blech'], ['glas', 'Glas']]) {
+        const b = h('button.btn.small' + (spec.material === k ? '.on' : ''), n);
+        b.addEventListener('click', () => { if (k) spec.material = k; else delete spec.material; this.rebuild(idx); });
+        row.appendChild(b);
+      }
+      box.appendChild(row);
+    }
+    if (spec.type === 'hindernis') {
+      const row = h('div.row', h('span', 'Bauform'));
+      for (const [k, n] of [['karton', 'Karton'], ['gitterbox', 'Gitterbox'], ['pylon', 'Pylon'], ['palette', 'Palette']]) {
+        const b = h('button.btn.small' + ((spec.variant || 'karton') === k ? '.on' : ''), n);
+        b.addEventListener('click', () => { spec.variant = k; this.rebuild(idx); });
+        row.appendChild(b);
+      }
+      box.appendChild(row);
+    }
+    if (spec.type === 'fahrzeug') {
+      const row = h('div.row', h('span', 'Tempo'));
+      for (const v of [0.5, 1.0, 1.5]) {
+        const b = h('button.btn.small' + ((spec.speed ?? 1) === v ? '.on' : ''), v.toFixed(1) + ' m/s');
+        b.addEventListener('click', () => { spec.speed = v; this.rebuild(idx); });
+        row.appendChild(b);
+      }
+      box.appendChild(row);
     }
     if (spec.type === 'band') {
       const row = h('div.row', h('span', 'Tempo'));

@@ -1,12 +1,12 @@
-// Humanoider Roboter: zwei Beine mit je fünf Gelenken, Taille, Kopf und zwei Armen mit Greifhänden.
-// Er läuft physikalisch: Die Füße drücken sich vom Boden ab, ein Kreisel-Modul (Gyro) im Becken
-// und die Fußgelenke halten das Gleichgewicht. Zu starke Stöße werfen ihn um.
+// Humanoider Roboter HX-2: zwei Beine mit je vier Achsen, Taille, Kopf und zwei Armen mit Greifhänden.
+// Er läuft physikalisch: Die Füße drücken sich vom Boden ab, ein Reaktionsrad im Becken
+// und die Sprunggelenke halten das Gleichgewicht. Zu starke Stöße werfen ihn um.
 import * as THREE from 'three';
 import { Robot, friendly } from './robot.js';
 import { Gripper } from './gripper.js';
-import { DistanceSensor, ColorSensor, TouchSensor, Camera } from './sensors.js';
-import { Mat, Geo, mesh } from '../render/materials.js';
-import { BALANCE, GRIPPERS, HEADS } from './parts.js';
+import { TouchSensor } from './sensors.js';
+import { Mat, Geo, mesh, boltCircle, fins, plate } from '../render/materials.js';
+import { BALANCE } from './parts.js';
 import { qrot, qconj, qmul, qaxis, vadd, upOf, yawOf, wrapAngle, clamp, smooth, DEG, RAD } from '../core/util.js';
 
 const FOOT_H = 0.05, SHIN = 0.30, THIGH = 0.30, HIP_X = 0.09, HIP_DROP = 0.05;
@@ -27,9 +27,25 @@ export function legIK(fz, h, lat = 0) {
   return { hip, knee, ankle, roll };
 }
 
+// Aktuator: dunkles Gehäuse mit Lagerdeckel, Achse entlang x
+function actuatorX(r, len) {
+  const g = new THREE.Group();
+  const body = mesh(Geo.chamferCyl(r, len, 0.004), Mat.anodized());
+  body.rotation.z = Math.PI / 2;
+  g.add(body);
+  for (const s of [-1, 1]) {
+    const cap = mesh(Geo.cyl(r * 0.72, r * 0.72, 0.004, 32), Mat.cast());
+    cap.rotation.z = Math.PI / 2;
+    cap.position.x = s * (len / 2 + 0.001);
+    g.add(cap);
+  }
+  return g;
+}
+
 export class Humanoid extends Robot {
   constructor(sim, config, spawn) {
     super(sim, config, spawn);
+    this.defaultGroup = 'arme';
     this.gyro = BALANCE[this.config.gyro] || BALANCE.standard;
     this.loco = { mode: 'stand', vx: 0, phase: 0, height: STAND_H, yaw: this.spawn.yaw, turning: false, stopping: false, stepT: 0.5 };
     this.legsManual = false;
@@ -42,35 +58,57 @@ export class Humanoid extends Robot {
   L(x, y, z) { return vadd(this.spawn, qrot(this.q0, { x, y, z })); }
 
   build() {
-    const shell = this.shell, accent = this.accent, dark = Mat.graphite(), jm = Mat.joint();
-    const ms = this.motor.mass;
+    const paint = this.shell, dark = Mat.anodized(), graph = Mat.graphite();
+    const mL = this.rel('beine').mass, mA = this.rel('arme').mass;
     const ik0 = legIK(0, STAND_H, 0);
     const pelvisY = FOOT_H + STAND_H + HIP_DROP;
 
     // Becken
     const becken = this.makePart('becken', this.L(0, pelvisY, 0), this.q0, { colliders: [{ shape: 'box', size: [0.13, 0.06, 0.085], r: 0.02 }], iters: 8 });
-    this.fixMass(becken, 5.5 * (0.6 + 0.4 * ms));
-    this.add(becken, mesh(Geo.box(0.25, 0.11, 0.16, 0.04), dark), 0, 0, 0);
-    this.add(becken, mesh(Geo.box(0.2, 0.07, 0.17, 0.03), shell), 0, 0.02, 0);
+    this.fixMass(becken, 5.5 * (0.6 + 0.4 * mL));
+    this.add(becken, mesh(Geo.box(0.22, 0.1, 0.15, 0.03), dark), 0, 0, 0);
+    this.add(becken, mesh(Geo.taper(0.21, 0.16, 0.19, 0.15, 0.07, 0.025), paint), 0, 0.018, 0);
+    for (const s of [-1, 1]) {
+      const hr = mesh(Geo.chamferCyl(0.04, 0.085, 0.004), graph);
+      hr.rotation.x = Math.PI / 2;
+      this.add(becken, hr, s * HIP_X, -HIP_DROP + 0.005, 0);
+    }
     this.beckenPart = becken;
 
     // Oberkörper
-    const torso = this.chain('oberkoerper', becken, 'taille', { anchor: [0, WAIST_Y, 0], axis: [1, 0, 0], init: 0, min: -25 * DEG, max: 80 * DEG, force: 170, speed: 1.2, stiffness: 1400, damping: 70, label: 'Taille' },
+    const torso = this.chain('oberkoerper', becken, 'taille', { group: 'arme', anchor: [0, WAIST_Y, 0], axis: [1, 0, 0], init: 0, min: -25 * DEG, max: 80 * DEG, force: 170, speed: 1.2, stiffness: 1400, damping: 70, label: 'Taille' },
       { colliders: [{ shape: 'box', size: [0.16, 0.16, 0.095], pos: [0, 0.2, 0], r: 0.04 }], iters: 6 });
-    this.fixMass(torso, 7 * ms);
-    this.add(torso, mesh(Geo.cyl(0.07, 0.08, 0.09, 24), jm), 0, 0.03, 0);
-    this.add(torso, mesh(Geo.box(0.33, 0.32, 0.19, 0.07), shell), 0, 0.22, 0);
-    this.add(torso, mesh(Geo.box(0.22, 0.14, 0.02, 0.02), dark), 0, 0.25, 0.092);
-    this.addLed(torso, mesh(Geo.torus(0.035, 0.006, 32), Mat.glow(this.config.accent)), 0, 0.25, 0.103);
-    this.add(torso, mesh(Geo.box(0.34, 0.035, 0.2, 0.012), accent), 0, 0.1, 0);
+    this.fixMass(torso, 7 * mA);
+    this.add(torso, actuatorX(0.058, 0.15), 0, 0, 0);
+    this.add(torso, mesh(Geo.taper(0.19, 0.13, 0.24, 0.16, 0.08, 0.03), graph), 0, 0.07, 0);
+    this.add(torso, mesh(Geo.taper(0.29, 0.17, 0.34, 0.19, 0.25, 0.05), paint), 0, 0.235, 0);
+    this.add(torso, mesh(Geo.box(0.2, 0.11, 0.012, 0.01), Mat.visor()), 0, 0.26, 0.093);
+    this.addLed(torso, mesh(Geo.box(0.12, 0.005, 0.004, 0.001), Mat.glow(this.config.akzent)), 0, 0.192, 0.0985);
+    const tp = plate(this.name || 'HX-2', 0.06, 0.016, { bg: '#16191d', color: '#e6e8eb', size: 36 });
+    this.add(torso, tp, 0.0, 0.335, 0.0965);
+    // Akkupack mit Griff und Lüftungsschlitzen
+    this.add(torso, mesh(Geo.box(0.22, 0.2, 0.05, 0.014), dark), 0, 0.235, -0.112);
+    for (let i = 0; i < 5; i++) this.add(torso, mesh(Geo.box(0.16, 0.004, 0.002, 0), Mat.rubber()), 0, 0.18 + i * 0.022, -0.1376);
+    this.add(torso, mesh(Geo.tube([[-0.06, 0.345, -0.11], [-0.04, 0.37, -0.12], [0.04, 0.37, -0.12], [0.06, 0.345, -0.11]], 0.006, 16), Mat.steel()));
+    this.add(torso, mesh(Geo.cyl(0.036, 0.04, 0.05, 24), dark), 0, NECK_Y - 0.03, 0);
+    for (const s of [-1, 1]) this.add(torso, mesh(Geo.box(0.09, 0.07, 0.15, 0.03), paint), s * 0.15, SH_Y + 0.01, 0);
     this.torso = torso;
 
     // Kopf
-    const head = this.chain('kopf', torso, 'kopf', { anchor: [0, NECK_Y, 0], axis: [0, 1, 0], init: 0, min: -100 * DEG, max: 100 * DEG, force: 10, speed: 2.4, stiffness: 160, damping: 6, label: 'Kopf' },
+    const head = this.chain('kopf', torso, 'kopf', { group: 'arme', anchor: [0, NECK_Y, 0], axis: [0, 1, 0], init: 0, min: -100 * DEG, max: 100 * DEG, force: 10, speed: 2.4, stiffness: 160, damping: 6, label: 'Kopf' },
       { colliders: [{ shape: 'box', size: [0.1, 0.105, 0.1], pos: [0, 0.135, 0.005], r: 0.05 }] });
     this.fixMass(head, 1.6);
     this.headPart = head;
-    this.buildHead(head);
+    this.add(head, mesh(Geo.cyl(0.03, 0.034, 0.05, 20), dark), 0, 0.025, 0);
+    this.add(head, mesh(Geo.box(0.19, 0.2, 0.2, 0.07), paint), 0, 0.14, 0);
+    this.add(head, mesh(Geo.box(0.172, 0.12, 0.03, 0.03), Mat.visor()), 0, 0.14, 0.088);
+    this.addLed(head, mesh(Geo.box(0.11, 0.007, 0.004, 0.002), Mat.glow(this.config.akzent)), 0, 0.158, 0.1035);
+    for (const x of [-0.028, 0.028]) this.add(head, mesh(Geo.cyl(0.009, 0.009, 0.003, 20), Mat.lens(), x, 0.122, 0.1035).rotateX(Math.PI / 2));
+    for (const s of [-1, 1]) {
+      const ear = mesh(Geo.chamferCyl(0.034, 0.02, 0.003), graph);
+      ear.rotation.z = Math.PI / 2;
+      this.add(head, ear, s * 0.1, 0.14, 0);
+    }
 
     // Arme
     this.hands = {};
@@ -81,101 +119,93 @@ export class Humanoid extends Robot {
     for (const side of ['l', 'r']) {
       const sx = side === 'l' ? HIP_X : -HIP_X;
       const out = side === 'l' ? 1 : -1;
-      const blk = this.chain('huefteSeit' + side, becken, 'hüfte_seit_' + side, { anchor: [sx, -HIP_DROP, 0], axis: [0, 0, out], init: 0, min: -0.6, max: 0.6, force: 190, speed: 3, stiffness: 1100, damping: 50, hidden: true },
+      const blk = this.chain('huefteSeit' + side, becken, 'hüfte_seit_' + side, { group: 'beine', anchor: [sx, -HIP_DROP, 0], axis: [0, 0, out], init: 0, min: -0.6, max: 0.6, force: 190, speed: 3, stiffness: 1100, damping: 50, hidden: true },
         { colliders: [{ shape: 'box', size: [0.05, 0.04, 0.06] }], iters: 10 });
       this.fixMass(blk, 0.8);
       this.setInertia(blk, 0.8, 0.006);
-      const thigh = this.chain('oberschenkel' + side, blk, 'hüfte_' + side, { anchor: [0, 0, 0], axis: [-1, 0, 0], init: ik0.hip, min: -100 * DEG, max: 100 * DEG, force: 220, speed: 4, stiffness: 950, damping: 42, label: (side === 'l' ? 'linke' : 'rechte') + ' Hüfte' },
+      this.add(blk, mesh(Geo.box(0.07, 0.05, 0.09, 0.012), dark), 0, -0.01, 0);
+      const thigh = this.chain('oberschenkel' + side, blk, 'hüfte_' + side, { group: 'beine', anchor: [0, 0, 0], axis: [-1, 0, 0], init: ik0.hip, min: -100 * DEG, max: 100 * DEG, force: 220, speed: 4, stiffness: 950, damping: 42, label: (side === 'l' ? 'linke' : 'rechte') + ' Hüfte' },
         { colliders: [{ shape: 'box', size: [0.05, THIGH / 2 - 0.03, 0.055], pos: [0, -THIGH / 2, 0], r: 0.02 }] });
-      this.fixMass(thigh, 2.6 * ms);
-      this.add(thigh, mesh(Geo.cyl(0.05, 0.05, 0.12, 24), jm), 0, 0, 0).rotation.z = Math.PI / 2;
-      this.add(thigh, mesh(Geo.box(0.1, THIGH - 0.06, 0.11, 0.04), shell), 0, -THIGH / 2, 0);
-      this.add(thigh, mesh(Geo.box(0.102, 0.05, 0.112, 0.02), accent), 0, -0.07, 0);
-      const shin = this.chain('unterschenkel' + side, thigh, 'knie_' + side, { anchor: [0, -THIGH, 0], axis: [1, 0, 0], init: ik0.knee, min: -2 * DEG, max: 140 * DEG, force: 220, speed: 4, stiffness: 950, damping: 42, label: (side === 'l' ? 'linkes' : 'rechtes') + ' Knie' },
+      this.fixMass(thigh, 2.6 * mL);
+      this.add(thigh, actuatorX(0.054, 0.11), 0, 0, 0);
+      this.add(thigh, mesh(Geo.taper(0.088, 0.096, 0.1, 0.112, THIGH - 0.09, 0.035), paint), 0, -THIGH / 2 - 0.005, 0);
+      this.add(thigh, mesh(Geo.box(0.06, THIGH * 0.42, 0.006, 0.002), graph), 0, -THIGH / 2, 0.056);
+      const shin = this.chain('unterschenkel' + side, thigh, 'knie_' + side, { group: 'beine', anchor: [0, -THIGH, 0], axis: [1, 0, 0], init: ik0.knee, min: -2 * DEG, max: 140 * DEG, force: 220, speed: 4, stiffness: 950, damping: 42, label: (side === 'l' ? 'linkes' : 'rechtes') + ' Knie' },
         { colliders: [{ shape: 'box', size: [0.045, SHIN / 2 - 0.03, 0.05], pos: [0, -SHIN / 2, 0], r: 0.02 }] });
-      this.fixMass(shin, 1.9 * ms);
-      this.add(shin, mesh(Geo.cyl(0.045, 0.045, 0.11, 24), jm), 0, 0, 0).rotation.z = Math.PI / 2;
-      this.add(shin, mesh(Geo.box(0.088, SHIN - 0.05, 0.096, 0.035), shell), 0, -SHIN / 2, 0);
-      this.add(shin, mesh(Geo.box(0.05, 0.12, 0.012, 0.005), dark), 0, -SHIN / 2, 0.05);
-      const foot = this.chain('fuss' + side, shin, 'fuß_' + side, { anchor: [0, -SHIN, 0], axis: [-1, 0, 0], init: ik0.ankle, min: -50 * DEG, max: 50 * DEG, force: 130, speed: 4, stiffness: 800, damping: 30, label: (side === 'l' ? 'linker' : 'rechter') + ' Fuß' },
+      this.fixMass(shin, 1.9 * mL);
+      this.add(shin, actuatorX(0.048, 0.104), 0, 0, 0);
+      this.add(shin, mesh(Geo.taper(0.074, 0.08, 0.088, 0.096, SHIN - 0.09, 0.03), paint), 0, -SHIN / 2 - 0.005, 0.004);
+      this.add(shin, mesh(Geo.cyl(0.007, 0.007, SHIN - 0.1, 10), Mat.steel()), 0, -SHIN / 2, -0.055);
+      for (const yy of [-0.06, -SHIN + 0.06]) this.add(shin, mesh(Geo.box(0.02, 0.016, 0.03, 0.004), dark), 0, yy, -0.048);
+      const foot = this.chain('fuss' + side, shin, 'fuß_' + side, { group: 'beine', anchor: [0, -SHIN, 0], axis: [-1, 0, 0], init: ik0.ankle, min: -50 * DEG, max: 50 * DEG, force: 130, speed: 4, stiffness: 800, damping: 30, label: (side === 'l' ? 'linker' : 'rechter') + ' Fuß' },
         { colliders: [{ shape: 'box', size: [0.058, FOOT_H / 2, 0.112], pos: [0, -FOOT_H / 2, 0.035], friction: 1.6, r: 0.008, role: 'fuss' }], iters: 12 });
       this.fixMass(foot, 0.9);
-      this.add(foot, mesh(Geo.cyl(0.035, 0.035, 0.09, 20), jm), 0, 0, 0).rotation.z = Math.PI / 2;
-      this.add(foot, mesh(Geo.box(0.116, 0.032, 0.224, 0.012), dark), 0, -0.034, 0.035);
-      this.add(foot, mesh(Geo.box(0.106, 0.03, 0.17, 0.014), shell), 0, -0.006, 0.045);
+      this.add(foot, actuatorX(0.034, 0.09), 0, 0, 0);
+      this.add(foot, mesh(Geo.box(0.116, 0.014, 0.226, 0.006), Mat.rubber()), 0, -0.043, 0.035);
+      this.add(foot, mesh(Geo.box(0.108, 0.03, 0.2, 0.012), graph), 0, -0.022, 0.035);
+      this.add(foot, mesh(Geo.box(0.1, 0.026, 0.13, 0.012), paint), 0, -0.012, 0.06);
       this.feet[side] = foot;
     }
     this.legSide = (n) => n.slice(-1);
 
-    // Sensoren
-    const cfg = this.config.sensoren;
-    if (cfg.includes('abstand')) {
-      this.sensors.abstand = new DistanceSensor(this, torso, { x: 0, y: 0.17, z: 0.1 }, { x: 0, y: -0.08, z: 1 }, 2);
-      for (const sx of [-0.035, 0.035]) this.add(torso, mesh(Geo.cyl(0.016, 0.016, 0.014, 18), Mat.steel()), sx, 0.17, 0.097).rotation.x = Math.PI / 2;
-    }
-    if (cfg.includes('kamera')) this.sensors.kamera = new Camera(this, head, { x: 0, y: 0.14, z: 0.1 }, { x: 0, y: -0.3, z: 1 }, 110, 4);
-    if (cfg.includes('farbe')) this.sensors.farbe = new ColorSensor(this, this.hands.r.part, { x: 0, y: -0.03, z: 0 }, { x: 0, y: -1, z: 0 }, 0.14);
-    if (cfg.includes('beruehrung')) this.sensors.beruehrung = new TouchSensor(this, [...(this.hands.r.fingers || []).map((f) => f.part.colliders[0]), ...(this.hands.l.fingers || []).map((f) => f.part.colliders[0]), torso.colliders[0]]);
+    // Module
+    this.buildModules();
+    if (this.config.module.includes('kontakt')) this.sensors.beruehrung = new TouchSensor(this, [...(this.hands.r.fingers || []).map((f) => f.part.colliders[0]), ...(this.hands.l.fingers || []).map((f) => f.part.colliders[0]), torso.colliders[0]]);
     this.setLed(null);
-    this.idleLed();
+    this.optimize();
   }
 
-  idleLed() { for (const m of this.leds) m.material = Mat.glow(this.config.accent); }
-
-  buildHead(head) {
-    const kind = HEADS[this.config.kopf] ? this.config.kopf : 'visier';
-    const shell = this.shell, dark = Mat.graphite();
-    this.add(head, mesh(Geo.cyl(0.035, 0.04, 0.05, 20), Mat.joint()), 0, 0.02, 0);
-    this.add(head, mesh(Geo.box(0.2, 0.21, 0.2, 0.08), shell), 0, 0.135, 0);
-    this.add(head, mesh(Geo.box(0.21, 0.03, 0.18, 0.012), this.accent), 0, 0.07, -0.005);
-    if (kind === 'kamera') {
-      this.add(head, mesh(Geo.box(0.17, 0.11, 0.03, 0.03), Mat.visor()), 0, 0.14, 0.092);
-      this.add(head, mesh(Geo.cyl(0.035, 0.038, 0.03, 32), dark), 0, 0.14, 0.11).rotation.x = Math.PI / 2;
-      this.add(head, mesh(Geo.cyl(0.022, 0.022, 0.012, 32), Mat.visor()), 0, 0.14, 0.126).rotation.x = Math.PI / 2;
-      this.addLed(head, mesh(Geo.torus(0.04, 0.004, 40), Mat.glow(this.config.accent)), 0, 0.14, 0.108);
-    } else {
-      this.add(head, mesh(Geo.box(0.18, 0.09, 0.03, 0.03), Mat.visor()), 0, 0.15, 0.092);
-      for (const sx of [-0.042, 0.042]) {
-        const eye = this.addLed(head, mesh(Geo.box(0.04, 0.016, 0.006, 0.006), Mat.glow(this.config.accent)), sx, 0.152, 0.108);
-        eye.castShadow = false;
-      }
-    }
-    if (kind === 'lidar') {
-      this.add(head, mesh(Geo.cyl(0.045, 0.05, 0.03, 32), dark), 0, 0.255, 0);
-      this.lidar = this.add(head, mesh(Geo.cyl(0.035, 0.035, 0.035, 24), Mat.accent('#ef4444')), 0, 0.285, 0);
-    }
-    // Antennen-Ohren
-    for (const sx of [-1, 1]) this.add(head, mesh(Geo.cyl(0.03, 0.03, 0.02, 24), Mat.joint()), sx * 0.104, 0.135, 0).rotation.z = Math.PI / 2;
+  mounts() {
+    return {
+      kamera: { part: 'kopf', pos: [0, 0.12, 0.09], hidden: true, camera: { pos: [0, 0.14, 0.1], dir: [0, -0.3, 1], fov: 110, range: 4, feedFov: 72 } },
+      tiefenkamera: { part: 'kopf', pos: [0, 0.12, 0.09], hidden: true, camera: { pos: [0, 0.14, 0.1], dir: [0, -0.3, 1], fov: 110, range: 4, feedFov: 72 } },
+      waermebild: { part: 'oberkoerper', pos: [0.085, 0.29, 0.092], rot: [0.35, 0, 0], camera: { pos: [0.085, 0.31, 0.13], dir: [0, -0.35, 1], thermalFov: 60, wide: 200, range: 5 } },
+      lidar2d: { part: 'kopf', pos: [0, 0.24, -0.005] },
+      lidar3d: { part: 'kopf', pos: [0, 0.24, -0.005] },
+      ultraschall: { part: 'oberkoerper', pos: [0, 0.14, 0.096], rot: [0.08, 0, 0] },
+      tof: { part: 'oberkoerper', pos: [0, 0.145, 0.096], rot: [0.08, 0, 0] },
+      radar: { part: 'oberkoerper', pos: [-0.085, 0.265, 0.096] },
+      farbsensor: { part: 'handr', pos: [0, -0.021, 0], rot: [Math.PI, 0, 0], hidden: true, range: 0.14 },
+      rfid: { part: 'handl', pos: [0, -0.034, 0], rot: [Math.PI, 0, 0] },
+      barcode: { part: 'oberkoerper', pos: [0.085, 0.215, 0.094], rot: [0.5, 0, 0] },
+      signalsaeule: { part: 'oberkoerper', pos: [0.07, 0.335, -0.115] },
+      rundumleuchte: { part: 'oberkoerper', pos: [-0.07, 0.335, -0.115] },
+      scheinwerfer: { part: 'oberkoerper', pos: [-0.085, 0.31, 0.094], rot: [0.35, 0, 0] },
+      hupe: { part: 'oberkoerper', pos: [0, 0.12, -0.14], rot: [0, Math.PI, 0] },
+      antenne: { part: 'oberkoerper', pos: [0.095, 0.335, -0.125] },
+    };
   }
+
+  idleLed() { this.setLed(null); }
 
   buildArm(torso, side) {
     const sgn = side === 'l' ? 1 : -1;
-    const shell = this.shell, jm = Mat.joint(), dark = Mat.graphite();
-    const ms = this.motor.mass;
+    const paint = this.shell, dark = Mat.anodized();
+    const mA = this.rel('arme').mass;
     const lab = side === 'l' ? 'linke' : 'rechte';
-    const ball = this.chain('schulterkugel' + side, torso, 'schulter_' + side, { anchor: [sgn * SH_X, SH_Y, 0], axis: [-1, 0, 0], init: 0, min: -60 * DEG, max: 180 * DEG, force: 55, speed: 2.4, stiffness: 480, damping: 22, label: lab + ' Schulter' },
+    const ball = this.chain('schulterkugel' + side, torso, 'schulter_' + side, { group: 'arme', anchor: [sgn * SH_X, SH_Y, 0], axis: [-1, 0, 0], init: 0, min: -60 * DEG, max: 180 * DEG, force: 55, speed: 2.4, stiffness: 480, damping: 22, label: lab + ' Schulter' },
       { colliders: [{ shape: 'ball', size: [0.05] }] });
     this.fixMass(ball, 0.4);
-    this.add(ball, mesh(Geo.sphere(0.055, 24), jm), 0, 0, 0);
-    const up = this.chain('oberarm' + side, ball, 'arm_' + side, { anchor: [0, 0, 0], axis: [0, 0, sgn], init: 4 * DEG, min: -10 * DEG, max: 150 * DEG, force: 45, speed: 2.4, stiffness: 420, damping: 18, label: lab + 'r Arm (seitlich)' },
+    this.add(ball, actuatorX(0.05, 0.075), 0, 0, 0);
+    const up = this.chain('oberarm' + side, ball, 'arm_' + side, { group: 'arme', anchor: [0, 0, 0], axis: [0, 0, sgn], init: 4 * DEG, min: -10 * DEG, max: 150 * DEG, force: 45, speed: 2.4, stiffness: 420, damping: 18, label: lab + 'r Arm (seitlich)' },
       { colliders: [{ shape: 'box', size: [0.038, UA / 2 - 0.03, 0.038], pos: [0, -UA / 2 - 0.01, 0], r: 0.015 }] });
-    this.fixMass(up, 1.1 * ms);
-    this.add(up, mesh(Geo.box(0.082, UA - 0.06, 0.082, 0.035), shell), 0, -UA / 2 - 0.01, 0);
-    this.add(up, mesh(Geo.box(0.084, 0.03, 0.084, 0.012), this.accent), 0, -0.07, 0);
-    const fore = this.chain('unterarm' + side, up, 'ellbogen_' + side, { anchor: [0, -UA, 0], axis: [-1, 0, 0], init: 12 * DEG, min: -5 * DEG, max: 145 * DEG, force: 35, speed: 2.6, stiffness: 380, damping: 15, label: lab + 'r Ellbogen' },
+    this.fixMass(up, 1.1 * mA);
+    this.add(up, mesh(Geo.cyl(0.04, 0.04, 0.03, 28), dark), 0, -0.045, 0);
+    this.add(up, mesh(Geo.taper(0.07, 0.07, 0.078, 0.078, UA - 0.09, 0.03), paint), 0, -UA / 2 - 0.02, 0);
+    const fore = this.chain('unterarm' + side, up, 'ellbogen_' + side, { group: 'arme', anchor: [0, -UA, 0], axis: [-1, 0, 0], init: 12 * DEG, min: -5 * DEG, max: 145 * DEG, force: 35, speed: 2.6, stiffness: 380, damping: 15, label: lab + 'r Ellbogen' },
       { colliders: [{ shape: 'box', size: [0.034, FA / 2 - 0.025, 0.034], pos: [0, -FA / 2, 0], r: 0.014 }] });
-    this.fixMass(fore, 0.8 * ms);
-    this.add(fore, mesh(Geo.cyl(0.04, 0.04, 0.09, 20), jm), 0, 0, 0).rotation.z = Math.PI / 2;
-    this.add(fore, mesh(Geo.box(0.072, FA - 0.04, 0.072, 0.03), shell), 0, -FA / 2, 0);
-    const hand = this.chain('hand' + side, fore, 'hand_' + side, { anchor: [0, -FA, 0], axis: [-1, 0, 0], init: 0, min: -90 * DEG, max: 90 * DEG, force: 12, speed: 3, stiffness: 150, damping: 6, label: lab + ' Hand' },
+    this.fixMass(fore, 0.8 * mA);
+    this.add(fore, actuatorX(0.04, 0.084), 0, 0, 0);
+    this.add(fore, mesh(Geo.taper(0.066, 0.066, 0.058, 0.058, FA - 0.06, 0.026), paint), 0, -FA / 2 - 0.005, 0);
+    const hand = this.chain('hand' + side, fore, 'hand_' + side, { group: 'arme', anchor: [0, -FA, 0], axis: [-1, 0, 0], init: 0, min: -90 * DEG, max: 90 * DEG, force: 12, speed: 3, stiffness: 150, damping: 6, label: lab + ' Hand' },
       { colliders: [{ shape: 'box', size: [0.05, 0.014, 0.03], pos: [0, -0.016, 0] }] });
     this.fixMass(hand, 0.3);
-    this.add(hand, mesh(Geo.cyl(0.03, 0.03, 0.07, 18), jm), 0, 0, 0).rotation.z = Math.PI / 2;
-    this.add(hand, mesh(Geo.box(0.11, 0.03, 0.062, 0.01), dark), 0, -0.016, 0);
-    const gtype = this.config.greifer === 'sauger' ? 'sauger' : 'zange';
-    const info = GRIPPERS[gtype];
+    this.add(hand, actuatorX(0.027, 0.062), 0, 0, 0);
+    this.add(hand, mesh(Geo.box(0.11, 0.03, 0.062, 0.008), dark), 0, -0.018, 0);
+    const vac = this.tool.gtype === 'sauger';
+    const info = this.tool;
     let g;
-    if (gtype === 'zange') {
+    if (!vac) {
       const fingers = [];
       for (const fs of [1, -1]) {
         const fname = 'finger' + side + (fs > 0 ? 'a' : 'b');
@@ -183,7 +213,7 @@ export class Humanoid extends Robot {
           { kind: 'pri', anchor: [fs * 0.055, -0.03, 0], axis: [fs, 0, 0], init: 0, min: -0.05, max: 0, force: info.force * 0.8, speed: 0.12, accel: 0.6, stiffness: 2000, damping: 50, hidden: true, motorScaled: false },
           { colliders: [{ shape: 'box', size: [0.008, 0.035, 0.02], pos: [0, -0.035, 0], friction: 1.15 }], angDamp: 1, iters: 6 });
         this.fixMass(part, 0.07);
-        this.add(part, mesh(Geo.box(0.016, 0.075, 0.042, 0.005), dark), 0, -0.035, 0);
+        this.add(part, mesh(Geo.taper(0.012, 0.034, 0.016, 0.042, 0.072, 0.004), Mat.alu()), 0, -0.036, 0);
         this.add(part, mesh(Geo.box(0.004, 0.05, 0.034, 0.002), Mat.rubber()), -fs * 0.0085, -0.04, 0);
         fingers.push({ servo: this.servos.get('finger_' + side + (fs > 0 ? 'a' : 'b')), part });
       }
@@ -191,8 +221,8 @@ export class Humanoid extends Robot {
       this.hands[side] = { part: hand, fingers, gripper: g };
     } else {
       const cup = this.addCollider(hand, { shape: 'cyl', size: [0.014, 0.024], pos: [0, -0.045, 0], friction: 0.9 });
-      this.add(hand, mesh(Geo.cyl(0.01, 0.01, 0.03, 12), Mat.steel()), 0, -0.04, 0);
-      this.add(hand, mesh(Geo.cyl(0.016, 0.026, 0.018, 24), Mat.rubber()), 0, -0.062, 0);
+      this.add(hand, mesh(Geo.cyl(0.009, 0.009, 0.03, 12), Mat.steel()), 0, -0.04, 0);
+      this.add(hand, mesh(Geo.lathe([[0.008, 0], [0.014, -0.003], [0.018, -0.008], [0.016, -0.011], [0.026, -0.018], [0.008, -0.016]], 28), Mat.rubber()), 0, -0.052, 0);
       g = new Gripper(this, { type: 'sauger', palm: hand, tip: { x: 0, y: -0.072, z: 0 }, axis: { x: 0, y: -1, z: 0 }, force: info.force, cup, name: 'hand_' + side });
       this.hands[side] = { part: hand, gripper: g };
     }
@@ -223,7 +253,6 @@ export class Humanoid extends Robot {
     if (this.status !== 'umgefallen' && !this.gettingUp) {
       if (tilt > 50 * DEG || (this.saturated > 0.7 && tilt > 22 * DEG)) this.fall();
     }
-    if (this.lidar) this.lidar.rotation.y += dt * 9;
     if (this.status === 'umgefallen' && !this.gettingUp) return;
 
     // Gyro: hält den Körper aufrecht und dreht ihn auf den Soll-Gierwinkel.
@@ -350,8 +379,7 @@ export class Humanoid extends Robot {
     this.loco.mode = 'stand'; this.loco.vx = 0;
     for (const t of this.tasks) this.cancelTask(t);
     for (const s of this.servos.values()) s.softness = 0.12;
-    this.say('Hoppla!');
-    this.warn('Der Roboter ist umgefallen. Mit „steh auf“ richtet er sich wieder auf.');
+    this.warn('Sturz erkannt – Antriebe weich geschaltet. Mit „steh auf“ wieder aufrichten.');
     this.setLed('rot');
   }
 
@@ -413,7 +441,7 @@ export class Humanoid extends Robot {
   /* ---------------- Fortbewegung ---------------- */
 
   checkUp() {
-    if (this.status === 'umgefallen') throw friendly('Der Roboter liegt am Boden. Zuerst „steh auf“!');
+    if (this.status === 'umgefallen') throw friendly('Roboter liegt am Boden. Zuerst „steh auf“ ausführen.');
   }
 
   *walkFor(dist) {
@@ -431,7 +459,7 @@ export class Humanoid extends Robot {
     for (;;) {
       const dt = yield;
       t += dt;
-      if (this.status === 'umgefallen') throw friendly('Umgefallen – der Weg wurde abgebrochen.');
+      if (this.status === 'umgefallen') throw friendly('Sturz – Fahrauftrag abgebrochen.');
       const p = this.frame().p;
       const done = ((p.x - f0.p.x) * Math.sin(f0.yaw) + (p.z - f0.p.z) * Math.cos(f0.yaw)) * dir;
       const rest = target - done;
@@ -482,7 +510,7 @@ export class Humanoid extends Robot {
       if (dist < stopDist) break;
       // kommt nicht weiter (z. B. ein Tisch im Weg)? Dann aufgeben statt endlos zu treten
       if (dist < best - 0.02) { best = dist; bestT = t; }
-      if (t - bestT > 3.5) { this.warn('Ich komme nicht näher heran – steht etwas im Weg?'); break; }
+      if (t - bestT > 3.5) { this.warn('Annäherung blockiert – Hindernis im Weg?'); break; }
       const bearing = Math.atan2(dx, dz);
       const err = wrapAngle(bearing - f.yaw);
       if (Math.abs(err) > 30 * DEG && dist > 0.15) {
@@ -495,7 +523,7 @@ export class Humanoid extends Robot {
       lo.vx = dist < 0.15 ? v * clamp(dist / 0.15 + 0.3, 0.3, 1) : v;
       lo.stepT = 0.56 - 0.14 * this.speed;
       t += yield;
-      if (this.status === 'umgefallen') throw friendly('Umgefallen – der Weg wurde abgebrochen.');
+      if (this.status === 'umgefallen') throw friendly('Sturz – Fahrauftrag abgebrochen.');
       if (t > 40) break;
       // vorbeigelaufen?
       const f2 = this.frame();
@@ -531,7 +559,7 @@ export class Humanoid extends Robot {
   }
   cmd_folge_pfad() {
     const path = this.sim.path;
-    if (!path || path.length < 2) throw friendly('Es ist noch kein Pfad gezeichnet. Zeichne mit dem Apple Pencil (oder dem Pfad-Werkzeug) eine Linie auf den Boden.');
+    if (!path || path.length < 2) throw friendly('Kein Pfad vorhanden. Mit dem Pfadwerkzeug (Apple Pencil) einen Pfad auf den Boden zeichnen.');
     return this.run(function* () {
       for (const pt of path) yield* this.walkTo(pt.x, pt.z, 0.08);
     }, 'beine');
@@ -549,7 +577,7 @@ export class Humanoid extends Robot {
 
   servoOrFail(name) {
     const s = this.servos.get(name);
-    if (!s || s.hidden) throw friendly(`Ein Gelenk „${name}“ hat der Humanoid nicht. Es gibt: ${this.jointNames().join(', ')}.`);
+    if (!s || s.hidden) throw friendly(`Achse „${name}“ existiert nicht. Verfügbar: ${this.jointNames().join(', ')}.`);
     return s;
   }
   markJoint(name) {
@@ -560,7 +588,7 @@ export class Humanoid extends Robot {
   cmd_drehe_auf({ gelenk, winkel }) {
     const s = this.servoOrFail(gelenk);
     this.markJoint(gelenk);
-    if (s.setDeg(winkel, this.speed)) this.warn(`${s.label}: ${Math.round(winkel)}° geht nicht – erlaubt sind ${Math.round(s.min * RAD)}° bis ${Math.round(s.max * RAD)}°.`);
+    if (s.setDeg(winkel, this.speed)) this.warn(`${s.label}: ${Math.round(winkel)}° außerhalb des Verfahrbereichs (${Math.round(s.min * RAD)}° … ${Math.round(s.max * RAD)}°), begrenzt.`);
     return this.run(function* () { yield* this.waitServos([gelenk]); }, 'gelenk:' + gelenk);
   }
   cmd_drehe_um({ gelenk, winkel }) {
@@ -677,7 +705,7 @@ export class Humanoid extends Robot {
 
   *reach(side, target, opts = {}) {
     const sol0 = this.armIK(side, target);
-    if (!sol0) throw friendly(`Da kommt die ${side === 'l' ? 'linke' : 'rechte'} Hand nicht hin – der Punkt ist zu weit weg. Geh näher heran.`);
+    if (!sol0) throw friendly(`Zielpunkt für die ${side === 'l' ? 'linke' : 'rechte'} Hand außerhalb der Reichweite – näher herangehen.`);
     this.armIdle[side] = false;
     this.legsManual = false;
     let goal = { ...target };
@@ -703,7 +731,7 @@ export class Humanoid extends Robot {
   cmd_bewege_hand({ seite, x, y, z }) {
     const side = seite === 'linke' ? 'l' : 'r';
     const t = { x: -x / 100, y: y / 100, z: z / 100 };
-    if (!this.armIK(side, t)) throw friendly(`Den Punkt (${x}, ${y}, ${z}) erreicht die Hand nicht. Der Arm ist etwa ${Math.round((UA + FA + HAND) * 100)} cm lang.`);
+    if (!this.armIK(side, t)) throw friendly(`Punkt (${x}, ${y}, ${z}) außerhalb der Reichweite (Armlänge ca. ${Math.round((UA + FA + HAND) * 100)} cm).`);
     return this.run(function* () { this.checkUp(); yield* this.reach(side, t); }, 'arm_' + side);
   }
 
@@ -796,25 +824,29 @@ export class Humanoid extends Robot {
     return false;
   }
 
+  cmd_nimm_waermstes() { return this.cmd_nimm({ farbe: null }); }
+
   cmd_nimm({ farbe }) {
-    const cam = this.needSensor('kamera');
+    const cam = farbe == null ? null : this.needSensor('kamera');
+    const thermal = farbe == null ? this.needSensor('waerme') : null;
     const g = this.hands.r.gripper;
     const self = this;
     return this.run(function* () {
       this.checkUp();
       // Kopf drehen erweitert das Blickfeld deutlich
-      let hit = cam.find(farbe, { objectsOnly: true, skipSorted: true, fov: 230 });
+      const find = () => (farbe == null ? (thermal.hottest({ skipBinned: true }) || null) : cam.find(farbe, { objectsOnly: true, skipSorted: true, skipBinned: true, fov: 230 }));
+      let hit = find();
       for (let i = 0; !hit && i < 3; i++) {
-        if (i === 0) self.say('Ich schaue mich um …');
+        if (i === 0) this.log('Suche durch Drehen …', 'sys');
         yield* this.turnBy(110 * DEG);
-        hit = cam.find(farbe, { objectsOnly: true, skipSorted: true, fov: 230 });
+        hit = find();
       }
-      if (!hit) throw friendly(`Ich finde nichts in ${String(farbe)}.`);
+      if (!hit) throw friendly(farbe == null ? 'Wärmebild: kein Objekt gefunden.' : `Kamera: kein Objekt der Farbe „${String(farbe)}“ gefunden.`);
       const thing = hit.entity;
       if (g.held) { const a = g.release(); yield* this.until(() => a.done(), 2); }
       const ra = g.release(); yield* this.until(() => ra.done(), 2);
       yield* this.approach(thing.body.translation(), 0.3);
-      if (!(yield* this.graspThing(thing, g))) self.warn('Daneben gegriffen – die Hand hat nichts zu fassen bekommen.');
+      if (!(yield* this.graspThing(thing, g))) self.warn('Greifen fehlgeschlagen – kein Objekt in der Hand.');
       const tip = this.handTipLocal('r');
       yield* this.reach('r', { x: tip.x, y: tip.y + 0.15, z: tip.z - 0.02 }, { iterations: 1 });
       yield* this.carryPose('r');
@@ -849,7 +881,7 @@ export class Humanoid extends Robot {
   cmd_lege_auf({ farbe }) {
     const cam = this.needSensor('kamera');
     const g = this.hands.r.gripper;
-    if (!g.held) this.warn('Die rechte Hand hält gerade nichts.');
+    if (!g.held) this.warn('Rechte Hand ist leer.');
     const self = this;
     return this.run(function* () {
       this.checkUp();
@@ -858,7 +890,7 @@ export class Humanoid extends Robot {
         yield* this.turnBy(110 * DEG);
         hit = cam.find(farbe, { exclude: (e) => e === g.held, placesFirst: true, fov: 230 });
       }
-      if (!hit) throw friendly(`Ich finde keine Ablage in ${String(farbe)}.`);
+      if (!hit) throw friendly(`Kamera: keine Ablage der Farbe „${String(farbe)}“ gefunden.`);
       const e = hit.entity;
       const c = e.isObject ? e.body.translation() : (e.freeSpot && e.freeSpot(g.held)) || e.center;
       let top;
@@ -946,7 +978,7 @@ export class Humanoid extends Robot {
   cmd_schaue_zu({ farbe }) {
     const cam = this.needSensor('kamera');
     const hit = cam.find(farbe, { wide: true });
-    if (!hit) throw friendly(`Ich sehe nichts in ${String(farbe)}.`);
+    if (!hit) throw friendly(`Kamera: kein Objekt der Farbe „${String(farbe)}“ im Blickfeld.`);
     const head = this.servos.get('kopf');
     head.set(clamp(head.target - hit.bearing * DEG, head.min, head.max), this.speed);
     return this.run(function* () { yield* this.waitServos(['kopf']); }, 'gelenk:kopf');
