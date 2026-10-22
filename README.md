@@ -62,4 +62,6 @@ Ein Labor zum Konfigurieren, Programmieren und Prüfen von Industrierobotern in 
 - **Gerätemonitor:** live sehen, was Kamera, Tiefenkamera, Wärmebild, LiDAR (Draufsicht und Punktwolke) und Radar erfassen – auch als Bild-in-Bild.
 - **Testhalle 2:** 22 Prüfaufträge (Handhabung, Mobilität, Humanoid, Systemverbund) mit Funkstrecken durch Stahlbeton, Dunkelheit, Querverkehr, Schutzfeldern und Wärmelasten.
 
+**Abläufe per KI erzeugen:** [`kinetik/KI-PROMPT.md`](kinetik/KI-PROMPT.md) enthält die komplette Sprach- und Befehlsreferenz als Prompt. In einen beliebigen KI-Chat kopieren, Aufgabe ergänzen, Code im Tab Skript einfügen.
+
 Technik: Vanilla-JavaScript-Module, Three.js und Rapier (Physik) liegen im Ordner `kinetik/vendor`. Lokal starten mit `python3 -m http.server` im Ordner `kinetik/`. Sprachtests: `node kinetik/tests/lang.test.mjs`.
