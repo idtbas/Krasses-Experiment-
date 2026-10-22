@@ -51,6 +51,7 @@ export function formatExpr(e, parentPrec = 0, right = false) {
 function formatSlotValue(part, v, inReporter) {
   if (typeof v === 'string') return v;
   if (v == null) return '…';
+  void part;
   // In Meldern werden Ausdrücke mit Operatoren geklammert
   return formatExpr(v, inReporter ? 9 : 0);
 }

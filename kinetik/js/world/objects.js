@@ -245,6 +245,20 @@ export class Zone extends Fixed {
     return this.contains({ x, y: y + 0.001, z }, 0.03) ? { color: this.color, light: 55, priority: 2, y: this.baseY } : null;
   }
   get center() { return { x: this.spec.x || 0, y: this.baseY, z: this.spec.z || 0 }; }
+  // freier Platz in der Zone für einen weiteren Gegenstand
+  freeSpot(except, gap = 0.075) { return freeSpotIn(this, this.w, this.d, except, gap); }
+}
+
+function freeSpotIn(z, w, d, except, gap) {
+  const others = z.sim.objects.filter((o) => o !== except && !o.heldBy).map((o) => o.body.translation());
+  const cands = [[0, 0]];
+  const sx = Math.max(0, w / 2 - 0.035), sz = Math.max(0, d / 2 - 0.035);
+  for (const fz of [-1, 1, 0]) for (const fx of [-1, 1, 0]) if (fx || fz) cands.push([fx * sx, fz * sz]);
+  for (const [lx, lz] of cands) {
+    const p = z.toWorld(lx, 0, lz);
+    if (others.every((o) => Math.hypot(o.x - p.x, o.z - p.z) >= gap)) return p;
+  }
+  return null;
 }
 
 // Offene Kiste zum Hineinwerfen
@@ -267,6 +281,7 @@ export class Bin extends Fixed {
     return Math.abs(l.x) <= this.w / 2 && Math.abs(l.z) <= this.d / 2 && p.y - this.baseY < this.h + 0.1 && p.y > this.baseY - 0.02;
   }
   get center() { return { x: this.spec.x || 0, y: this.baseY + 0.012, z: this.spec.z || 0 }; }
+  freeSpot(except, gap = 0.07) { const p = freeSpotIn(this, this.w - 0.03, this.d - 0.03, except, gap); if (p) p.y = this.baseY + 0.012; return p; }
 }
 
 // Schwarze Linie am Boden
@@ -334,7 +349,9 @@ export class Conveyor extends Fixed {
     const L = this.L = this.spec.l || 1.4, W = this.W = this.spec.w || 0.2, H = this.H = this.spec.h || 0.12;
     this.on = this.spec.on ?? true;
     this.speedPct = this.spec.speed ?? 40;
-    this.belt = this.boxCollider(L / 2, 0.01, W / 2, 0, H - 0.01, 0, { color: 'schwarz' }, 1.0);
+    // Das Band selbst ist reibungsfrei – die Mitnahme (und das Bremsen) übernimmt update()
+    this.belt = this.collider(this.R.ColliderDesc.cuboid(L / 2, 0.01, W / 2).setTranslation(0, H - 0.01, 0).setFriction(0)
+      .setFrictionCombineRule(this.R.CoefficientCombineRule.Min).setCollisionGroups(this.sim.physics.groupsEnv), this.fixedBody, { kind: 'band', color: 'schwarz' });
     this.boxCollider(L / 2, 0.02, 0.008, 0, H + 0.01, W / 2 + 0.008);
     this.boxCollider(L / 2, 0.02, 0.008, 0, H + 0.01, -W / 2 - 0.008);
     // Grafik
@@ -375,24 +392,20 @@ export class Conveyor extends Fixed {
   dir() { return qrot(this.q, { x: 1, y: 0, z: 0 }); }
   update() {
     const v = this.speed;
-    if (!v) return;
     const d = this.dir();
+    const n = qrot(this.q, { x: 0, y: 0, z: 1 });
     this.sim.physics.contacts(this.belt, (other) => {
       const b = other.parent();
       if (!b || !b.isDynamic()) return;
       const lv = b.linvel();
+      // Geschwindigkeit längs des Bandes an das Band angleichen, quer dazu abbremsen (wie Haftreibung)
       const along = lv.x * d.x + lv.z * d.z;
-      const k = 0.25;
-      const dv = (v - along) * k;
-      b.setLinvel({ x: lv.x + d.x * dv, y: lv.y, z: lv.z + d.z * dv }, true);
-      // seitlich mittig halten
-      const p = b.translation();
-      const l = this.toLocal(p.x, p.z);
-      if (Math.abs(l.z) > this.W / 2 - 0.02) {
-        const n = qrot(this.q, { x: 0, y: 0, z: 1 });
-        const push = -Math.sign(l.z) * 0.02;
-        b.setLinvel({ x: b.linvel().x + n.x * push, y: b.linvel().y, z: b.linvel().z + n.z * push }, true);
-      }
+      const across = lv.x * n.x + lv.z * n.z;
+      const k = 0.3;
+      const dA = (v - along) * k, dC = -across * k;
+      b.setLinvel({ x: lv.x + d.x * dA + n.x * dC, y: lv.y, z: lv.z + d.z * dA + n.z * dC }, true);
+      const w = b.angvel();
+      b.setAngvel({ x: w.x * 0.8, y: w.y * 0.8, z: w.z * 0.8 }, true);
     });
   }
   sync() {
@@ -518,10 +531,19 @@ export class Dispenser extends Fixed {
     if (this.onSpawn) this.onSpawn(cube);
     return cube;
   }
+  // Nur ausgeben, wenn unter dem Spender Platz ist (sonst stauen sich die Würfel)
+  spotFree() {
+    const p = this.toWorld(0, 0, 0);
+    return !this.sim.objects.some((o) => { const q = o.body.translation(); return Math.hypot(q.x - p.x, q.z - p.z) < 0.12 && q.y < this.dropY + 0.05; });
+  }
   update(dt) {
     if (!this.interval) return;
     this.timer -= dt;
-    if (this.timer <= 0) { this.timer = this.interval; this.spawn(); }
+    if (this.timer <= 0) {
+      if (!this.spotFree()) { this.timer = 0.3; return; }
+      this.timer = this.interval;
+      this.spawn();
+    }
   }
 }
 

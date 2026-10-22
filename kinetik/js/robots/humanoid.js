@@ -474,12 +474,15 @@ export class Humanoid extends Robot {
     this.checkUp();
     this.legsManual = false;
     const lo = this.loco;
-    let t = 0;
+    let t = 0, best = Infinity, bestT = 0;
     for (;;) {
       const f = this.frame();
       const dx = x - f.p.x, dz = z - f.p.z;
       const dist = Math.hypot(dx, dz);
       if (dist < stopDist) break;
+      // kommt nicht weiter (z. B. ein Tisch im Weg)? Dann aufgeben statt endlos zu treten
+      if (dist < best - 0.02) { best = dist; bestT = t; }
+      if (t - bestT > 3.5) { this.warn('Ich komme nicht näher heran – steht etwas im Weg?'); break; }
       const bearing = Math.atan2(dx, dz);
       const err = wrapAngle(bearing - f.yaw);
       if (Math.abs(err) > 30 * DEG && dist > 0.15) {
@@ -692,7 +695,7 @@ export class Humanoid extends Robot {
       // nachregeln: tatsächliche Handposition messen
       const tip = this.handTipLocal(side);
       const err = { x: target.x - tip.x, y: target.y - tip.y, z: target.z - tip.z };
-      if (Math.hypot(err.x, err.y, err.z) < 0.012) break;
+      if (Math.hypot(err.x, err.y, err.z) < 0.008) break;
       goal = { x: goal.x + err.x * 0.9, y: goal.y + err.y * 0.9, z: goal.z + err.z * 0.9 };
     }
   }
@@ -711,7 +714,7 @@ export class Humanoid extends Robot {
     const sp = this.speed;
     this.servos.get('taille').set(0, sp);
     this.loco.height = STAND_H;
-    yield* this.moveTo({ ['schulter_' + side]: 45, ['arm_' + side]: 6, ['ellbogen_' + side]: 70, ['hand_' + side]: -20 }, sp);
+    yield* this.moveTo({ ['schulter_' + side]: 45, ['arm_' + side]: 6, ['ellbogen_' + side]: 70, ['hand_' + side]: -20 }, sp, true, true);
   }
 
   surfaceBelowWorld(x, z) {
@@ -723,8 +726,46 @@ export class Humanoid extends Robot {
     return top;
   }
 
+  // Steht der Punkt auf einem Tisch? Dann eine Tischseite wählen, sich gerade davor stellen
+  // (Abstand Becken–Kante: clear) und zwar so, dass der Punkt vor der rechten Schulter liegt.
+  standPoseFor(worldPos, clear = 0.2) {
+    const f = this.frame();
+    let best = null;
+    for (const e of this.sim.entities) {
+      if (!e.surfaceAt || e.surfaceAt(worldPos.x, worldPos.z) == null) continue;
+      const hw = (e.spec.w || 0.9) / 2, hd = (e.spec.d || 0.6) / 2;
+      const o = e.toLocal(worldPos.x, worldPos.z);
+      const sides = [
+        { n: { x: 1, z: 0 }, reach: hw - o.x, edge: { x: hw, z: o.z } },
+        { n: { x: -1, z: 0 }, reach: hw + o.x, edge: { x: -hw, z: o.z } },
+        { n: { x: 0, z: 1 }, reach: hd - o.z, edge: { x: o.x, z: hd } },
+        { n: { x: 0, z: -1 }, reach: hd + o.z, edge: { x: o.x, z: -hd } },
+      ];
+      const c = Math.cos(e.yaw || 0), si = Math.sin(e.yaw || 0);
+      const toW = (lx, lz) => ({ x: (e.spec.x || 0) + lx * c + lz * si, z: (e.spec.z || 0) - lx * si + lz * c });
+      for (const sd of sides) {
+        if (sd.reach > 0.32) continue;
+        const nw = { x: sd.n.x * c + sd.n.z * si, z: -sd.n.x * si + sd.n.z * c };
+        const yaw = Math.atan2(-nw.x, -nw.z); // in den Tisch hinein schauen
+        const left = { x: Math.cos(yaw), z: -Math.sin(yaw) };
+        const ep = toW(sd.edge.x, sd.edge.z);
+        const sp = { x: ep.x + nw.x * clear + left.x * SH_X, z: ep.z + nw.z * clear + left.z * SH_X };
+        const walk = Math.hypot(sp.x - f.p.x, sp.z - f.p.z);
+        const cost = sd.reach * 4 + walk;
+        if (!best || cost < best.cost) best = { cost, x: sp.x, z: sp.z, yaw };
+      }
+    }
+    return best;
+  }
+
   // Standpunkt so wählen, dass der Gegenstand vor der rechten Hand liegt
   *approach(worldPos, dist = 0.3) {
+    const pose = this.standPoseFor(worldPos);
+    if (pose) {
+      if (Math.hypot(pose.x - this.frame().p.x, pose.z - this.frame().p.z) > 0.05) yield* this.walkTo(pose.x, pose.z, 0.035);
+      yield* this.faceYaw(pose.yaw);
+      return;
+    }
     const f = this.frame();
     const dx = worldPos.x - f.p.x, dz = worldPos.z - f.p.z;
     let yaw = Math.atan2(dx, dz);
@@ -733,10 +774,26 @@ export class Humanoid extends Robot {
     const sx = worldPos.x - fwd.x * dist + left.x * SH_X;
     const sz = worldPos.z - fwd.z * dist + left.z * SH_X;
     if (Math.hypot(sx - f.p.x, sz - f.p.z) > 0.06) yield* this.walkTo(sx, sz, 0.04);
-    // genau ausrichten
     const f2 = this.frame();
     yaw = Math.atan2(worldPos.x - (f2.p.x - left.x * SH_X), worldPos.z - (f2.p.z - left.z * SH_X));
     yield* this.faceYaw(yaw);
+  }
+
+  // Hand präzise über einen Gegenstand bringen, absenken, greifen – bei Bedarf ein zweiter Versuch
+  *graspThing(thing, g) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let p = this.worldToLocal(thing.body.translation());
+      const gy = g.type === 'zange' ? Math.max(p.y, 0.03) : p.y + thing.halfHeight;
+      yield* this.reach('r', { x: p.x, y: gy + 0.12, z: p.z }, { iterations: 4 });
+      p = this.worldToLocal(thing.body.translation());
+      yield* this.reach('r', { x: p.x, y: gy, z: p.z }, { speed: this.speed * 0.5, iterations: 3 });
+      const ga = g.grip(); yield* this.until(() => ga.done(), 3);
+      if (g.held) return true;
+      const ra = g.release(); yield* this.until(() => ra.done(), 2);
+      const tip = this.handTipLocal('r');
+      yield* this.reach('r', { x: tip.x, y: tip.y + 0.12, z: tip.z }, { iterations: 1 });
+    }
+    return false;
   }
 
   cmd_nimm({ farbe }) {
@@ -745,28 +802,24 @@ export class Humanoid extends Robot {
     const self = this;
     return this.run(function* () {
       this.checkUp();
-      let hit = cam.find(farbe, { objectsOnly: true });
-      // umsehen
-      for (let i = 0; !hit && i < 7; i++) {
+      // Kopf drehen erweitert das Blickfeld deutlich
+      let hit = cam.find(farbe, { objectsOnly: true, skipSorted: true, fov: 230 });
+      for (let i = 0; !hit && i < 3; i++) {
         if (i === 0) self.say('Ich schaue mich um …');
-        yield* this.turnBy(50 * DEG);
-        hit = cam.find(farbe, { objectsOnly: true });
+        yield* this.turnBy(110 * DEG);
+        hit = cam.find(farbe, { objectsOnly: true, skipSorted: true, fov: 230 });
       }
       if (!hit) throw friendly(`Ich finde nichts in ${String(farbe)}.`);
       const thing = hit.entity;
       if (g.held) { const a = g.release(); yield* this.until(() => a.done(), 2); }
       const ra = g.release(); yield* this.until(() => ra.done(), 2);
       yield* this.approach(thing.body.translation(), 0.3);
-      let p = this.worldToLocal(thing.body.translation());
-      const gy = g.type === 'zange' ? Math.max(p.y, 0.03) : p.y + thing.halfHeight;
-      yield* this.reach('r', { x: p.x, y: gy + 0.12, z: p.z });
-      p = this.worldToLocal(thing.body.translation());
-      yield* this.reach('r', { x: p.x, y: gy, z: p.z }, { speed: this.speed * 0.6 });
-      const ga = g.grip(); yield* this.until(() => ga.done(), 3);
-      if (!g.held) self.warn('Daneben gegriffen – die Hand hat nichts zu fassen bekommen.');
+      if (!(yield* this.graspThing(thing, g))) self.warn('Daneben gegriffen – die Hand hat nichts zu fassen bekommen.');
       const tip = this.handTipLocal('r');
       yield* this.reach('r', { x: tip.x, y: tip.y + 0.15, z: tip.z - 0.02 }, { iterations: 1 });
       yield* this.carryPose('r');
+      // vom Tisch zurücktreten, damit der Weg frei ist
+      if (this.standPoseFor(thing.body.translation()) || this.surfaceBelowWorld(thing.body.translation().x, thing.body.translation().z) > 0.1) yield* this.walkFor(-0.2);
     }, 'arm_r');
   }
 
@@ -788,8 +841,9 @@ export class Humanoid extends Robot {
     const tip = this.handTipLocal('r');
     yield* this.reach('r', { x: tip.x, y: tip.y + 0.12, z: tip.z - 0.03 }, { iterations: 1 });
     yield* this.carryPose('r');
-    yield* this.moveTo({ schulter_r: 3, arm_r: 4, ellbogen_r: 12, hand_r: 0 }, this.speed);
+    yield* this.moveTo({ schulter_r: 3, arm_r: 4, ellbogen_r: 12, hand_r: 0 }, this.speed, true, true);
     this.armIdle.r = true;
+    if (topY > 0.1) yield* this.walkFor(-0.2);
   }
 
   cmd_lege_auf({ farbe }) {
@@ -799,14 +853,14 @@ export class Humanoid extends Robot {
     const self = this;
     return this.run(function* () {
       this.checkUp();
-      let hit = cam.find(farbe, { exclude: (e) => e === g.held });
-      for (let i = 0; !hit && i < 7; i++) {
-        yield* this.turnBy(50 * DEG);
-        hit = cam.find(farbe, { exclude: (e) => e === g.held });
+      let hit = cam.find(farbe, { exclude: (e) => e === g.held, placesFirst: true, fov: 230 });
+      for (let i = 0; !hit && i < 3; i++) {
+        yield* this.turnBy(110 * DEG);
+        hit = cam.find(farbe, { exclude: (e) => e === g.held, placesFirst: true, fov: 230 });
       }
       if (!hit) throw friendly(`Ich finde keine Ablage in ${String(farbe)}.`);
       const e = hit.entity;
-      const c = e.isObject ? e.body.translation() : e.center;
+      const c = e.isObject ? e.body.translation() : (e.freeSpot && e.freeSpot(g.held)) || e.center;
       let top;
       if (e.isObject) top = c.y + e.halfHeight;
       else if (e.kind === 'kiste') top = c.y + 0.02;

@@ -80,6 +80,13 @@ export function lex(src) {
       push('id', raw.toLowerCase(), raw, line, c0);
       continue;
     }
+    // Lücke aus einem Baustein: … oder ...
+    if (ch === '…' || src.startsWith('...', i)) {
+      const len = ch === '…' ? 1 : 3;
+      push('hole', '…', src.slice(i, i + len), line, col);
+      i += len; col += len;
+      continue;
+    }
     // Operator
     if (OP_ALIAS[ch]) { push('op', OP_ALIAS[ch], ch, line, col); i++; col++; continue; }
     const two = src.slice(i, i + 2);

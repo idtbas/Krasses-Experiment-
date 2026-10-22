@@ -61,7 +61,20 @@ export class ColorSensor {
   }
   sample() {
     const { o, d } = worldPose(this.part, this.pos, this.dir);
-    const hit = this.robot.sim.physics.ray(o, d, this.range, this.robot.rayGroups);
+    const ph = this.robot.sim.physics;
+    let hit = ph.ray(o, d, this.range, this.robot.rayGroups);
+    // Messfleck statt Nadelstrich: trifft der Mittelstrahl nichts Buntes, die Ränder prüfen
+    if (!hit || !(hit.info && hit.info.entity && hit.info.entity.isObject)) {
+      const a = Math.abs(d.y) > 0.9 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+      const u = vnorm({ x: d.y * a.z - d.z * a.y, y: d.z * a.x - d.x * a.z, z: d.x * a.y - d.y * a.x });
+      const v = { x: d.y * u.z - d.z * u.y, y: d.z * u.x - d.x * u.z, z: d.x * u.y - d.y * u.x };
+      for (const [k1, k2] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const r = 0.014;
+        const oo = { x: o.x + (u.x * k1 + v.x * k2) * r, y: o.y + (u.y * k1 + v.y * k2) * r, z: o.z + (u.z * k1 + v.z * k2) * r };
+        const hh = ph.ray(oo, d, this.range, this.robot.rayGroups);
+        if (hh && hh.info && hh.info.entity && hh.info.entity.isObject) { hit = hh; break; }
+      }
+    }
     if (!hit) return { color: 'keine', light: 0 };
     const info = hit.info || {};
     if (info.entity && info.entity.isObject) {
@@ -128,6 +141,9 @@ export class Camera {
       if (!(e.isObject || e.kind === 'zone' || e.kind === 'kiste' || e.kind === 'ziel' || e.kind === 'lampe')) continue;
       if (opts.objectsOnly && !e.isObject) continue;
       if (opts.exclude && opts.exclude(e)) continue;
+      // schon einsortiert (liegt in Zone/Kiste der eigenen Farbe)? Dann nicht noch einmal nehmen
+      if (opts.skipSorted && e.isObject && sim.entities.some((z) => (z.kind === 'zone' || z.kind === 'kiste') && z.color === e.color && z.contains(e.body.translation()))) continue;
+      if (opts.placesFirst && e.isObject && sim.entities.some((z) => (z.kind === 'zone' || z.kind === 'kiste' || z.kind === 'ziel') && z.color === color)) continue;
       if (e.heldBy === this.robot && !opts.includeHeld) continue;
       const p = e.isObject ? e.body.translation() : e.center || { x: e.spec.x || 0, y: 0, z: e.spec.z || 0 };
       const v = { x: p.x - o.x, y: p.y - o.y, z: p.z - o.z };
@@ -135,7 +151,8 @@ export class Camera {
       if (dist > this.range || dist < 1e-3) continue;
       const cos = (v.x * d.x + v.y * d.y + v.z * d.z) / dist;
       const hcos = (v.x * d.x + v.z * d.z) / (Math.hypot(v.x, v.z) * Math.hypot(d.x, d.z) || 1);
-      const inView = cos > Math.cos(this.fov / 2) || (opts.wide && hcos > Math.cos(this.fov / 2));
+      const fov = opts.fov ? Math.min(Math.PI * 2, opts.fov * Math.PI / 180) : this.fov;
+      const inView = cos > Math.cos(fov / 2) || ((opts.wide || opts.fov) && hcos > Math.cos(fov / 2));
       if (!inView) continue;
       // Sichtlinie prüfen (nur bei Gegenständen mit Körper)
       if (e.isObject) {

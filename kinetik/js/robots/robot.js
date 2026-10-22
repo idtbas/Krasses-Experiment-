@@ -240,12 +240,12 @@ export class Robot extends Entity {
     }
   }
   // mehrere Servos gleichzeitig auf Ziele (Grad) fahren
-  *moveTo(targets, speed = this.speed, wait = true) {
+  *moveTo(targets, speed = this.speed, wait = true, quiet = false) {
     for (const [n, deg] of Object.entries(targets)) {
       const s = this.servos.get(n);
       if (s) s.setDeg(deg, speed);
     }
-    if (wait) return yield* this.waitServos(Object.keys(targets));
+    if (wait) return yield* this.waitServos(Object.keys(targets), 12, quiet);
     return true;
   }
 

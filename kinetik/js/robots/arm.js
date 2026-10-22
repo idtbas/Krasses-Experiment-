@@ -86,7 +86,7 @@ export class Arm extends Robot {
       for (const sx of [-0.016, 0.016]) this.add(hand, mesh(Geo.cyl(0.011, 0.011, 0.012, 16), Mat.steel()), sx, 0.034, 0.04);
     }
     if (cfg.includes('farbe')) {
-      this.sensors.farbe = new ColorSensor(this, hand, { x: 0, y: 0.031, z: 0 }, { x: 0, y: 1, z: 0 }, 0.16);
+      this.sensors.farbe = new ColorSensor(this, hand, { x: 0, y: 0.031, z: 0 }, { x: 0, y: 1, z: 0 }, 0.3);
       this.add(hand, mesh(Geo.box(0.022, 0.006, 0.022, 0.002), Mat.glow('#ffffff')), 0, 0.033, -0.012);
     }
     if (cfg.includes('kamera')) {
@@ -314,7 +314,7 @@ export class Arm extends Robot {
   cmd_nimm({ farbe }) {
     const cam = this.needSensor('kamera');
     const g = this.needGripper();
-    const hit = cam.find(farbe, { objectsOnly: true });
+    const hit = cam.find(farbe, { objectsOnly: true, skipSorted: true });
     if (!hit) throw friendly(`Ich sehe nichts in ${String(farbe)}. Liegt es im Blickfeld der Kamera und innerhalb der Reichweite?`);
     const thing = hit.entity;
     const self = this;
@@ -373,10 +373,10 @@ export class Arm extends Robot {
   cmd_lege_auf({ farbe }) {
     const cam = this.needSensor('kamera');
     const g = this.needGripper();
-    const hit = cam.find(farbe, { exclude: (e) => e === g.held });
+    const hit = cam.find(farbe, { exclude: (e) => e === g.held, placesFirst: true });
     if (!hit) throw friendly(`Ich finde keine Ablage in ${String(farbe)}.`);
     const e = hit.entity;
-    const c = e.isObject ? e.body.translation() : e.center;
+    const c = e.isObject ? e.body.translation() : (e.freeSpot && e.freeSpot(g.held)) || e.center;
     const l = this.worldToLocal(c);
     let y;
     if (e.isObject) y = l.y + e.halfHeight;

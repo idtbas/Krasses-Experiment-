@@ -213,7 +213,9 @@ export class Rover extends Robot {
       const dist = Math.hypot(dx, dz);
       if (dist < stop) break;
       const err = wrapAngle(Math.atan2(dx, dz) - f.yaw);
-      if (Math.abs(err) > 35 * DEG && dist > 0.05) { yield* this.turnBy(err); continue; }
+      // nah dran und das Ziel liegt hinter uns: gut genug, sonst kreist man um den Punkt
+      if (dist < 0.15 && Math.abs(err) > 80 * DEG) break;
+      if (Math.abs(err) > 35 * DEG && dist > 0.15) { yield* this.turnBy(err); continue; }
       const v = (0.06 + VMAX * this.speed) * clamp(dist / 0.1, 0.2, 1) * Math.max(0.2, Math.cos(err));
       const turn = clamp(err * 3, -1.2, 1.2) * TRACK / 2;
       this.setWheels(v - turn, v + turn);
@@ -270,11 +272,11 @@ export class Rover extends Robot {
     const g = this.needGripper();
     const self = this;
     return this.run(function* () {
-      let hit = cam.find(farbe, { objectsOnly: true });
-      for (let i = 0; !hit && i < 7; i++) {
+      let hit = cam.find(farbe, { objectsOnly: true, skipSorted: true });
+      for (let i = 0; !hit && i < 4; i++) {
         if (i === 0) self.say('Ich schaue mich um …');
-        yield* this.turnBy(50 * DEG);
-        hit = cam.find(farbe, { objectsOnly: true });
+        yield* this.turnBy(80 * DEG);
+        hit = cam.find(farbe, { objectsOnly: true, skipSorted: true });
       }
       if (!hit) throw friendly(`Ich finde nichts in ${String(farbe)}.`);
       const thing = hit.entity;
@@ -283,7 +285,7 @@ export class Rover extends Robot {
       let p = thing.body.translation();
       let f = this.frame();
       let d = Math.hypot(p.x - f.p.x, p.z - f.p.z);
-      if (d > 0.4) yield* this.driveTo(p.x - (p.x - f.p.x) / d * 0.32, p.z - (p.z - f.p.z) / d * 0.32, 0.03);
+      if (d > 0.4) yield* this.driveTo(p.x - (p.x - f.p.x) / d * 0.32, p.z - (p.z - f.p.z) / d * 0.32, 0.05);
       p = thing.body.translation(); f = this.frame();
       yield* this.turnBy(wrapAngle(Math.atan2(p.x - f.p.x, p.z - f.p.z) - f.yaw));
       p = thing.body.translation(); f = this.frame();
@@ -300,7 +302,7 @@ export class Rover extends Robot {
     const g = this.grippers.main;
     const f = this.frame();
     const d = Math.hypot(c.x - f.p.x, c.z - f.p.z);
-    if (d > 0.35) yield* this.driveTo(c.x - (c.x - f.p.x) / d * 0.3, c.z - (c.z - f.p.z) / d * 0.3, 0.03);
+    if (d > 0.35) yield* this.driveTo(c.x - (c.x - f.p.x) / d * 0.3, c.z - (c.z - f.p.z) / d * 0.3, 0.05);
     const f2 = this.frame();
     yield* this.turnBy(wrapAngle(Math.atan2(c.x - f2.p.x, c.z - f2.p.z) - f2.yaw));
     const f3 = this.frame();
@@ -313,11 +315,11 @@ export class Rover extends Robot {
     const cam = this.needSensor('kamera');
     const g = this.needGripper();
     return this.run(function* () {
-      let hit = cam.find(farbe, { exclude: (e) => e === g.held });
-      for (let i = 0; !hit && i < 7; i++) { yield* this.turnBy(50 * DEG); hit = cam.find(farbe, { exclude: (e) => e === g.held }); }
+      let hit = cam.find(farbe, { exclude: (e) => e === g.held, placesFirst: true });
+      for (let i = 0; !hit && i < 4; i++) { yield* this.turnBy(80 * DEG); hit = cam.find(farbe, { exclude: (e) => e === g.held, placesFirst: true }); }
       if (!hit) throw friendly(`Ich finde keine Ablage in ${String(farbe)}.`);
       const e = hit.entity;
-      yield* this.dropAt(e.isObject ? e.body.translation() : e.center);
+      yield* this.dropAt(e.isObject ? e.body.translation() : (e.freeSpot && e.freeSpot(g.held, 0.1)) || e.center);
     }, 'fahren');
   }
   cmd_lege() {

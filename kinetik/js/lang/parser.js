@@ -299,6 +299,7 @@ class Parser {
     const t = this.peek();
     switch (part.type) {
       case 'joint': case 'var': {
+        if (t.t === 'hole') { this.next(); return null; }
         if (t.t !== 'id') this.fail(part.type === 'joint' ? `Hier gehört der Name eines Gelenks hin, z. B. „schulter“${this.near()}.` : `Hier gehört der Name einer Variablen hin${this.near()}.`);
         this.next();
         return t.v;
@@ -595,6 +596,7 @@ class Parser {
       return node;
     }
     if (t.t === 'str') { this.next(); return { type: 'str', id: nid(), v: t.v }; }
+    if (t.t === 'hole') { this.next(); return { type: 'hole', id: nid() }; }
     if (t.t === 'op' && t.v === '(') {
       this.next();
       this.skipNl();

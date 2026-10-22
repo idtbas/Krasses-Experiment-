@@ -14,6 +14,7 @@ export class RobotHost {
   command(id, args, ctx) {
     const r = this.robot;
     const sim = r.sim;
+    if (this.world.onCommand) this.world.onCommand(r, id, args);
     switch (id) {
       case 'sage': {
         const text = show(args.text);
