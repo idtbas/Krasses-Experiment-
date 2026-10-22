@@ -364,7 +364,7 @@ export const MISSIONS = [
   {
     id: 'rover-radar', code: 'M-07', chapter: 2, level: 3, title: 'Querverkehr', robot: 'rover',
     brief: 'Einen befahrenen Fahrweg kreuzen, ohne den Routenzug zu behindern.',
-    story: 'Ein fahrerloser Routenzug pendelt auf dem Querweg. Mit einem Radar nachrüsten und die Lücke abpassen: Der Zug darf nicht bremsen müssen.',
+    story: 'Ein fahrerloser Routenzug pendelt auf dem Querweg. Mit einem Radar nachrüsten und die Lücke abpassen: Der Zug darf nicht bremsen müssen. Für das Budget nicht benötigte Sensorik abrüsten.',
     robotDef: { config: { type: 'rover' }, spawn: { x: 0, y: 0, z: -0.6, yaw: 0 } },
     objects: [
       { type: 'markierung', x: 0, z: 1.2, w: 8, d: 1.0, t: 0.06 },
@@ -380,7 +380,7 @@ export const MISSIONS = [
     budget: 9500,
     starter: 'beim start\n  fahre 290 cm vor\nende\n',
     solution: 'beim start\n  tempo 100\n  warte bis radar annäherung\n  warte bis nicht radar annäherung\n  fahre 290 cm vor\nende\n',
-    solutionConfig: { module: ['ultraschall', 'farbsensor', 'linie', 'kontakt', 'kamera', 'lidar2d', 'radar'] },
+    solutionConfig: { module: ['ultraschall', 'farbsensor', 'linie', 'kontakt', 'lidar2d', 'radar'] },
     camera: { target: [0, 0.3, 1.0], dist: 5.2, yaw: 0.25, pitch: 0.55 },
     setup: (ctx) => { ctx.watchBump = true; },
   },

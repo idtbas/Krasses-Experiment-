@@ -47,3 +47,19 @@ js/ui     Oberfläche
 ```
 
 Die Aufnahmen in `dev-screenshots/` sind absichtlich geschwärzt.
+
+---
+
+# KINETIK · Robotik-Labor
+
+**Online öffnen:** https://idtbas.github.io/Krasses-Experiment-/kinetik/
+
+Ein Labor zum Konfigurieren, Programmieren und Prüfen von Industrierobotern in einer physikalisch simulierten 3D-Testhalle – für das **iPad mit Magic Keyboard oder Apple Pencil** (Safari), auch am Desktop-Browser nutzbar.
+
+- **Drei Grundgeräte:** Knickarm KX-5, Humanoid HX-2, autonomes Fahrzeug AMR-1
+- **Komponentenkatalog mit Preisen:** Antriebe (DC-Servo, Schrittmotor, bürstenlos/BLDC, Harmonic Drive, QDD, AC-Servo), Werkzeuge, 19 Sensor- und Signalmodule (u. a. 2D/3D-LiDAR, Sicherheitslaserscanner, Radar, Tiefen- und Wärmebildkamera, RFID, Kraft-Moment-Sensor, Signalsäule), Funk (WLAN, 868 MHz, LoRa, 5G) mit Antennen, Akkus und Steuerungen. Alles wird ohne Verkabelung eingebunden; Stückliste und Kennwerte (Masse, Traglast, Laufzeit, Rechenlast) rechnen live mit.
+- **Ablaufsprache als Text oder Blöcke:** es erscheinen nur die Befehle, die die verbaute Hardware auch kann.
+- **Gerätemonitor:** live sehen, was Kamera, Tiefenkamera, Wärmebild, LiDAR (Draufsicht und Punktwolke) und Radar erfassen – auch als Bild-in-Bild.
+- **Testhalle 2:** 22 Prüfaufträge (Handhabung, Mobilität, Humanoid, Systemverbund) mit Funkstrecken durch Stahlbeton, Dunkelheit, Querverkehr, Schutzfeldern und Wärmelasten.
+
+Technik: Vanilla-JavaScript-Module, Three.js und Rapier (Physik) liegen im Ordner `kinetik/vendor`. Lokal starten mit `python3 -m http.server` im Ordner `kinetik/`. Sprachtests: `node kinetik/tests/lang.test.mjs`.
