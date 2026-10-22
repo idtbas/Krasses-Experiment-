@@ -23,6 +23,8 @@
     { id: 'kanal', n: 'Kanal', icon: 'inbox', key: 'K' },
     { id: 'chronik', n: 'Chronik', icon: 'history', key: 'C' },
     { id: 'akten', n: 'Akten', icon: 'folder', key: 'O' },
+    { id: 'orbit', n: 'Orbit', icon: 'sat', key: 'U' },
+    { id: 'regie', n: 'Weltregie', icon: 'sliders', key: 'W', sandbox: true },
   ];
   ui.DOCK = DOCK;
 
@@ -56,6 +58,7 @@
           <button data-a="speed" data-v="2" title="4 Tage pro Sekunde (2)">${ic('fast', 14)}</button>
           <button data-a="speed" data-v="3" title="12 Tage pro Sekunde (3)">${ic('faster', 14)}</button>
           <button data-a="speed" data-v="4" title="30 Tage pro Sekunde (4)"><b style="font-size:10px">30×</b></button>
+          <button data-a="speed" data-v="5" title="90 Tage pro Sekunde (5, nur Weltregie)" id="b-sp5"><b style="font-size:10px">90×</b></button>
         </div>
       </div>
       <div class="gauges" id="b-gauges">
@@ -73,8 +76,10 @@
         <button class="iconbtn" data-a="panel" data-p="system" title="System (,)">${ic('settings', 18)}</button>
       </div>`;
   }
+  ui.rebuildDock = buildDock;
   function buildDock() {
-    ui.$dock.innerHTML = DOCK.map(d => `<button data-p="${d.id}" title="${d.n} (${d.key})">${ic(d.icon, 19)}<span>${d.n}</span><span class="badge hidden" data-badge="${d.id}"></span></button>`).join('') +
+    const sb = KY.sandbox && KY.sandbox.on();
+    ui.$dock.innerHTML = DOCK.filter(d => !d.sandbox || sb).map(d => `<button data-p="${d.id}" title="${d.n} (${d.key})">${ic(d.icon, 19)}<span>${d.n}</span><span class="badge hidden" data-badge="${d.id}"></span></button>`).join('') +
       `<div class="grow"></div><button data-p="system" title="System">${ic('settings', 19)}<span>System</span></button><button data-p="hilfe" title="Hilfe (?)">${ic('help', 19)}<span>Hilfe</span></button>`;
   }
   function buildTicker() {
@@ -85,11 +90,12 @@
   /* ---------- Kopfleiste und Laufband aktualisieren ---------- */
   ui.updateBar = function () {
     const S = SIM.S, g = S.g;
-    U.setText(U.$('#b-code'), 'Mandatsperson · ' + S.codename);
+    U.setText(U.$('#b-code'), S.mode === 'sandbox' ? 'Freie Sandbox · Weltregie' : 'Mandatsperson · ' + S.codename);
     U.setHTML(U.$('#b-date'), U.dateStr(S.day) + '<small>MANDATSTAG ' + (S.day + 1) + (S.paused ? ' · ANGEHALTEN' : '') + '</small>');
     U.$$('#b-speeds button').forEach(b => b.classList.toggle('on', S.paused ? b.dataset.v === '0' : +b.dataset.v === S.speed));
+    U.$('#b-sp5').classList.toggle('hidden', !KY.sandbox.on());
     const avail = KY.finance.avail();
-    U.setText(U.$('#g-cash'), U.money(avail, avail >= 100 ? 0 : 1));
+    U.setText(U.$('#g-cash'), KY.sandbox.flag('money') ? 'unbegrenzt' : U.money(avail, avail >= 100 ? 0 : 1));
     const p = g.pressure;
     U.setText(U.$('#g-press'), Math.round(p) + ' %');
     U.$('#g-press-m').style.width = p + '%';
@@ -283,6 +289,7 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (k === ' ') { e.preventDefault(); KY.engine.toggle(); ui.updateBar(); return; }
     if (k >= '1' && k <= '4') { KY.engine.setSpeed(+k); ui.updateBar(); return; }
+    if (k === '5' && KY.sandbox.on()) { KY.engine.setSpeed(5); ui.updateBar(); return; }
     if (k === '/' || k === '#') { e.preventDefault(); KY.A.palette(); return; }
     if (k === '?') { ui.panel('hilfe'); return; }
     if (k === ',') { ui.panel('system'); return; }
@@ -297,7 +304,7 @@
       const c = D.CATS.find(x => x.key === k.toUpperCase());
       if (c && KY.P.handeln.catKey(c.id)) return;
     }
-    const d = DOCK.find(x => x.key === k.toUpperCase());
+    const d = DOCK.find(x => x.key === k.toUpperCase() && (!x.sandbox || KY.sandbox.on()));
     if (d) { ui.panel(d.id); }
   }
 

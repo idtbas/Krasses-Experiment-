@@ -50,6 +50,8 @@
       case 'dense': { const n = pickNation(w => w.pop * (100 - S.nations[w.id].health) / 50); return n ? W.cities[n.capital] : null; }
       case 'hot': { const n = pickNation(w => (Math.abs(w.lat) < 38 ? 1 : 0.05) * Math.sqrt(w.pop)); return n ? W.cities[n.capital] : null; }
       case 'cold': { const n = pickNation(w => (Math.abs(w.lat) > 40 ? 1 : 0) * Math.sqrt(w.pop)); return n ? W.cities[n.capital] : null; }
+      case 'coast': return pickCity(c => (c.coastal ? 1 : 0) * Math.sqrt(c.pop + 0.2));
+      case 'any': return pickCity(c => 1);
     }
     return null;
   }
@@ -58,32 +60,40 @@
   E.spawn = function (type, opts) {
     const S = SIM.S, W = SIM.W, T = D.EVENTS[type];
     opts = opts || {};
-    const city = opts.city !== undefined ? W.cities[opts.city] : locate(T);
+    let city = opts.city !== undefined ? W.cities[opts.city] : null;
+    if (!city && opts.at) {
+      // Ausgelöst an einer bestimmten Stelle: nächste Stadt, bevorzugt im selben Staat
+      const nid0 = KY.geo.nationAt(opts.at.lon, opts.at.lat);
+      const r0 = (nid0 >= 0 && KY.geo.nearestCity(opts.at.lon, opts.at.lat, c => c.nation === nid0)) || KY.geo.nearestCity(opts.at.lon, opts.at.lat);
+      city = r0 ? r0.city : null;
+    }
+    if (!city) city = locate(T);
     if (!city) return null;
     const nid = city.nation, n = S.nations[nid];
     const sev = opts.sev || 1 + U.weighted([0, 1, 2, 3, 4], i => T.sev[i]);
     let k = 1;
     if (T.devFactor !== false) k *= 1.7 - n.dev * 1.1;
     k *= 1.3 - n.health / 200;
-    if (S.g.warn && ['storm', 'fire', 'flood', 'heat', 'drought', 'volcano'].indexOf(type) >= 0) k *= 0.72;
+    if ((S.g.warn || S.g.orbitWarn) && ['storm', 'fire', 'flood', 'heat', 'drought', 'volcano', 'tsunami'].indexOf(type) >= 0) k *= 0.72;
     const tm = { quake: 'quakeMult', storm: 'stormMult', fire: 'stormMult', heat: 'stormMult', epidemic: 'epiMult', drought: 'droughtMult' }[type];
     if (tm) k *= SIM.techFx(tm);
     if (type === 'epidemic') k *= 1 - 0.4 * Math.min(1, (n.fx.epiShield || 0));
     if (type === 'drought') k *= 1 - 0.4 * Math.min(1.5, (n.fx.droughtShield || 0));
     const sc = S.cities[city.id];
     let deich = null;
-    if ((type === 'storm' || type === 'flood') && sc.fac.flood) {
+    if ((type === 'storm' || type === 'flood' || type === 'tsunami') && sc.fac.flood) {
       k *= 0.25;
       deich = S.projects.find(p => p.act === 'DEICH' && p.c === city.id && p.phase === 'betrieb');
     }
     if (T.energyFactor) k *= 1.4 - n.energy / 160;
+    k *= 1 - (S.g.orbitMit || 0);
     const dead = Math.round(SIM.rangeRoll(T.dead[sev - 1], 1.25) * k * (opts.k || 1));
     const displaced = Math.round(SIM.rangeRoll(T.displaced[sev - 1], 1.2) * (sc.fac.flood && type === 'storm' ? 0.3 : 1));
     const dur = Math.round(T.dur[0] + Math.random() * (T.dur[1] - T.dur[0]));
     const jitter = T.nationwide ? 0 : 1;
     const ev = {
       id: 'e' + (++S.seq.ev), type, name: T.n + (T.nationwide ? ' in ' + W.nations[nid].short : ' bei ' + city.name), n: nid, c: city.id,
-      lon: city.lon + (Math.random() - 0.5) * 2 * jitter, lat: city.lat + (Math.random() - 0.5) * 1.6 * jitter, sev, start: S.day, dur, end: S.day + dur,
+      lon: opts.at && !T.nationwide ? opts.at.lon : city.lon + (Math.random() - 0.5) * 2 * jitter, lat: opts.at && !T.nationwide ? opts.at.lat : city.lat + (Math.random() - 0.5) * 1.6 * jitter, sev, start: S.day, dur, end: S.day + dur, byDirector: !!opts.director,
       dead, deadNow: 0, displaced, phase: 'akut', helped: {}, saved: 0, radius: T.radius ? T.radius[0] + (T.radius[1] - T.radius[0]) * (sev - 1) / 4 : 0,
       dmg: T.dmg[sev - 1] * (1.4 - n.dev * 0.5), nationwide: !!T.nationwide, relNone: false, breakChecked: false,
       text: U.fill(U.pick(T.text), { city: city.name, nation: W.nations[nid].short, mag: T.mag ? U.n(T.mag[sev - 1] + Math.random() * 0.6, 1) : '', cat: T.cat ? T.cat[sev - 1] : '' }),
@@ -116,23 +126,32 @@
       S.g.lives += dead * 2; deich.acc.lives = (deich.acc.lives || 0) + dead * 2;
     }
     KY.bus.emit('event', ev);
+    if (type === 'quake' && sev >= 4 && city.coastal && Math.random() < 0.45 && !opts.noChain) (S.pending = S.pending || []).push({ type: 'tsunami', city: city.id, sev: Math.min(5, sev - 1 + (Math.random() < 0.3 ? 1 : 0)), director: !!opts.director });
     return ev;
+  };
+  // Folgeereignisse (als Daten gespeichert, damit sie den Spielstand überstehen)
+  E.flush = function () {
+    const q = SIM.S.pending;
+    if (!q || !q.length) return;
+    SIM.S.pending = [];
+    q.forEach(f => { if (f && f.type) E.spawn(f.type, { city: f.city, sev: f.sev, noChain: true, director: f.director }); });
   };
 
   /* Verlauf: Opfer pro Tag nach Ereignistyp */
   function curve(type, t) {
-    if (type === 'quake' || type === 'volcano') return 1 - Math.exp(-t * 2.2);
+    if (type === 'quake' || type === 'volcano' || type === 'meteor' || type === 'tsunami') return 1 - Math.exp(-t * 2.2);
     if (type === 'storm' || type === 'flood' || type === 'fire' || type === 'heat' || type === 'cold') return 1 - Math.exp(-t * 0.5);
     return U.smooth(Math.min(1, t / 1));
   }
 
   E.daily = function () {
     const S = SIM.S;
+    E.flush();
     // Neue Ereignisse
     for (const type in D.EVENTS) {
       const T = D.EVENTS[type];
       if (Math.random() < T.rate / 365 * SCALE) {
-        if (S.g.warn && ['storm', 'drought', 'fire', 'heat'].indexOf(type) >= 0 && Math.random() < 0.85) forecast(type);
+        if ((S.g.warn || S.g.orbitWarn) && ['storm', 'drought', 'fire', 'heat'].indexOf(type) >= 0 && Math.random() < 0.85) forecast(type);
         else E.spawn(type);
       }
     }

@@ -330,7 +330,7 @@
   A.msgAct = b => { const m = SIM.S.inbox.find(x => x.id === +b.dataset.m); if (!m) return; const a = m.acts[+b.dataset.i]; if (a) ui.msgAct(a.a, a.p); };
 
   /* ================= CHRONIK ================= */
-  const CHT = { vorhaben: 'Vorhaben', vorfall: 'Vorfälle', verantwortung: 'Verantwortung', katastrophe: 'Katastrophen', hilfe: 'Hilfe', politik: 'Politik', diplomatie: 'Diplomatie', krise: 'Krisen', tarnung: 'Tarnung', finanzen: 'Finanzen', forschung: 'Forschung', kuratorium: 'Kuratorium', grundsatz: 'Grundsätze', protest: 'Proteste', bilanz: 'Bilanz' };
+  const CHT = { vorhaben: 'Vorhaben', vorfall: 'Vorfälle', verantwortung: 'Verantwortung', katastrophe: 'Katastrophen', hilfe: 'Hilfe', politik: 'Politik', diplomatie: 'Diplomatie', krise: 'Krisen', tarnung: 'Tarnung', finanzen: 'Finanzen', forschung: 'Forschung', kuratorium: 'Kuratorium', grundsatz: 'Grundsätze', protest: 'Proteste', bilanz: 'Bilanz', regie: 'Weltregie', raumfahrt: 'Raumfahrt' };
   P.chronik = {
     title: 'Chronik', kicker: 'Protokoll des Mandats',
     sub: () => SIM.S.chron.length + ' Einträge seit ' + U.dateStr(0, true),
@@ -394,6 +394,7 @@
         ${sw('sound', 'Ton', S.ui.sound !== false, 'Synthetische Signale, keine Audiodateien')}
         ${sw('autoPause', 'Bei schweren Vorfällen anhalten', S.ui.autoPause !== false, 'Der Krisenstab ruft an und die Zeit stoppt')}
         ${sw('autosave', 'Monatlich automatisch sichern', S.ui.autosave !== false, '')}
+        <div class="switch ${S.sb && S.sb.on ? 'on' : ''}" data-a="sbToggle"><div><div style="font-weight:600">Weltregie (Sandbox)</div><div class="dim" style="font-size:12px">Naturgewalten, Wirtschaft und Politik frei auslösen, Staatswerte ändern, 90×-Zeit</div></div><div class="tg"></div></div>
         <div class="h3">Mandat</div>
         <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" data-a="toTitle">${ic('home', 14)} Zum Titel</button><button class="btn sm danger" data-a="newMandate">${ic('refresh', 14)} Neues Mandat</button></div>
         <div class="note" style="margin-top:14px">KYTHERA · MANDAT ist ein fiktives Rollenspiel. Alle Staaten, Personen, Organisationen und Ereignisse sind frei erfunden. Optimiert für iPad im Querformat mit Magic Keyboard.</div>`;
@@ -404,6 +405,14 @@
     S.ui[k] = S.ui[k] === false;
     if (k === 'sound') KY.audio.setOn(S.ui.sound !== false);
     b.classList.toggle('on', S.ui[k] !== false);
+  };
+  A.sbToggle = b => {
+    const S = SIM.S;
+    S.sb.on = !S.sb.on;
+    b.classList.toggle('on', S.sb.on);
+    ui.rebuildDock(); ui.updateBar();
+    if (!S.sb.on && S.speed === 5) KY.engine.setSpeed(4);
+    ui.toast({ t: S.sb.on ? 'Weltregie freigeschaltet' : 'Weltregie ausgeschaltet', d: S.sb.on ? 'Taste W öffnet die Werkzeuge.' : '', icon: 'sliders' });
   };
   A.loadSlot = async b => { if (await ui.confirm('Spielstand laden?', 'Der aktuelle Stand wird verworfen, sofern Sie ihn nicht gesichert haben.', 'Laden')) KY.boot.loadSlot(b.dataset.v); };
   A.toTitle = async () => { if (await ui.confirm('Zum Titel zurückkehren?', 'Der aktuelle Stand wird automatisch gesichert.', 'Zum Titel')) { ui.save('auto'); KY.boot.toTitle(); } };
@@ -430,7 +439,7 @@
       const k = (t, ...keys) => `<div class="k"><span>${t}</span><span>${keys.map(x => '<span class="kbd">' + x + '</span>').join('')}</span></div>`;
       return `<div class="grid2" style="gap:22px"><div>
         <div class="h3">Tastatur</div><div class="keys" style="grid-template-columns:1fr">
-        ${k('Zeit anhalten oder fortsetzen', 'Leertaste')}${k('Geschwindigkeit', '1', '2', '3', '4')}${k('Suche und Befehle', '⌘', 'K')}${k('Lagezentrum', 'L')}${k('Handlungskatalog', 'A')}${k('Vorhaben', 'P')}${k('Verantwortung', 'V')}${k('Medien', 'M')}${k('Staaten', 'S')}${k('Finanzen', 'F')}${k('Tarnung', 'T')}${k('Forschung', 'R')}${k('Kanal', 'K')}${k('Chronik', 'C')}${k('Akten', 'O')}${k('Krisenstab (nächster Vorfall)', 'E')}${k('Kartenebene wechseln', 'G')}${k('Karte verschieben', '←', '↑', '→', '↓')}${k('Zoomen', '+', '−')}${k('Übersicht', '0')}${k('Schließen oder abbrechen', 'esc')}${k('Sichern', '⌘', 'S')}</div></div>
+        ${k('Zeit anhalten oder fortsetzen', 'Leertaste')}${k('Geschwindigkeit', '1', '2', '3', '4')}${k('Suche und Befehle', '⌘', 'K')}${k('Lagezentrum', 'L')}${k('Handlungskatalog', 'A')}${k('Vorhaben', 'P')}${k('Verantwortung', 'V')}${k('Medien', 'M')}${k('Staaten', 'S')}${k('Finanzen', 'F')}${k('Tarnung', 'T')}${k('Forschung', 'R')}${k('Kanal', 'K')}${k('Chronik', 'C')}${k('Akten', 'O')}${k('Krisenstab (nächster Vorfall)', 'E')}${k('Orbitale Leitstelle', 'U')}${k('Weltregie (Sandbox)', 'W')}${k('Kartenebene wechseln', 'G')}${k('Karte verschieben', '←', '↑', '→', '↓')}${k('Zoomen', '+', '−')}${k('Übersicht', '0')}${k('Schließen oder abbrechen', 'esc')}${k('Sichern', '⌘', 'S')}</div></div>
         <div><div class="h3">Trackpad</div>
         <div class="note">Mit zwei Fingern wischen verschiebt die Karte, Zusammenziehen und Aufziehen zoomt. Ein Klick wählt Staaten, Städte, Vorhaben und Katastrophen aus. Beim Platzieren von Gebieten halten Sie das Trackpad gedrückt und ziehen ein Rechteck auf.</div>
         <div class="h3">Ihre Rolle</div>

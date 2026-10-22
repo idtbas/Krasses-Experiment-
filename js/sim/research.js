@@ -33,7 +33,7 @@
       const pay = T.cost * 0.75 / T.days;
       if (KY.finance.avail() < pay) continue;
       KY.finance.spend(pay, null, true); a.paid += pay;
-      a.prog += 1 / T.days;
+      a.prog += (S.g.resBoost || 1) / T.days;
       if (a.prog >= 1) finish(a);
     }
   };

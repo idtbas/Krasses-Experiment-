@@ -94,7 +94,7 @@
     opts = opts || {};
     const r = U.rng(world.seed ^ 0x5bd1e995);
     const S = {
-      v: SIM.VERSION, seed: world.seed, created: Date.now(), realSaved: 0,
+      v: SIM.VERSION, seed: world.seed, created: Date.now(), realSaved: 0, mode: opts.mode || 'mandat',
       codename: (vals.codename || 'N. N.').trim() || 'N. N.',
       contracts: { vals: Object.assign({}, vals), signedAt: opts.signedAt || Date.now(), sig: opts.sig || null, initials: opts.initials || {} },
       day: 0, speed: 1, paused: true,

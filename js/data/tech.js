@@ -32,6 +32,8 @@
       text: 'Bakterien verschließen Risse im Beton. Einstürze, Damm- und Deichbrüche werden halb so wahrscheinlich.' },
     { id: 'modulbau', n: 'Serieller Modulbau', field: 'Bauwesen', icon: 'crane', cost: 1.2, days: 300, req: [], fx: { housingCost: 0.7 },
       text: 'Wohnungen aus der Fabrik. Wohnungsbau wird 30 % günstiger und schneller.' },
+    { id: 'raketen', n: 'Wiederverwendbare Raketenstufen', field: 'Raumfahrt', icon: 'rocket', cost: 2.5, days: 500, req: [], fx: { reusable: 1 },
+      text: 'Raketen landen nach dem Start wieder. Die Trägerrakete Phoenix R wird verfügbar: günstiger und zuverlässiger.' },
     { id: 'ccs', n: 'Direkte CO₂-Abscheidung', field: 'Klima', icon: 'cloud', cost: 5, days: 900, req: ['perowskit'], fx: { co2Global: 1 },
       text: 'Anlagen filtern CO₂ aus der Luft. Die Umweltqualität aller Staaten verbessert sich langsam.' },
   ];

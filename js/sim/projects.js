@@ -216,7 +216,7 @@
       q.upkeep = A.upkeep ? A.upkeep(x) : 0;
       q.displaced = x.displaced || 0;
       q.approval = !!A.approval;
-      q.chance = A.approval ? P.approvalChance(A, x, o) : 100;
+      q.chance = A.approval ? (KY.sandbox.flag('approve') ? 100 : P.approvalChance(A, x, o)) : 100;
       q.risks = (A.risks || []).filter(r => r.p > 0).map(r => {
         const pm = r.p * P.RISK_K * P.riskMult(A, o, r.id, x);
         return { id: r.id, n: (D.INCIDENTS[r.id] || {}).n || r.id, phase: r.phase, pm, sev: r.sev, py: 1 - Math.pow(1 - pm, 12) };
@@ -502,7 +502,7 @@
 
   function decide(p) {
     const S = SIM.S, A = D.ACT[p.act], n = S.nations[p.n];
-    const chance = P.approvalChance(A, P.liteCtx(p), p.o);
+    const chance = KY.sandbox.flag('approve') ? 100 : P.approvalChance(A, P.liteCtx(p), p.o);
     p.chance = chance;
     const roll = Math.random() * 100;
     if (roll < chance) {

@@ -7,6 +7,11 @@ Ein fiktives Rollenspiel in einer prozedural erzeugten Welt. Sie sind kein Gott,
 
 Alle Staaten, Personen, Organisationen, Sender und Ereignisse sind frei erfunden.
 
+## Zwei Arten zu spielen
+
+- **Neues Mandat:** Vertragsmappe unterschreiben, mit begrenztem Vermögen handeln und für alle Folgen geradestehen.
+- **Freie Sandbox · Weltregie:** ohne Verträge und Geldsorgen. Naturgewalten, Wirtschaft und Politik frei auslösen, Staatswerte verändern, Raketen starten und Satellitenflotten aufbauen – die Welt reagiert auf alles. (Im Mandat lässt sich die Weltregie unter System freischalten.)
+
 ## Gerät
 
 Gestaltet für das **iPad im Querformat mit Magic Keyboard** (Safari). Bedienung über Trackpad und Tastatur; ein Desktop-Browser im Querformat funktioniert ebenfalls. Eine Handy-Fassung gibt es bewusst nicht.
@@ -17,6 +22,8 @@ Gestaltet für das **iPad im Querformat mit Magic Keyboard** (Safari). Bedienung
 | 1 – 4 | Geschwindigkeit |
 | ⌘ K oder / | Suche und Befehle |
 | A | Handlungskatalog |
+| U | Orbitale Leitstelle |
+| W | Weltregie (Sandbox) |
 | E | Krisenstab |
 | G | Kartenebene wechseln |
 | ? | Einweisung |

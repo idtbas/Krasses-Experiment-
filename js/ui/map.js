@@ -27,6 +27,7 @@
     { id: 'energy', n: 'Energie', icon: 'bolt', legend: ['knapp', 'gesichert'] },
     { id: 'health', n: 'Gesundheit', icon: 'hospital', legend: ['schwach', 'stark'] },
     { id: 'rel', n: 'Beziehungen', icon: 'hands' },
+    { id: 'orbit', n: 'Orbit', icon: 'sat' },
   ];
   const BLUE = ['#0d366b', '#104281', '#184f95', '#1c5cab', '#256abf', '#2a78d6', '#3987e5', '#5598e7', '#6da7ec', '#86b6ef', '#9ec5f4', '#b7d3f6', '#cde2fb'];
   const ORANGE = ['#3a1d10', '#5a2a14', '#7a3716', '#9a4418', '#b9521c', '#d95926', '#ea7040', '#f08c62', '#f5aa88', '#f9c8ae'];
@@ -270,6 +271,7 @@
       case 'wealth': return rampColor(BLUE, (Math.log(n.gdpPc) - Math.log(1800)) / (Math.log(72000) - Math.log(1800))).concat(0.62);
       case 'energy': return rampColor(BLUE, (n.energy - 20) / 80).concat(0.62);
       case 'health': return rampColor(BLUE, (n.health - 20) / 78).concat(0.62);
+      case 'orbit': return [8, 12, 22, 0.42];
     }
     return null;
   }
@@ -316,7 +318,7 @@
     dirty = false; lastDraw = time;
     draw();
   };
-  M.hasAnim = () => SIM.S && (SIM.S.events.some(e => e.phase !== 'vorbei') || SIM.S.incidents.some(i => i.status === 'offen') || M.placing || SIM.S.cities.some(c => c.protest));
+  M.hasAnim = () => SIM.S && (SIM.S.events.some(e => e.phase !== 'vorbei') || SIM.S.incidents.some(i => i.status === 'offen') || M.placing || SIM.S.cities.some(c => c.protest) || (SIM.S.orbit && SIM.S.orbit.sats.length) || launchFx.length);
   M.redraw = () => { dirty = true; };
 
   function worldCopies() {
@@ -388,7 +390,100 @@
     drawEvents(zl);
     drawCities(zl);
     drawProjects(zl);
+    drawOrbit(zl);
     drawPlacing();
+  }
+
+  /* ---------- Satelliten und Raketenstarts ---------- */
+  const launchFx = [];
+  KY.bus.on('launch', m => { launchFx.push({ lon: m.lon, lat: m.lat, t0: time, ok: m.status === 'erfolg' }); dirty = true; });
+  function satPos(s, tt) {
+    const R = Math.PI / 180;
+    const th = s.phase + tt * 2 * Math.PI / s.period;
+    const lat = Math.asin(Math.sin(s.inc * R) * Math.sin(th)) / R;
+    const lo = Math.atan2(Math.cos(s.inc * R) * Math.sin(th), Math.cos(th)) / R;
+    let lon = s.raan + lo - tt * 3.2;
+    lon = ((lon + 180) % 360 + 360) % 360 - 180;
+    return { lon, lat };
+  }
+  M.satPos = s => satPos(s, time);
+  function drawOrbit(zl) {
+    const S = SIM.S;
+    const st = S.orbit;
+    const full = M.layer === 'orbit';
+    ctx.save();
+    if (st && st.sats.length) {
+      const sats = st.sats.length > 120 ? st.sats.slice(0, 120) : st.sats;
+      if (full) {
+        // Bodenspuren der letzten halben Umlaufbahn
+        ctx.lineWidth = 1.2;
+        sats.forEach(sat => {
+          const col = D.SATS[sat.type].col;
+          ctx.strokeStyle = col; ctx.globalAlpha = 0.28;
+          ctx.beginPath();
+          let last = null;
+          for (let k = 0; k <= 40; k++) {
+            const pp = satPos(sat, time - sat.period * 0.5 * (1 - k / 40));
+            const q = llScreen(pp.lon, pp.lat);
+            if (!last || Math.abs(q[0] - last[0]) > SW / 2) ctx.moveTo(q[0], q[1]); else ctx.lineTo(q[0], q[1]);
+            last = q;
+          }
+          ctx.stroke();
+          if (sat.type === 'komm') {
+            const pp = satPos(sat, time), q = llScreen(pp.lon, pp.lat);
+            ctx.globalAlpha = 0.06; ctx.fillStyle = col;
+            ctx.beginPath(); ctx.arc(q[0], q[1], kmUnits(1600) * view.z, 0, Math.PI * 2); ctx.fill();
+          }
+        });
+      }
+      ctx.globalAlpha = 1;
+      sats.forEach(sat => {
+        const pp = satPos(sat, time), q = llScreen(pp.lon, pp.lat);
+        if (q[0] < -10 || q[0] > SW + 10 || q[1] < -10 || q[1] > SH + 10) return;
+        const col = D.SATS[sat.type].col;
+        const r = full ? (sat.type === 'modul' ? 4.5 : 3) : 1.8;
+        if (full) { ctx.fillStyle = col; ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(q[0], q[1], r * 3, 0, Math.PI * 2); ctx.fill(); }
+        ctx.globalAlpha = full ? 1 : 0.7;
+        ctx.fillStyle = full ? col : '#e8f4ff';
+        ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, Math.PI * 2); ctx.fill();
+        if (full) hits.push({ x: q[0], y: q[1], r: 8, type: 'sat', id: sat.id, pri: 0 });
+      });
+    }
+    // Geplante Starts
+    if (st) st.missions.forEach(m => {
+      if (m.status !== 'geplant') return;
+      const q = llScreen(m.lon, m.lat);
+      ctx.globalAlpha = 1;
+      badge(q[0] + 16, q[1] - 16, 'rocket', '#e3c47a', 9);
+      ctx.font = '700 10px Inter, sans-serif'; ctx.fillStyle = '#e3c47a';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(8,10,14,0.85)';
+      const t = 'T−' + (m.launch - S.day);
+      ctx.strokeText(t, q[0] + 28, q[1] - 13); ctx.fillText(t, q[0] + 28, q[1] - 13);
+    });
+    // Startanimation
+    for (let i = launchFx.length - 1; i >= 0; i--) {
+      const f = launchFx[i];
+      const p = (time - f.t0) / 4;
+      if (p > 1) { launchFx.splice(i, 1); continue; }
+      const q = llScreen(f.lon, f.lat);
+      const fail = !f.ok && p > 0.38;
+      const pp = fail ? 0.38 : p;
+      const x = q[0] + pp * 110, y = q[1] - pp * 230 + pp * pp * 70;
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(255,230,190,0.6)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(q[0], q[1]);
+      for (let k = 1; k <= 20; k++) { const t = pp * k / 20; ctx.lineTo(q[0] + t * 110, q[1] - t * 230 + t * t * 70); }
+      ctx.stroke();
+      if (fail) {
+        const e = (p - 0.38) / 0.62;
+        ctx.globalAlpha = 1 - e;
+        ctx.fillStyle = '#ffb35a'; ctx.beginPath(); ctx.arc(x, y, 6 + e * 34, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,160,60,0.8)'; ctx.beginPath(); ctx.arc(x - 3, y + 6, 4 + Math.random() * 2, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.restore();
   }
 
   function drawRoads(zl) {
@@ -789,6 +884,7 @@
     else if (h.type === 'ev') KY.ui.inspect('ev', h.id);
     else if (h.type === 'nation') KY.ui.inspect('nation', h.id);
     else if (h.type === 'rel') KY.ui.inspect('nation', h.a);
+    else if (h.type === 'sat') KY.ui.panel('orbit', { keep: true });
     else KY.ui.closeInsp();
   }
 
@@ -813,6 +909,11 @@
       const n = S.nations[h.id], w = W.nations[h.id];
       html = `<div class="h">${KY.flag(w, 18)}${U.esc(w.short)}</div>` + row('Einwohner', U.people(n.pop)) + row('Regierung', U.esc(n.gov.leader)) + row('Haltung zu Ihnen', n.aware < 5 ? 'unbekannt' : U.sgn(n.op, 0)) + row('Zufriedenheit', Math.round(n.happy)) + row('Ihr Zugang', Math.round(n.access));
       if (M.placing && M.placing.kind === 'two' && M.placing.first >= 0 && M.placing.first !== h.id) { const R = SIM.rel(M.placing.first, h.id); html += row('Beziehung', SIM.REL_NAMES[R.state] + ' (' + Math.round(R.v) + ')'); }
+    } else if (h.type === 'sat') {
+      const sat = (S.orbit ? S.orbit.sats : []).find(x => x.id === h.id);
+      if (!sat) { hideTip(); return; }
+      const T = D.SATS[sat.type];
+      html = `<div class="h">${KY.icon(T.icon, 14)}${U.esc(sat.name)}</div>` + row('Typ', T.n) + row('Bahnneigung', Math.round(sat.inc) + '°') + row('Gestartet', U.dateStr(sat.born, true)) + row('Restlaufzeit', U.days(sat.until - S.day));
     } else if (h.type === 'rel') {
       const R = SIM.rel(h.a, h.b);
       html = `<div class="h">${KY.icon('alert', 14)}${U.esc(W.nations[h.a].short)} – ${U.esc(W.nations[h.b].short)}</div>` + row('Beziehung', SIM.REL_NAMES[R.state]) + row('Wert', Math.round(R.v));

@@ -2802,6 +2802,18 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       dmg: [0.05, 0.25, 0.8, 2, 4], relief: 1, radius: [40, 200],
       text: ['Der Vulkan nahe {city} ist ausgebrochen. Aschewolken steigen kilometerhoch.', 'Der Flugverkehr in der Region ist eingestellt.'],
     },
+    tsunami: {
+      n: 'Tsunami', icon: 'wave', kind: 'Natur', rate: 0, where: 'coast', sev: [30, 30, 22, 12, 6], dur: [4, 12],
+      dead: [[0, 5], [5, 120], [120, 2500], [2500, 30000], [30000, 180000]], displaced: [[200, 5000], [5000, 60000], [60000, 400000], [400000, 1500000], [1500000, 4000000]],
+      dmg: [0.05, 0.3, 1.2, 3.5, 8], tech: 'fruehwarn', relief: 1.2, flood: true, radius: [80, 700],
+      text: ['Eine Flutwelle trifft die Küste bei {city}.', 'Das Meer zieht sich zurück – dann kommt die Welle. Ganze Uferviertel von {city} sind verwüstet.'],
+    },
+    meteor: {
+      n: 'Meteoriteneinschlag', icon: 'spark', kind: 'Natur', rate: 0.02, where: 'any', sev: [40, 30, 18, 9, 3], dur: [4, 10],
+      dead: [[0, 0], [0, 25], [25, 600], [600, 20000], [20000, 250000]], displaced: [[0, 500], [500, 20000], [20000, 200000], [200000, 1200000], [1200000, 5000000]],
+      dmg: [0.01, 0.1, 0.8, 4, 12], relief: 1.2, radius: [20, 650],
+      text: ['Ein Feuerball über {nation}: Ein Meteorit schlägt nahe {city} ein.', 'Ein Gesteinsbrocken aus dem All hinterlässt bei {city} einen gewaltigen Krater.'],
+    },
   };
 
   /* Gesellschaftliche und wirtschaftliche Krisen (entstehen aus der Simulation) */
@@ -2815,6 +2827,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     govfall: { n: 'Regierungskrise', icon: 'ballot', kind: 'Politik', text: 'Die Regierungskoalition ist zerbrochen. Neuwahlen stehen bevor.' },
     scandal: { n: 'Korruptionsskandal', icon: 'eyeglass', kind: 'Politik', text: 'Enthüllungen über Schmiergeldzahlungen erschüttern die Regierung.' },
     boom: { n: 'Wirtschaftsboom', icon: 'trendUp', kind: 'Wirtschaft', text: 'Die Wirtschaft wächst so schnell wie seit Jahrzehnten nicht.' },
+    resource: { n: 'Rohstofffund', icon: 'mountain', kind: 'Wirtschaft', text: 'Geologen melden ein gewaltiges Vorkommen seltener Rohstoffe.' },
   };
 
   /* Vorfälle an eigenen Vorhaben. dead/injured: Spannen je Stufe 1–5. dmg: Anteil der Investitionssumme. delay: Bauverzug (Tage) */
@@ -2995,11 +3008,41 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       text: 'Bakterien verschließen Risse im Beton. Einstürze, Damm- und Deichbrüche werden halb so wahrscheinlich.' },
     { id: 'modulbau', n: 'Serieller Modulbau', field: 'Bauwesen', icon: 'crane', cost: 1.2, days: 300, req: [], fx: { housingCost: 0.7 },
       text: 'Wohnungen aus der Fabrik. Wohnungsbau wird 30 % günstiger und schneller.' },
+    { id: 'raketen', n: 'Wiederverwendbare Raketenstufen', field: 'Raumfahrt', icon: 'rocket', cost: 2.5, days: 500, req: [], fx: { reusable: 1 },
+      text: 'Raketen landen nach dem Start wieder. Die Trägerrakete Phoenix R wird verfügbar: günstiger und zuverlässiger.' },
     { id: 'ccs', n: 'Direkte CO₂-Abscheidung', field: 'Klima', icon: 'cloud', cost: 5, days: 900, req: ['perowskit'], fx: { co2Global: 1 },
       text: 'Anlagen filtern CO₂ aus der Luft. Die Umweltqualität aller Staaten verbessert sich langsam.' },
   ];
   D.TECH_BY = {};
   D.TECH.forEach(t => { D.TECH_BY[t.id] = t; });
+})();
+
+
+/* ===== js/data/orbit.js ===== */
+/* KYTHERA · MANDAT · Raumfahrt: Trägerraketen und Satellitentypen (zivil, frei erfunden) */
+(function () {
+  'use strict';
+  const KY = window.KY;
+  const D = (KY.data = KY.data || {});
+
+  D.ROCKETS = [
+    { id: 'leicht', n: 'Kestrel-1', kind: 'Leichte Trägerrakete', cap: 1, cost: 0.06, ok: 0.93, days: 14, note: 'Ein kleiner Satellit, günstig und schnell startklar' },
+    { id: 'mittel', n: 'Meridian-4', kind: 'Mittlere Trägerrakete', cap: 4, cost: 0.18, ok: 0.955, days: 21, note: 'Bewährtes Arbeitspferd für bis zu vier Satelliten' },
+    { id: 'schwer', n: 'Atlantea Heavy', kind: 'Schwerlastrakete', cap: 12, cost: 0.6, ok: 0.95, days: 35, note: 'Zwölf Satelliten oder ein Modul der Raumstation', station: true },
+    { id: 'wieder', n: 'Phoenix R', kind: 'Wiederverwendbare Rakete', cap: 6, cost: 0.11, ok: 0.97, days: 18, note: 'Landet nach dem Start wieder. Erfordert Forschung', tech: 'raketen' },
+  ];
+  D.ROCKET = {};
+  D.ROCKETS.forEach(r => { D.ROCKET[r.id] = r; });
+
+  D.SATS = {
+    wetter: { n: 'Wettersatellit', pl: 'Wettersatelliten', icon: 'cloud', cost: 0.15, life: [6, 10], col: '#7fd3ff', inc: [0, 98], text: 'Sieht Stürme, Hitzewellen und Brände Tage im Voraus. Katastrophen fordern weniger Opfer.' },
+    beob: { n: 'Erdbeobachtungssatellit', pl: 'Erdbeobachtungssatelliten', icon: 'globe', cost: 0.2, life: [5, 9], col: '#4fc46a', inc: [80, 98], text: 'Kartiert Dürren, Ernten und Schäden. Hilfe kommt gezielter an, Dürren treffen weniger hart.' },
+    komm: { n: 'Kommunikationssatellit', pl: 'Kommunikationssatelliten', icon: 'radio', cost: 0.08, life: [5, 8], col: '#c9a24f', inc: [40, 70], text: 'Schnelles Internet für entlegene Regionen. Ab etwa 24 Satelliten ist die ganze Welt abgedeckt.' },
+    navi: { n: 'Navigationssatellit', pl: 'Navigationssatelliten', icon: 'compass', cost: 0.12, life: [10, 14], col: '#9085e9', inc: [52, 58], text: 'Präzise Ortung für Verkehr, Landwirtschaft und Rettungsdienste. Infrastruktur weltweit besser.' },
+    wiss: { n: 'Weltraumteleskop', pl: 'Weltraumteleskope', icon: 'star', cost: 0.5, life: [12, 20], col: '#ff9fd0', inc: [20, 35], text: 'Bilder aus der Tiefe des Alls. Forschung kommt schneller voran, die Welt staunt.' },
+    modul: { n: 'Modul der Raumstation', pl: 'Module der Raumstation', icon: 'sat', cost: 1.2, life: [25, 30], col: '#ffffff', inc: [50, 52], station: true, text: 'Baut eine bemannte Raumstation. Ab drei Modulen ist sie bewohnt – ein Symbol für die ganze Menschheit.' },
+  };
+  D.SAT_PREFIX = { wetter: 'Halcyon', beob: 'Argos', komm: 'Lumen', navi: 'Polaris', wiss: 'Vesper', modul: 'Concordia' };
 })();
 
 
@@ -4916,7 +4959,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     opts = opts || {};
     const r = U.rng(world.seed ^ 0x5bd1e995);
     const S = {
-      v: SIM.VERSION, seed: world.seed, created: Date.now(), realSaved: 0,
+      v: SIM.VERSION, seed: world.seed, created: Date.now(), realSaved: 0, mode: opts.mode || 'mandat',
       codename: (vals.codename || 'N. N.').trim() || 'N. N.',
       contracts: { vals: Object.assign({}, vals), signedAt: opts.signedAt || Date.now(), sig: opts.sig || null, initials: opts.initials || {} },
       day: 0, speed: 1, paused: true,
@@ -5838,7 +5881,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       q.upkeep = A.upkeep ? A.upkeep(x) : 0;
       q.displaced = x.displaced || 0;
       q.approval = !!A.approval;
-      q.chance = A.approval ? P.approvalChance(A, x, o) : 100;
+      q.chance = A.approval ? (KY.sandbox.flag('approve') ? 100 : P.approvalChance(A, x, o)) : 100;
       q.risks = (A.risks || []).filter(r => r.p > 0).map(r => {
         const pm = r.p * P.RISK_K * P.riskMult(A, o, r.id, x);
         return { id: r.id, n: (D.INCIDENTS[r.id] || {}).n || r.id, phase: r.phase, pm, sev: r.sev, py: 1 - Math.pow(1 - pm, 12) };
@@ -6124,7 +6167,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
 
   function decide(p) {
     const S = SIM.S, A = D.ACT[p.act], n = S.nations[p.n];
-    const chance = P.approvalChance(A, P.liteCtx(p), p.o);
+    const chance = KY.sandbox.flag('approve') ? 100 : P.approvalChance(A, P.liteCtx(p), p.o);
     p.chance = chance;
     const roll = Math.random() * 100;
     if (roll < chance) {
@@ -6749,6 +6792,8 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       case 'dense': { const n = pickNation(w => w.pop * (100 - S.nations[w.id].health) / 50); return n ? W.cities[n.capital] : null; }
       case 'hot': { const n = pickNation(w => (Math.abs(w.lat) < 38 ? 1 : 0.05) * Math.sqrt(w.pop)); return n ? W.cities[n.capital] : null; }
       case 'cold': { const n = pickNation(w => (Math.abs(w.lat) > 40 ? 1 : 0) * Math.sqrt(w.pop)); return n ? W.cities[n.capital] : null; }
+      case 'coast': return pickCity(c => (c.coastal ? 1 : 0) * Math.sqrt(c.pop + 0.2));
+      case 'any': return pickCity(c => 1);
     }
     return null;
   }
@@ -6757,32 +6802,40 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
   E.spawn = function (type, opts) {
     const S = SIM.S, W = SIM.W, T = D.EVENTS[type];
     opts = opts || {};
-    const city = opts.city !== undefined ? W.cities[opts.city] : locate(T);
+    let city = opts.city !== undefined ? W.cities[opts.city] : null;
+    if (!city && opts.at) {
+      // Ausgelöst an einer bestimmten Stelle: nächste Stadt, bevorzugt im selben Staat
+      const nid0 = KY.geo.nationAt(opts.at.lon, opts.at.lat);
+      const r0 = (nid0 >= 0 && KY.geo.nearestCity(opts.at.lon, opts.at.lat, c => c.nation === nid0)) || KY.geo.nearestCity(opts.at.lon, opts.at.lat);
+      city = r0 ? r0.city : null;
+    }
+    if (!city) city = locate(T);
     if (!city) return null;
     const nid = city.nation, n = S.nations[nid];
     const sev = opts.sev || 1 + U.weighted([0, 1, 2, 3, 4], i => T.sev[i]);
     let k = 1;
     if (T.devFactor !== false) k *= 1.7 - n.dev * 1.1;
     k *= 1.3 - n.health / 200;
-    if (S.g.warn && ['storm', 'fire', 'flood', 'heat', 'drought', 'volcano'].indexOf(type) >= 0) k *= 0.72;
+    if ((S.g.warn || S.g.orbitWarn) && ['storm', 'fire', 'flood', 'heat', 'drought', 'volcano', 'tsunami'].indexOf(type) >= 0) k *= 0.72;
     const tm = { quake: 'quakeMult', storm: 'stormMult', fire: 'stormMult', heat: 'stormMult', epidemic: 'epiMult', drought: 'droughtMult' }[type];
     if (tm) k *= SIM.techFx(tm);
     if (type === 'epidemic') k *= 1 - 0.4 * Math.min(1, (n.fx.epiShield || 0));
     if (type === 'drought') k *= 1 - 0.4 * Math.min(1.5, (n.fx.droughtShield || 0));
     const sc = S.cities[city.id];
     let deich = null;
-    if ((type === 'storm' || type === 'flood') && sc.fac.flood) {
+    if ((type === 'storm' || type === 'flood' || type === 'tsunami') && sc.fac.flood) {
       k *= 0.25;
       deich = S.projects.find(p => p.act === 'DEICH' && p.c === city.id && p.phase === 'betrieb');
     }
     if (T.energyFactor) k *= 1.4 - n.energy / 160;
+    k *= 1 - (S.g.orbitMit || 0);
     const dead = Math.round(SIM.rangeRoll(T.dead[sev - 1], 1.25) * k * (opts.k || 1));
     const displaced = Math.round(SIM.rangeRoll(T.displaced[sev - 1], 1.2) * (sc.fac.flood && type === 'storm' ? 0.3 : 1));
     const dur = Math.round(T.dur[0] + Math.random() * (T.dur[1] - T.dur[0]));
     const jitter = T.nationwide ? 0 : 1;
     const ev = {
       id: 'e' + (++S.seq.ev), type, name: T.n + (T.nationwide ? ' in ' + W.nations[nid].short : ' bei ' + city.name), n: nid, c: city.id,
-      lon: city.lon + (Math.random() - 0.5) * 2 * jitter, lat: city.lat + (Math.random() - 0.5) * 1.6 * jitter, sev, start: S.day, dur, end: S.day + dur,
+      lon: opts.at && !T.nationwide ? opts.at.lon : city.lon + (Math.random() - 0.5) * 2 * jitter, lat: opts.at && !T.nationwide ? opts.at.lat : city.lat + (Math.random() - 0.5) * 1.6 * jitter, sev, start: S.day, dur, end: S.day + dur, byDirector: !!opts.director,
       dead, deadNow: 0, displaced, phase: 'akut', helped: {}, saved: 0, radius: T.radius ? T.radius[0] + (T.radius[1] - T.radius[0]) * (sev - 1) / 4 : 0,
       dmg: T.dmg[sev - 1] * (1.4 - n.dev * 0.5), nationwide: !!T.nationwide, relNone: false, breakChecked: false,
       text: U.fill(U.pick(T.text), { city: city.name, nation: W.nations[nid].short, mag: T.mag ? U.n(T.mag[sev - 1] + Math.random() * 0.6, 1) : '', cat: T.cat ? T.cat[sev - 1] : '' }),
@@ -6815,23 +6868,32 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       S.g.lives += dead * 2; deich.acc.lives = (deich.acc.lives || 0) + dead * 2;
     }
     KY.bus.emit('event', ev);
+    if (type === 'quake' && sev >= 4 && city.coastal && Math.random() < 0.45 && !opts.noChain) (S.pending = S.pending || []).push({ type: 'tsunami', city: city.id, sev: Math.min(5, sev - 1 + (Math.random() < 0.3 ? 1 : 0)), director: !!opts.director });
     return ev;
+  };
+  // Folgeereignisse (als Daten gespeichert, damit sie den Spielstand überstehen)
+  E.flush = function () {
+    const q = SIM.S.pending;
+    if (!q || !q.length) return;
+    SIM.S.pending = [];
+    q.forEach(f => { if (f && f.type) E.spawn(f.type, { city: f.city, sev: f.sev, noChain: true, director: f.director }); });
   };
 
   /* Verlauf: Opfer pro Tag nach Ereignistyp */
   function curve(type, t) {
-    if (type === 'quake' || type === 'volcano') return 1 - Math.exp(-t * 2.2);
+    if (type === 'quake' || type === 'volcano' || type === 'meteor' || type === 'tsunami') return 1 - Math.exp(-t * 2.2);
     if (type === 'storm' || type === 'flood' || type === 'fire' || type === 'heat' || type === 'cold') return 1 - Math.exp(-t * 0.5);
     return U.smooth(Math.min(1, t / 1));
   }
 
   E.daily = function () {
     const S = SIM.S;
+    E.flush();
     // Neue Ereignisse
     for (const type in D.EVENTS) {
       const T = D.EVENTS[type];
       if (Math.random() < T.rate / 365 * SCALE) {
-        if (S.g.warn && ['storm', 'drought', 'fire', 'heat'].indexOf(type) >= 0 && Math.random() < 0.85) forecast(type);
+        if ((S.g.warn || S.g.orbitWarn) && ['storm', 'drought', 'fire', 'heat'].indexOf(type) >= 0 && Math.random() < 0.85) forecast(type);
         else E.spawn(type);
       }
     }
@@ -7452,7 +7514,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       const pay = T.cost * 0.75 / T.days;
       if (KY.finance.avail() < pay) continue;
       KY.finance.spend(pay, null, true); a.paid += pay;
-      a.prog += 1 / T.days;
+      a.prog += (S.g.resBoost || 1) / T.days;
       if (a.prog >= 1) finish(a);
     }
   };
@@ -7611,6 +7673,336 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
 })();
 
 
+/* ===== js/sim/orbit.js ===== */
+/* KYTHERA · MANDAT · Orbitale Leitstelle: Starts, Satelliten, Weltraumschrott, Wirkungen auf der Erde */
+(function () {
+  'use strict';
+  const KY = window.KY;
+  const U = KY.U, D = KY.data;
+  const SIM = KY.sim;
+  const O = (KY.orbit = {});
+
+  O.state = function () {
+    const S = SIM.S;
+    if (!S.orbit) S.orbit = { sats: [], missions: [], debris: 0, launches: 0, fails: 0, seq: 0, cleanups: 0 };
+    return S.orbit;
+  };
+  O.active = () => O.state().sats;
+  O.count = type => O.state().sats.filter(s => s.type === type).length;
+  O.stationModules = () => O.count('modul');
+  O.coverage = () => Math.min(1, O.count('komm') / 24);
+
+  /* Startplätze: eigene Raumhäfen oder gemietete Startplätze technologisch führender Staaten */
+  O.sites = function () {
+    const S = SIM.S, W = SIM.W;
+    const own = S.projects.filter(p => p.act === 'RAUMHAFEN' && p.phase === 'betrieb').map(p => ({ id: p.id, own: true, n: 'Eigener Raumhafen bei ' + SIM.cName(p.c), nid: p.n, c: p.c, lon: p.lon, lat: p.lat, mult: 1, ok: p.retrofit ? 1.01 : 1 }));
+    const best = S.nations.map((n, id) => ({ id, t: n.tech })).sort((a, b) => b.t - a.t).slice(0, 2);
+    const rent = best.map(b => { const c = W.cities[W.nations[b.id].capital]; return { id: 'rent' + b.id, own: false, n: 'Startplatz in ' + W.nations[b.id].short + ' (gemietet)', nid: b.id, c: c.id, lon: c.lon, lat: c.lat, mult: 1.5, ok: 1 }; });
+    return own.concat(rent);
+  };
+
+  O.quote = function (o) {
+    const S = SIM.S;
+    const R = D.ROCKET[o.rocket], T = D.SATS[o.type];
+    const site = O.sites().find(s => s.id === o.site) || O.sites()[0];
+    const errs = [];
+    if (!R || !T || !site) errs.push('Unvollständige Missionsplanung.');
+    if (R && R.tech && !(S.res.done[R.tech])) errs.push('Erfordert das Forschungsprogramm „Wiederverwendbare Raketenstufen“.');
+    if (T && T.station && R && !R.station) errs.push('Ein Stationsmodul passt nur in eine Schwerlastrakete.');
+    const n = T && T.station ? 1 : U.clamp(o.count || 1, 1, R ? R.cap : 1);
+    const cost = R && T ? (R.cost + T.cost * n * (o.safe ? 1.2 : 1)) * (site ? site.mult : 1) : 0;
+    const ok = R ? U.clamp(R.ok * (site ? site.ok : 1) * (1 - Math.min(0.08, O.state().debris / 1000)), 0.5, 0.995) : 0;
+    if (cost > KY.finance.avail()) errs.push('Nicht genügend liquide Mittel.');
+    return { R, T, site, n, cost, ok, days: R ? R.days : 0, errs, valid: !errs.length };
+  };
+
+  O.plan = function (o) {
+    const S = SIM.S, st = O.state();
+    const q = O.quote(o);
+    if (!q.valid) return { ok: false, err: q.errs[0] };
+    KY.finance.spend(q.cost, 'Raumfahrt: ' + q.R.n + ' mit ' + q.n + ' × ' + q.T.n);
+    const m = { id: 'm' + (++st.seq), rocket: q.R.id, type: o.type, n: q.n, site: q.site.id, siteName: q.site.n, nid: q.site.nid, c: q.site.c, lon: q.site.lon, lat: q.site.lat, own: q.site.own, safe: !!o.safe, launch: S.day + q.days, status: 'geplant', cost: q.cost, ok: q.ok, planned: S.day };
+    st.missions.unshift(m);
+    if (st.missions.length > 80) st.missions.length = 80;
+    SIM.chron('raumfahrt', 'Mission geplant: ' + q.R.n + ' mit ' + q.n + ' × ' + q.T.n + ' · Start am ' + U.dateStr(m.launch, true) + '.', null);
+    return { ok: true, m };
+  };
+
+  function satName(type) {
+    const st = O.state();
+    st.names = st.names || {};
+    st.names[type] = (st.names[type] || 0) + 1;
+    return D.SAT_PREFIX[type] + '-' + st.names[type];
+  }
+
+  function launch(m) {
+    const S = SIM.S, st = O.state();
+    const R = D.ROCKET[m.rocket], T = D.SATS[m.type];
+    st.launches++;
+    const success = Math.random() < m.ok;
+    m.status = success ? 'erfolg' : 'fehlschlag';
+    const vars = { n: m.nid, c: m.c };
+    const what = m.n > 1 ? m.n + ' ' + T.pl : T.n;
+    if (success) {
+      for (let i = 0; i < m.n; i++) {
+        const life = T.life[0] + Math.random() * (T.life[1] - T.life[0]);
+        st.sats.push({ id: 's' + (++st.seq), type: m.type, name: satName(m.type), inc: T.inc[0] + Math.random() * (T.inc[1] - T.inc[0]), phase: Math.random() * Math.PI * 2, raan: Math.random() * 360, period: 30 + Math.random() * 18, born: S.day, until: S.day + Math.round(life * 365), safe: m.safe, mission: m.id });
+      }
+      const big = m.type === 'modul' || m.n >= 6;
+      KY.media.story(null, vars, { h: U.pick([R.n + ' bringt ' + what + ' ins All', 'Erfolgreicher Start in ' + SIM.nName(m.nid) + ': ' + what + ' im Orbit', 'Bilderbuchstart: ' + R.n + ' hebt ab']), tone: 0.35, heat: big ? 26 : 12, about: m.own, key: 'launch_ok' });
+      if (m.nid >= 0) SIM.opImpulse(m.nid, [0.4, 0.2, 0, 0.6, 0.1], big ? 1.6 : 0.7, { aware: m.own ? 1.5 : 0.3 });
+      SIM.chron('raumfahrt', 'Start geglückt: ' + R.n + ' mit ' + m.n + ' × ' + T.n + '.', null);
+      if (m.type === 'modul' && O.stationModules() === 3) {
+        KY.media.story(null, {}, { h: 'Die Raumstation Concordia ist bewohnt: Menschen leben dauerhaft im All', tone: 0.7, heat: 60, global: true, about: true, key: 'station' });
+        S.nations.forEach((n, id) => SIM.opImpulse(id, [0.5, 0.3, 0.2, 0.7, 0.3], 1.2, { aware: 2 }));
+        SIM.chron('raumfahrt', 'Die Raumstation Concordia ist dauerhaft bewohnt.', null);
+      }
+    } else {
+      st.fails++;
+      st.debris = Math.min(100, st.debris + 1.5);
+      const own = m.own ? S.projects.find(p => p.id === m.site) : null;
+      if (own) KY.incidents.create(own, { id: 'fehlstart', sev: [1, 3] });
+      else {
+        KY.media.story(null, vars, { h: U.pick([R.n + ' explodiert kurz nach dem Start', 'Fehlstart: ' + what + ' verloren', 'Rakete stürzt ins Meer – Ermittler suchen nach der Ursache']), tone: -0.4, heat: 20, about: false, key: 'launch_fail' });
+        if (m.nid >= 0) SIM.opImpulse(m.nid, -0.3, 0.6);
+      }
+      SIM.chron('raumfahrt', 'Fehlstart: ' + R.n + ' mit ' + m.n + ' × ' + T.n + ' ist verloren.', null);
+    }
+    KY.bus.emit('launch', m);
+  }
+
+  O.cleanup = function () {
+    const st = O.state();
+    const cost = 1.5;
+    if (KY.finance.avail() < cost) return { ok: false, err: 'Nicht genügend liquide Mittel.' };
+    KY.finance.spend(cost, 'Aufräummission im Orbit');
+    st.debris = Math.max(0, st.debris - 30); st.cleanups++;
+    KY.media.story(null, {}, { h: 'Weltraum-Müllabfuhr: Mission sammelt Trümmer aus dem Orbit', tone: 0.4, heat: 16, about: true, key: 'cleanup' });
+    SIM.chron('raumfahrt', 'Aufräummission: Weltraumschrott deutlich verringert.', null);
+    return { ok: true, cost };
+  };
+
+  O.daily = function () {
+    const S = SIM.S;
+    if (!S.orbit) return;
+    const st = S.orbit;
+    st.missions.forEach(m => { if (m.status === 'geplant' && S.day >= m.launch) launch(m); });
+  };
+
+  O.monthly = function () {
+    const S = SIM.S;
+    if (!S.orbit) return;
+    const st = S.orbit;
+    // Lebensende
+    const dead = st.sats.filter(s => S.day >= s.until);
+    if (dead.length) {
+      st.sats = st.sats.filter(s => S.day < s.until);
+      dead.forEach(s => { if (!s.safe) st.debris = Math.min(100, st.debris + 1.2); });
+      SIM.chron('raumfahrt', dead.length + ' Satellit' + (dead.length > 1 ? 'en haben' : ' hat') + ' das Lebensende erreicht' + (dead.some(s => !s.safe) ? '; ausgediente Satelliten bleiben als Schrott im Orbit.' : ' und verglühte kontrolliert.'), null);
+    }
+    // Kollisionen mit Schrott
+    if (st.sats.length && Math.random() < st.debris / 100 * Math.min(1, st.sats.length / 20) * 0.12) {
+      const v = U.pick(st.sats);
+      st.sats = st.sats.filter(s => s !== v);
+      st.debris = Math.min(100, st.debris + 4);
+      KY.media.story(null, {}, { h: 'Kollision im Orbit: ' + v.name + ' von Trümmerteil zerstört', tone: -0.3, heat: 20, about: true, key: 'collision' });
+      SIM.chron('raumfahrt', 'Kollision: ' + v.name + ' wurde von Weltraumschrott zerstört.', null);
+      if (st.debris > 40 && !S.g.debrisMsg) { S.g.debrisMsg = S.day; SIM.msg('brennan', 'Debatte über Weltraumschrott', ['Astronomen und Raumfahrtbehörden kritisieren den wachsenden Trümmergürtel. Eine Aufräummission würde die Debatte beruhigen.'], { kind: 'warn', acts: [{ l: 'Leitstelle öffnen', a: 'panel', p: { id: 'orbit' } }] }); }
+    }
+    applyEffects();
+  };
+
+  /* Wirkungen der Satellitenflotte auf der Erde */
+  function setFx(n, key, tag, v) {
+    n.fxTags = n.fxTags || {};
+    const prev = n.fxTags[tag + key] || 0;
+    n.fx[key] = (n.fx[key] || 0) - prev + v;
+    n.fxTags[tag + key] = v;
+  }
+  function applyEffects() {
+    const S = SIM.S, g = S.g;
+    const w = O.count('wetter'), b = O.count('beob'), v = O.count('navi'), t = O.count('wiss');
+    const cov = O.coverage(), mods = O.stationModules();
+    g.orbitWarn = w > 0;
+    g.orbitMit = Math.min(0.25, w * 0.025 + b * 0.02);
+    g.resBoost = 1 + Math.min(0.3, t * 0.1) + (mods >= 3 ? 0.1 : 0);
+    S.nations.forEach(n => {
+      setFx(n, 'growth', 'orbit', cov * 0.25 * Math.max(0.1, 1 - n.dev));
+      setFx(n, 'tech', 'orbit', cov * 0.4 + Math.min(0.3, v * 0.05));
+      setFx(n, 'infra', 'orbit', Math.min(3, v * 0.4));
+      setFx(n, 'droughtShield', 'orbit', Math.min(0.6, b * 0.1));
+    });
+    // Wer Internet bekommt, merkt es
+    if (cov > (g.covShown || 0) + 0.2) {
+      g.covShown = cov;
+      S.nations.forEach((n, id) => { if (n.dev < 0.5) SIM.opImpulse(id, [0.4, 0.3, 0.4, 0.7, 0.1], 1.4, { aware: 2 }); });
+      KY.media.story(null, {}, { h: 'Internet aus dem All erreicht ' + U.pct(cov * 100, 0) + ' der Weltbevölkerung', tone: 0.5, heat: 24, about: true, global: true, key: 'coverage' });
+    }
+  }
+  O.applyEffects = applyEffects;
+})();
+
+
+/* ===== js/sim/sandbox.js ===== */
+/* KYTHERA · MANDAT · Weltregie: freie Sandbox-Werkzeuge über Natur, Wirtschaft und Politik */
+(function () {
+  'use strict';
+  const KY = window.KY;
+  const U = KY.U, D = KY.data;
+  const SIM = KY.sim;
+  const SB = (KY.sandbox = {});
+
+  SB.init = function (S, mode) {
+    S.mode = S.mode || mode || 'mandat';
+    if (!S.sb) S.sb = { on: S.mode === 'sandbox', money: S.mode === 'sandbox', approve: S.mode === 'sandbox', log: [] };
+    if (!S.sb.log) S.sb.log = [];
+  };
+  SB.on = () => !!(SIM.S && SIM.S.sb && SIM.S.sb.on);
+  SB.flag = k => !!(SIM.S && SIM.S.sb && SIM.S.sb.on && SIM.S.sb[k]);
+
+  /* target: point (Ort auf der Karte), nation, two (zwei Staaten), global */
+  SB.CATS = [
+    { id: 'natur', n: 'Naturgewalten', icon: 'quake' },
+    { id: 'wirtschaft', n: 'Wirtschaft', icon: 'chart' },
+    { id: 'politik', n: 'Politik', icon: 'ballot' },
+  ];
+  SB.TOOLS = [
+    { id: 'quake', cat: 'natur', ev: 'quake', target: 'point' },
+    { id: 'tsunami', cat: 'natur', ev: 'tsunami', target: 'point', coast: true },
+    { id: 'storm', cat: 'natur', ev: 'storm', target: 'point' },
+    { id: 'flood', cat: 'natur', ev: 'flood', target: 'point' },
+    { id: 'volcano', cat: 'natur', ev: 'volcano', target: 'point' },
+    { id: 'meteor', cat: 'natur', ev: 'meteor', target: 'point' },
+    { id: 'fire', cat: 'natur', ev: 'fire', target: 'point' },
+    { id: 'drought', cat: 'natur', ev: 'drought', target: 'nation' },
+    { id: 'heat', cat: 'natur', ev: 'heat', target: 'nation' },
+    { id: 'cold', cat: 'natur', ev: 'cold', target: 'nation' },
+    { id: 'epidemic', cat: 'natur', ev: 'epidemic', target: 'nation' },
+    { id: 'crash', cat: 'wirtschaft', n: 'Weltweiter Börsencrash', icon: 'trendDown', target: 'global', text: 'Die Kurse stürzen ab, Wachstum bricht überall ein.' },
+    { id: 'boom', cat: 'wirtschaft', n: 'Wirtschaftsboom', icon: 'trendUp', target: 'nation', text: 'Ein Jahr kräftiges Wachstum, mehr Zufriedenheit.' },
+    { id: 'resource', cat: 'wirtschaft', n: 'Rohstofffund', icon: 'mountain', target: 'nation', text: 'Dauerhaft mehr Wachstum – aber auch mehr Korruption und Umweltschäden.' },
+    { id: 'debt', cat: 'wirtschaft', n: 'Staatsschuldenkrise', icon: 'bank', target: 'nation', text: 'Der Staat kann seine Schulden kaum bedienen.' },
+    { id: 'cropfail', cat: 'wirtschaft', n: 'Missernte', icon: 'wheat', target: 'nation', text: 'Lebensmittel werden knapp und teuer.' },
+    { id: 'blackout', cat: 'wirtschaft', n: 'Stromausfall', icon: 'power', target: 'nation', text: 'Das Netz bricht zusammen.' },
+    { id: 'election', cat: 'politik', n: 'Neuwahl ansetzen', icon: 'ballot', target: 'nation', text: 'Die Bevölkerung entscheidet sofort neu.' },
+    { id: 'detente', cat: 'politik', n: 'Annäherung', icon: 'hands', target: 'two', text: 'Zwei Regierungen finden zueinander.' },
+    { id: 'freeze', cat: 'politik', n: 'Diplomatische Eiszeit', icon: 'snow', target: 'two', text: 'Botschafter werden abgezogen, Grenzen geschlossen. Kein Krieg.' },
+    { id: 'trade', cat: 'politik', n: 'Handelsabkommen', icon: 'scales', target: 'two', text: 'Zölle fallen, beide Volkswirtschaften wachsen.' },
+    { id: 'summit', cat: 'politik', n: 'Weltgipfel', icon: 'globe', target: 'global', text: 'Alle Staaten rücken ein Stück zusammen.' },
+  ];
+  SB.TOOLS.forEach(t => {
+    if (t.ev) { const E = D.EVENTS[t.ev]; t.n = E.n; t.icon = E.icon; t.text = t.text || E.text[0].replace(/\{\w+\}/g, '…'); t.sev = true; }
+  });
+  SB.TOOL = {};
+  SB.TOOLS.forEach(t => { SB.TOOL[t.id] = t; });
+
+  function log(t, txt) {
+    const S = SIM.S;
+    U.push(S.sb.log, { day: S.day, t: t.id, txt }, 60);
+    SIM.chron('regie', 'Weltregie: ' + txt, null);
+  }
+
+  /* Werkzeug anwenden; tg: { lon, lat } | { n } | { n, n2 } | {} */
+  SB.apply = function (id, tg, sev) {
+    const S = SIM.S, W = SIM.W, t = SB.TOOL[id];
+    if (!t) return { ok: false, err: 'Unbekanntes Werkzeug.' };
+    sev = U.clamp(sev || 3, 1, 5);
+    if (t.ev) {
+      let at = tg.lon !== undefined ? { lon: tg.lon, lat: tg.lat } : null;
+      let city;
+      if (t.target === 'nation') { if (tg.n === undefined || tg.n < 0) return { ok: false, err: 'Kein Staat an dieser Stelle.' }; city = W.nations[tg.n].capital; at = null; }
+      if (t.coast) {
+        const r = KY.geo.nearestCity(tg.lon, tg.lat, c => c.coastal);
+        if (!r || r.km > 900) return { ok: false, err: 'Ein Tsunami braucht eine Küste in der Nähe.' };
+        city = r.city.id;
+      }
+      if (at && KY.geo.nationAt(at.lon, at.lat) < 0) {
+        const r = KY.geo.nearestCity(at.lon, at.lat);
+        if (!r || r.km > 1400) return { ok: false, err: 'Zu weit von bewohntem Land entfernt.' };
+      }
+      const ev = KY.events.spawn(t.ev, { at, city, sev, director: true });
+      if (!ev) return { ok: false, err: 'Hier nicht möglich.' };
+      log(t, ev.name + ' (Stufe ' + sev + ')');
+      return { ok: true, msg: ev.name + ' · Stufe ' + sev, ev };
+    }
+    const n = tg.n, n2 = tg.n2;
+    const N = n !== undefined && n >= 0 ? S.nations[n] : null;
+    const name = n >= 0 ? SIM.nName(n) : '';
+    switch (id) {
+      case 'crash': KY.nations.globalCrash(); log(t, 'Weltweiter Börsencrash'); return { ok: true, msg: 'Die Börsen brechen ein.' };
+      case 'boom':
+        SIM.shock(n, 'growth', 2.6, 365); SIM.shock(n, 'happy', 4, 300); SIM.shock(n, 'unemp', -2.5, 365);
+        N.crisis = { k: 'boom', start: S.day, until: S.day + 365 };
+        KY.media.story('econ_boom', { n }, { tone: 0.4, heat: 24 });
+        log(t, 'Wirtschaftsboom in ' + name); return { ok: true, msg: 'Boom in ' + name };
+      case 'resource':
+        N.growth0 += 0.7; N.gdp *= 1.02; N.fx.corrupt = (N.fx.corrupt || 0) + 3; N.fx.env = (N.fx.env || 0) - 2;
+        SIM.shock(n, 'happy', 3, 400);
+        KY.media.story(null, { n }, { h: U.pick(['Jahrhundertfund in ' + name + ': Riesige Rohstofflager entdeckt', name + ' im Rohstoffrausch', 'Geologen jubeln: ' + name + ' sitzt auf einem Schatz']), tone: 0.3, heat: 26, key: 'resource' });
+        log(t, 'Rohstofffund in ' + name); return { ok: true, msg: 'Rohstoffe in ' + name };
+      case 'debt':
+        N.crisis = { k: 'debt', start: S.day, until: S.day + 420 };
+        SIM.shock(n, 'growth', -2.6, 420); SIM.shock(n, 'happy', -7, 300); SIM.shock(n, 'unrest', 9, 300);
+        KY.media.story('econ_debt', { n }, { tone: -0.4, heat: 34 });
+        KY.projects.bondDefault(n);
+        log(t, 'Staatsschuldenkrise in ' + name); return { ok: true, msg: 'Schuldenkrise in ' + name };
+      case 'cropfail':
+        SIM.shock(n, 'poverty', 6, 300); SIM.shock(n, 'happy', -5, 240); SIM.shock(n, 'unrest', 5, 240);
+        KY.media.story('crop_fail', { n }, { tone: -0.5, heat: 26 });
+        log(t, 'Missernte in ' + name); return { ok: true, msg: 'Missernte in ' + name };
+      case 'blackout':
+        N.crisis = { k: 'blackout', start: S.day, until: S.day + 20 };
+        SIM.shock(n, 'happy', -5, 40); SIM.shock(n, 'growth', -0.4, 60);
+        KY.media.story('blackout', { n, c: W.nations[n].capital }, { tone: -0.3, heat: 26 });
+        log(t, 'Stromausfall in ' + name); return { ok: true, msg: 'Stromausfall in ' + name };
+      case 'election':
+        KY.nations.election(n);
+        log(t, 'Neuwahl in ' + name); return { ok: true, msg: 'Neuwahl in ' + name + ': ' + S.nations[n].gov.party };
+      case 'detente': case 'freeze': case 'trade': {
+        if (n2 === undefined || n2 < 0 || n2 === n) return { ok: false, err: 'Zwei verschiedene Staaten wählen.' };
+        const R = SIM.rel(n, n2);
+        if (id === 'detente') { SIM.relAdd(n, n2, 35, 'regie'); R.base = Math.max(R.base, R.v - 15); KY.media.story('mediation_ok', { n, n2 }, { tone: 0.5, heat: 24 }); }
+        if (id === 'freeze') { SIM.relAdd(n, n2, -(R.v + 88), 'regie'); R.base = Math.min(R.base, -55); }
+        if (id === 'trade') { SIM.relAdd(n, n2, 12, 'regie'); R.trade = true; S.nations[n].fx.growth = (S.nations[n].fx.growth || 0) + 0.15; S.nations[n2].fx.growth = (S.nations[n2].fx.growth || 0) + 0.15; KY.media.story('trade_deal', { n, n2 }, { tone: 0.3, heat: 18 }); }
+        const txt = t.n + ': ' + name + ' und ' + SIM.nName(n2);
+        log(t, txt); return { ok: true, msg: txt };
+      }
+      case 'summit':
+        for (const k in S.rel) SIM.relAdd(+k.split(':')[0], +k.split(':')[1], 8, 'regie');
+        S.g.summit = (S.g.summit || 0) + 2;
+        KY.media.story(null, {}, { h: 'Historischer Weltgipfel: Alle Staaten unterzeichnen gemeinsame Erklärung', tone: 0.5, heat: 40, global: true, key: 'summit_regie' });
+        log(t, 'Weltgipfel'); return { ok: true, msg: 'Weltgipfel abgehalten' };
+    }
+    return { ok: false, err: 'Nicht möglich.' };
+  };
+
+  /* Staatswerte direkt verändern (Strukturwert verschiebt sich mit, damit die Änderung bleibt) */
+  SB.EDIT = [
+    { k: 'happy', n: 'Zufriedenheit' }, { k: 'unrest', n: 'Unruhe' }, { k: 'health', n: 'Gesundheit' }, { k: 'edu', n: 'Bildung' },
+    { k: 'infra', n: 'Infrastruktur' }, { k: 'energy', n: 'Energie' }, { k: 'env', n: 'Umwelt' }, { k: 'press', n: 'Pressefreiheit' },
+    { k: 'corrupt', n: 'Korruption' }, { k: 'openness', n: 'Offenheit der Regierung', gov: true }, { k: 'approval', n: 'Zustimmung zur Regierung', gov: true }, { k: 'op', n: 'Haltung zu Ihnen', op: true },
+  ];
+  SB.setValue = function (nid, k, v) {
+    const n = SIM.S.nations[nid];
+    const E = SB.EDIT.find(x => x.k === k);
+    if (!n || !E) return;
+    v = +v;
+    if (E.gov) { n.gov[k] = U.clamp(v, 0, 100); return; }
+    if (E.op) { for (let m = 0; m < 5; m++) n.milOp[m] = U.clamp(v, -100, 100); n.aware = Math.max(n.aware, 30); SIM.recalcOp(n); return; }
+    const d = v - n[k];
+    n[k] = U.clamp(v, 0, 100);
+    n.base[k] = U.clamp((n.base[k] || 0) + d, 0, 100);
+  };
+
+  /* Laufende Wirkung der Sandbox-Schalter */
+  SB.daily = function () {
+    const S = SIM.S;
+    if (!SB.flag('money')) return;
+    if (S.fin.cash < 5000) S.fin.cash = 5000;
+  };
+})();
+
+
 /* ===== js/sim/engine.js ===== */
 /* KYTHERA · MANDAT · Taktgeber der Simulation */
 (function () {
@@ -7618,14 +8010,17 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
   const KY = window.KY;
   const SIM = KY.sim;
   const E = (KY.engine = {});
-  E.SPEEDS = [0, 1, 4, 12, 30];
-  E.SPEED_NAMES = ['Pause', '1 Tag/s', '4 Tage/s', '12 Tage/s', '30 Tage/s'];
+  E.SPEEDS = [0, 1, 4, 12, 30, 90];
+  E.SPEED_NAMES = ['Pause', '1 Tag/s', '4 Tage/s', '12 Tage/s', '30 Tage/s', '90 Tage/s'];
   let acc = 0;
 
   E.start = function (S, W, isNew) {
     SIM.bind(S, W);
     KY.events.reset();
+    KY.sandbox.init(S, S.mode);
+    KY.orbit.state();
     KY.nations.init();
+    KY.orbit.applyEffects();
     KY.media.initMarkets();
     if (isNew) KY.advisors.welcome();
   };
@@ -7640,12 +8035,15 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     KY.nations.daily();
     KY.cover.daily();
     KY.research.daily();
+    KY.orbit.daily();
+    KY.sandbox.daily();
     KY.media.daily();
     if (S.day % 30 === 0) {
       KY.nations.monthly();
       KY.finance.monthly();
       KY.incidents.monthly();
       KY.advisors.monthly();
+      KY.orbit.monthly();
       KY.bus.emit('month', S.day);
     }
     if (S.day % 365 === 0) {
@@ -7661,7 +8059,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     if (!S || S.paused) { acc = 0; return 0; }
     acc += Math.min(0.25, dt) * E.SPEEDS[S.speed];
     let n = 0;
-    while (acc >= 1 && n < 12) {
+    while (acc >= 1 && n < 16) {
       acc -= 1;
       E.stepDay();
       n++;
@@ -7859,6 +8257,8 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     { id: 'kanal', n: 'Kanal', icon: 'inbox', key: 'K' },
     { id: 'chronik', n: 'Chronik', icon: 'history', key: 'C' },
     { id: 'akten', n: 'Akten', icon: 'folder', key: 'O' },
+    { id: 'orbit', n: 'Orbit', icon: 'sat', key: 'U' },
+    { id: 'regie', n: 'Weltregie', icon: 'sliders', key: 'W', sandbox: true },
   ];
   ui.DOCK = DOCK;
 
@@ -7892,6 +8292,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
           <button data-a="speed" data-v="2" title="4 Tage pro Sekunde (2)">${ic('fast', 14)}</button>
           <button data-a="speed" data-v="3" title="12 Tage pro Sekunde (3)">${ic('faster', 14)}</button>
           <button data-a="speed" data-v="4" title="30 Tage pro Sekunde (4)"><b style="font-size:10px">30×</b></button>
+          <button data-a="speed" data-v="5" title="90 Tage pro Sekunde (5, nur Weltregie)" id="b-sp5"><b style="font-size:10px">90×</b></button>
         </div>
       </div>
       <div class="gauges" id="b-gauges">
@@ -7909,8 +8310,10 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
         <button class="iconbtn" data-a="panel" data-p="system" title="System (,)">${ic('settings', 18)}</button>
       </div>`;
   }
+  ui.rebuildDock = buildDock;
   function buildDock() {
-    ui.$dock.innerHTML = DOCK.map(d => `<button data-p="${d.id}" title="${d.n} (${d.key})">${ic(d.icon, 19)}<span>${d.n}</span><span class="badge hidden" data-badge="${d.id}"></span></button>`).join('') +
+    const sb = KY.sandbox && KY.sandbox.on();
+    ui.$dock.innerHTML = DOCK.filter(d => !d.sandbox || sb).map(d => `<button data-p="${d.id}" title="${d.n} (${d.key})">${ic(d.icon, 19)}<span>${d.n}</span><span class="badge hidden" data-badge="${d.id}"></span></button>`).join('') +
       `<div class="grow"></div><button data-p="system" title="System">${ic('settings', 19)}<span>System</span></button><button data-p="hilfe" title="Hilfe (?)">${ic('help', 19)}<span>Hilfe</span></button>`;
   }
   function buildTicker() {
@@ -7921,11 +8324,12 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
   /* ---------- Kopfleiste und Laufband aktualisieren ---------- */
   ui.updateBar = function () {
     const S = SIM.S, g = S.g;
-    U.setText(U.$('#b-code'), 'Mandatsperson · ' + S.codename);
+    U.setText(U.$('#b-code'), S.mode === 'sandbox' ? 'Freie Sandbox · Weltregie' : 'Mandatsperson · ' + S.codename);
     U.setHTML(U.$('#b-date'), U.dateStr(S.day) + '<small>MANDATSTAG ' + (S.day + 1) + (S.paused ? ' · ANGEHALTEN' : '') + '</small>');
     U.$$('#b-speeds button').forEach(b => b.classList.toggle('on', S.paused ? b.dataset.v === '0' : +b.dataset.v === S.speed));
+    U.$('#b-sp5').classList.toggle('hidden', !KY.sandbox.on());
     const avail = KY.finance.avail();
-    U.setText(U.$('#g-cash'), U.money(avail, avail >= 100 ? 0 : 1));
+    U.setText(U.$('#g-cash'), KY.sandbox.flag('money') ? 'unbegrenzt' : U.money(avail, avail >= 100 ? 0 : 1));
     const p = g.pressure;
     U.setText(U.$('#g-press'), Math.round(p) + ' %');
     U.$('#g-press-m').style.width = p + '%';
@@ -8119,6 +8523,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (k === ' ') { e.preventDefault(); KY.engine.toggle(); ui.updateBar(); return; }
     if (k >= '1' && k <= '4') { KY.engine.setSpeed(+k); ui.updateBar(); return; }
+    if (k === '5' && KY.sandbox.on()) { KY.engine.setSpeed(5); ui.updateBar(); return; }
     if (k === '/' || k === '#') { e.preventDefault(); KY.A.palette(); return; }
     if (k === '?') { ui.panel('hilfe'); return; }
     if (k === ',') { ui.panel('system'); return; }
@@ -8133,7 +8538,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       const c = D.CATS.find(x => x.key === k.toUpperCase());
       if (c && KY.P.handeln.catKey(c.id)) return;
     }
-    const d = DOCK.find(x => x.key === k.toUpperCase());
+    const d = DOCK.find(x => x.key === k.toUpperCase() && (!x.sandbox || KY.sandbox.on()));
     if (d) { ui.panel(d.id); }
   }
 
@@ -8351,6 +8756,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     { id: 'energy', n: 'Energie', icon: 'bolt', legend: ['knapp', 'gesichert'] },
     { id: 'health', n: 'Gesundheit', icon: 'hospital', legend: ['schwach', 'stark'] },
     { id: 'rel', n: 'Beziehungen', icon: 'hands' },
+    { id: 'orbit', n: 'Orbit', icon: 'sat' },
   ];
   const BLUE = ['#0d366b', '#104281', '#184f95', '#1c5cab', '#256abf', '#2a78d6', '#3987e5', '#5598e7', '#6da7ec', '#86b6ef', '#9ec5f4', '#b7d3f6', '#cde2fb'];
   const ORANGE = ['#3a1d10', '#5a2a14', '#7a3716', '#9a4418', '#b9521c', '#d95926', '#ea7040', '#f08c62', '#f5aa88', '#f9c8ae'];
@@ -8594,6 +9000,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       case 'wealth': return rampColor(BLUE, (Math.log(n.gdpPc) - Math.log(1800)) / (Math.log(72000) - Math.log(1800))).concat(0.62);
       case 'energy': return rampColor(BLUE, (n.energy - 20) / 80).concat(0.62);
       case 'health': return rampColor(BLUE, (n.health - 20) / 78).concat(0.62);
+      case 'orbit': return [8, 12, 22, 0.42];
     }
     return null;
   }
@@ -8640,7 +9047,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     dirty = false; lastDraw = time;
     draw();
   };
-  M.hasAnim = () => SIM.S && (SIM.S.events.some(e => e.phase !== 'vorbei') || SIM.S.incidents.some(i => i.status === 'offen') || M.placing || SIM.S.cities.some(c => c.protest));
+  M.hasAnim = () => SIM.S && (SIM.S.events.some(e => e.phase !== 'vorbei') || SIM.S.incidents.some(i => i.status === 'offen') || M.placing || SIM.S.cities.some(c => c.protest) || (SIM.S.orbit && SIM.S.orbit.sats.length) || launchFx.length);
   M.redraw = () => { dirty = true; };
 
   function worldCopies() {
@@ -8712,7 +9119,100 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     drawEvents(zl);
     drawCities(zl);
     drawProjects(zl);
+    drawOrbit(zl);
     drawPlacing();
+  }
+
+  /* ---------- Satelliten und Raketenstarts ---------- */
+  const launchFx = [];
+  KY.bus.on('launch', m => { launchFx.push({ lon: m.lon, lat: m.lat, t0: time, ok: m.status === 'erfolg' }); dirty = true; });
+  function satPos(s, tt) {
+    const R = Math.PI / 180;
+    const th = s.phase + tt * 2 * Math.PI / s.period;
+    const lat = Math.asin(Math.sin(s.inc * R) * Math.sin(th)) / R;
+    const lo = Math.atan2(Math.cos(s.inc * R) * Math.sin(th), Math.cos(th)) / R;
+    let lon = s.raan + lo - tt * 3.2;
+    lon = ((lon + 180) % 360 + 360) % 360 - 180;
+    return { lon, lat };
+  }
+  M.satPos = s => satPos(s, time);
+  function drawOrbit(zl) {
+    const S = SIM.S;
+    const st = S.orbit;
+    const full = M.layer === 'orbit';
+    ctx.save();
+    if (st && st.sats.length) {
+      const sats = st.sats.length > 120 ? st.sats.slice(0, 120) : st.sats;
+      if (full) {
+        // Bodenspuren der letzten halben Umlaufbahn
+        ctx.lineWidth = 1.2;
+        sats.forEach(sat => {
+          const col = D.SATS[sat.type].col;
+          ctx.strokeStyle = col; ctx.globalAlpha = 0.28;
+          ctx.beginPath();
+          let last = null;
+          for (let k = 0; k <= 40; k++) {
+            const pp = satPos(sat, time - sat.period * 0.5 * (1 - k / 40));
+            const q = llScreen(pp.lon, pp.lat);
+            if (!last || Math.abs(q[0] - last[0]) > SW / 2) ctx.moveTo(q[0], q[1]); else ctx.lineTo(q[0], q[1]);
+            last = q;
+          }
+          ctx.stroke();
+          if (sat.type === 'komm') {
+            const pp = satPos(sat, time), q = llScreen(pp.lon, pp.lat);
+            ctx.globalAlpha = 0.06; ctx.fillStyle = col;
+            ctx.beginPath(); ctx.arc(q[0], q[1], kmUnits(1600) * view.z, 0, Math.PI * 2); ctx.fill();
+          }
+        });
+      }
+      ctx.globalAlpha = 1;
+      sats.forEach(sat => {
+        const pp = satPos(sat, time), q = llScreen(pp.lon, pp.lat);
+        if (q[0] < -10 || q[0] > SW + 10 || q[1] < -10 || q[1] > SH + 10) return;
+        const col = D.SATS[sat.type].col;
+        const r = full ? (sat.type === 'modul' ? 4.5 : 3) : 1.8;
+        if (full) { ctx.fillStyle = col; ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(q[0], q[1], r * 3, 0, Math.PI * 2); ctx.fill(); }
+        ctx.globalAlpha = full ? 1 : 0.7;
+        ctx.fillStyle = full ? col : '#e8f4ff';
+        ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, Math.PI * 2); ctx.fill();
+        if (full) hits.push({ x: q[0], y: q[1], r: 8, type: 'sat', id: sat.id, pri: 0 });
+      });
+    }
+    // Geplante Starts
+    if (st) st.missions.forEach(m => {
+      if (m.status !== 'geplant') return;
+      const q = llScreen(m.lon, m.lat);
+      ctx.globalAlpha = 1;
+      badge(q[0] + 16, q[1] - 16, 'rocket', '#e3c47a', 9);
+      ctx.font = '700 10px Inter, sans-serif'; ctx.fillStyle = '#e3c47a';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(8,10,14,0.85)';
+      const t = 'T−' + (m.launch - S.day);
+      ctx.strokeText(t, q[0] + 28, q[1] - 13); ctx.fillText(t, q[0] + 28, q[1] - 13);
+    });
+    // Startanimation
+    for (let i = launchFx.length - 1; i >= 0; i--) {
+      const f = launchFx[i];
+      const p = (time - f.t0) / 4;
+      if (p > 1) { launchFx.splice(i, 1); continue; }
+      const q = llScreen(f.lon, f.lat);
+      const fail = !f.ok && p > 0.38;
+      const pp = fail ? 0.38 : p;
+      const x = q[0] + pp * 110, y = q[1] - pp * 230 + pp * pp * 70;
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(255,230,190,0.6)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(q[0], q[1]);
+      for (let k = 1; k <= 20; k++) { const t = pp * k / 20; ctx.lineTo(q[0] + t * 110, q[1] - t * 230 + t * t * 70); }
+      ctx.stroke();
+      if (fail) {
+        const e = (p - 0.38) / 0.62;
+        ctx.globalAlpha = 1 - e;
+        ctx.fillStyle = '#ffb35a'; ctx.beginPath(); ctx.arc(x, y, 6 + e * 34, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,160,60,0.8)'; ctx.beginPath(); ctx.arc(x - 3, y + 6, 4 + Math.random() * 2, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.restore();
   }
 
   function drawRoads(zl) {
@@ -9113,6 +9613,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     else if (h.type === 'ev') KY.ui.inspect('ev', h.id);
     else if (h.type === 'nation') KY.ui.inspect('nation', h.id);
     else if (h.type === 'rel') KY.ui.inspect('nation', h.a);
+    else if (h.type === 'sat') KY.ui.panel('orbit', { keep: true });
     else KY.ui.closeInsp();
   }
 
@@ -9137,6 +9638,11 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       const n = S.nations[h.id], w = W.nations[h.id];
       html = `<div class="h">${KY.flag(w, 18)}${U.esc(w.short)}</div>` + row('Einwohner', U.people(n.pop)) + row('Regierung', U.esc(n.gov.leader)) + row('Haltung zu Ihnen', n.aware < 5 ? 'unbekannt' : U.sgn(n.op, 0)) + row('Zufriedenheit', Math.round(n.happy)) + row('Ihr Zugang', Math.round(n.access));
       if (M.placing && M.placing.kind === 'two' && M.placing.first >= 0 && M.placing.first !== h.id) { const R = SIM.rel(M.placing.first, h.id); html += row('Beziehung', SIM.REL_NAMES[R.state] + ' (' + Math.round(R.v) + ')'); }
+    } else if (h.type === 'sat') {
+      const sat = (S.orbit ? S.orbit.sats : []).find(x => x.id === h.id);
+      if (!sat) { hideTip(); return; }
+      const T = D.SATS[sat.type];
+      html = `<div class="h">${KY.icon(T.icon, 14)}${U.esc(sat.name)}</div>` + row('Typ', T.n) + row('Bahnneigung', Math.round(sat.inc) + '°') + row('Gestartet', U.dateStr(sat.born, true)) + row('Restlaufzeit', U.days(sat.until - S.day));
     } else if (h.type === 'rel') {
       const R = SIM.rel(h.a, h.b);
       html = `<div class="h">${KY.icon('alert', 14)}${U.esc(W.nations[h.a].short)} – ${U.esc(W.nations[h.b].short)}</div>` + row('Beziehung', SIM.REL_NAMES[R.state]) + row('Wert', Math.round(R.v));
@@ -9505,7 +10011,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
   A.msgAct = b => { const m = SIM.S.inbox.find(x => x.id === +b.dataset.m); if (!m) return; const a = m.acts[+b.dataset.i]; if (a) ui.msgAct(a.a, a.p); };
 
   /* ================= CHRONIK ================= */
-  const CHT = { vorhaben: 'Vorhaben', vorfall: 'Vorfälle', verantwortung: 'Verantwortung', katastrophe: 'Katastrophen', hilfe: 'Hilfe', politik: 'Politik', diplomatie: 'Diplomatie', krise: 'Krisen', tarnung: 'Tarnung', finanzen: 'Finanzen', forschung: 'Forschung', kuratorium: 'Kuratorium', grundsatz: 'Grundsätze', protest: 'Proteste', bilanz: 'Bilanz' };
+  const CHT = { vorhaben: 'Vorhaben', vorfall: 'Vorfälle', verantwortung: 'Verantwortung', katastrophe: 'Katastrophen', hilfe: 'Hilfe', politik: 'Politik', diplomatie: 'Diplomatie', krise: 'Krisen', tarnung: 'Tarnung', finanzen: 'Finanzen', forschung: 'Forschung', kuratorium: 'Kuratorium', grundsatz: 'Grundsätze', protest: 'Proteste', bilanz: 'Bilanz', regie: 'Weltregie', raumfahrt: 'Raumfahrt' };
   P.chronik = {
     title: 'Chronik', kicker: 'Protokoll des Mandats',
     sub: () => SIM.S.chron.length + ' Einträge seit ' + U.dateStr(0, true),
@@ -9569,6 +10075,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
         ${sw('sound', 'Ton', S.ui.sound !== false, 'Synthetische Signale, keine Audiodateien')}
         ${sw('autoPause', 'Bei schweren Vorfällen anhalten', S.ui.autoPause !== false, 'Der Krisenstab ruft an und die Zeit stoppt')}
         ${sw('autosave', 'Monatlich automatisch sichern', S.ui.autosave !== false, '')}
+        <div class="switch ${S.sb && S.sb.on ? 'on' : ''}" data-a="sbToggle"><div><div style="font-weight:600">Weltregie (Sandbox)</div><div class="dim" style="font-size:12px">Naturgewalten, Wirtschaft und Politik frei auslösen, Staatswerte ändern, 90×-Zeit</div></div><div class="tg"></div></div>
         <div class="h3">Mandat</div>
         <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" data-a="toTitle">${ic('home', 14)} Zum Titel</button><button class="btn sm danger" data-a="newMandate">${ic('refresh', 14)} Neues Mandat</button></div>
         <div class="note" style="margin-top:14px">KYTHERA · MANDAT ist ein fiktives Rollenspiel. Alle Staaten, Personen, Organisationen und Ereignisse sind frei erfunden. Optimiert für iPad im Querformat mit Magic Keyboard.</div>`;
@@ -9579,6 +10086,14 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     S.ui[k] = S.ui[k] === false;
     if (k === 'sound') KY.audio.setOn(S.ui.sound !== false);
     b.classList.toggle('on', S.ui[k] !== false);
+  };
+  A.sbToggle = b => {
+    const S = SIM.S;
+    S.sb.on = !S.sb.on;
+    b.classList.toggle('on', S.sb.on);
+    ui.rebuildDock(); ui.updateBar();
+    if (!S.sb.on && S.speed === 5) KY.engine.setSpeed(4);
+    ui.toast({ t: S.sb.on ? 'Weltregie freigeschaltet' : 'Weltregie ausgeschaltet', d: S.sb.on ? 'Taste W öffnet die Werkzeuge.' : '', icon: 'sliders' });
   };
   A.loadSlot = async b => { if (await ui.confirm('Spielstand laden?', 'Der aktuelle Stand wird verworfen, sofern Sie ihn nicht gesichert haben.', 'Laden')) KY.boot.loadSlot(b.dataset.v); };
   A.toTitle = async () => { if (await ui.confirm('Zum Titel zurückkehren?', 'Der aktuelle Stand wird automatisch gesichert.', 'Zum Titel')) { ui.save('auto'); KY.boot.toTitle(); } };
@@ -9605,7 +10120,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       const k = (t, ...keys) => `<div class="k"><span>${t}</span><span>${keys.map(x => '<span class="kbd">' + x + '</span>').join('')}</span></div>`;
       return `<div class="grid2" style="gap:22px"><div>
         <div class="h3">Tastatur</div><div class="keys" style="grid-template-columns:1fr">
-        ${k('Zeit anhalten oder fortsetzen', 'Leertaste')}${k('Geschwindigkeit', '1', '2', '3', '4')}${k('Suche und Befehle', '⌘', 'K')}${k('Lagezentrum', 'L')}${k('Handlungskatalog', 'A')}${k('Vorhaben', 'P')}${k('Verantwortung', 'V')}${k('Medien', 'M')}${k('Staaten', 'S')}${k('Finanzen', 'F')}${k('Tarnung', 'T')}${k('Forschung', 'R')}${k('Kanal', 'K')}${k('Chronik', 'C')}${k('Akten', 'O')}${k('Krisenstab (nächster Vorfall)', 'E')}${k('Kartenebene wechseln', 'G')}${k('Karte verschieben', '←', '↑', '→', '↓')}${k('Zoomen', '+', '−')}${k('Übersicht', '0')}${k('Schließen oder abbrechen', 'esc')}${k('Sichern', '⌘', 'S')}</div></div>
+        ${k('Zeit anhalten oder fortsetzen', 'Leertaste')}${k('Geschwindigkeit', '1', '2', '3', '4')}${k('Suche und Befehle', '⌘', 'K')}${k('Lagezentrum', 'L')}${k('Handlungskatalog', 'A')}${k('Vorhaben', 'P')}${k('Verantwortung', 'V')}${k('Medien', 'M')}${k('Staaten', 'S')}${k('Finanzen', 'F')}${k('Tarnung', 'T')}${k('Forschung', 'R')}${k('Kanal', 'K')}${k('Chronik', 'C')}${k('Akten', 'O')}${k('Krisenstab (nächster Vorfall)', 'E')}${k('Orbitale Leitstelle', 'U')}${k('Weltregie (Sandbox)', 'W')}${k('Kartenebene wechseln', 'G')}${k('Karte verschieben', '←', '↑', '→', '↓')}${k('Zoomen', '+', '−')}${k('Übersicht', '0')}${k('Schließen oder abbrechen', 'esc')}${k('Sichern', '⌘', 'S')}</div></div>
         <div><div class="h3">Trackpad</div>
         <div class="note">Mit zwei Fingern wischen verschiebt die Karte, Zusammenziehen und Aufziehen zoomt. Ein Klick wählt Staaten, Städte, Vorhaben und Katastrophen aus. Beim Platzieren von Gebieten halten Sie das Trackpad gedrückt und ziehen ein Rechteck auf.</div>
         <div class="h3">Ihre Rolle</div>
@@ -10455,6 +10970,203 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
 })();
 
 
+/* ===== js/ui/sandbox.js ===== */
+/* KYTHERA · MANDAT · Oberfläche für Weltregie (Sandbox) und Orbitale Leitstelle */
+(function () {
+  'use strict';
+  const KY = window.KY;
+  const U = KY.U, D = KY.data, SIM = KY.sim;
+  const ui = KY.ui, A = KY.A, P = KY.P;
+  const ic = (n, s) => KY.icon(n, s || 16);
+  const esc = U.esc;
+  const SB = () => KY.sandbox;
+  ui.st.sev = 3;
+
+  /* ================= WELTREGIE ================= */
+  P.regie = {
+    title: 'Weltregie', kicker: 'Sandbox · Sie lenken die Welt',
+    sub: () => 'Werkzeug wählen, dann auf die Karte klicken. Es bleibt aktiv, bis Sie Esc drücken.',
+    render() {
+      const S = SIM.S, sb = S.sb;
+      const sw = (k, l, sub) => `<div class="switch ${sb[k] ? 'on' : ''}" data-a="sbSet" data-k="${k}"><div><div style="font-weight:600">${l}</div>${sub ? '<div class="dim" style="font-size:12px">' + sub + '</div>' : ''}</div><div class="tg"></div></div>`;
+      let h = `<div class="card goldb" style="margin-bottom:12px"><div class="row">${ic('globe', 20)}<div class="note" style="font-size:12.5px">In der Weltregie gibt es keine Genehmigungen und keine Regeln für Sie. Die Welt reagiert trotzdem: Regierungen, Medien und die Bevölkerung erleben alles als echte Ereignisse.</div></div></div>`;
+      h += `<div class="og"><div class="ol">Stärke für Naturgewalten</div><div class="seg">${[1, 2, 3, 4, 5].map(v => `<button class="${ui.st.sev === v ? 'on' : ''}" data-a="sbSev" data-v="${v}">Stufe ${v}</button>`).join('')}</div></div>`;
+      KY.sandbox.CATS.forEach(c => {
+        h += `<div class="h3">${ic(c.icon, 13)} ${esc(c.n)}</div><div class="cats" style="margin-bottom:6px">`;
+        KY.sandbox.TOOLS.filter(t => t.cat === c.id).forEach(t => {
+          const on = ui.st.tool === t.id && KY.map.placing;
+          h += `<button class="cat ${on ? 'on' : ''}" data-a="sbTool" data-v="${t.id}" title="${esc(t.text || '')}">${ic(t.icon, 18)}<span class="n">${esc(t.n)}</span><span class="dim" style="font-size:10.5px;line-height:1.3">${t.target === 'point' ? 'Ort' : t.target === 'nation' ? 'Staat' : t.target === 'two' ? 'Zwei Staaten' : 'Weltweit'}</span></button>`;
+        });
+        h += '</div>';
+      });
+      h += `<div class="h3">${ic('sliders', 13)} Schalter</div>${sw('money', 'Unbegrenztes Vermögen', 'Das Vermögen fällt nie unter ¤ 5 Bio.')}${sw('approve', 'Genehmigungen immer erteilt', 'Regierungen sagen zu allem Ja')}`;
+      h += `<div class="note" style="margin-top:10px">Staatswerte ändern: Klicken Sie auf einen Staat. Im Inspektor erscheinen Regler für Zufriedenheit, Gesundheit, Pressefreiheit und mehr.</div>`;
+      if (sb.log.length) h += `<div class="h3">Protokoll der Regie</div>` + sb.log.slice().reverse().slice(0, 14).map(l => `<div class="kv"><span>${esc(l.txt)}</span><span class="dim">${U.dateStr(l.day, true)}</span></div>`).join('');
+      return h;
+    },
+  };
+  A.sbSev = b => { ui.st.sev = +b.dataset.v; ui.renderPanel(true); if (KY.map.placing && ui.st.tool) hint(); };
+  A.sbSet = b => { const S = SIM.S; S.sb[b.dataset.k] = !S.sb[b.dataset.k]; b.classList.toggle('on', S.sb[b.dataset.k]); ui.updateBar(); };
+  A.sbTool = b => startTool(b.dataset.v);
+
+  function hint(err, ok) {
+    const t = KY.sandbox.TOOL[ui.st.tool];
+    if (!t) return;
+    const h = U.$('#placehint');
+    const what = t.target === 'point' ? 'Klicken Sie auf einen Ort.' : t.target === 'nation' ? 'Klicken Sie auf einen Staat.' : 'Wählen Sie nacheinander zwei Staaten.';
+    h.innerHTML = `<div class="ic-c" style="color:var(--gold2)">${ic(t.icon, 20)}</div><div class="t"><b>Weltregie · ${esc(t.n)}</b><div>${esc(what)}${ok ? ' <span class="good">' + esc(ok) + '</span>' : ''}</div>${err ? '<div class="err">' + esc(err) + '</div>' : ''}</div>${t.sev ? `<div class="seg">${[1, 2, 3, 4, 5].map(v => `<button class="${ui.st.sev === v ? 'on' : ''}" data-a="sbSev" data-v="${v}">${v}</button>`).join('')}</div>` : ''}<button class="btn sm ghost" data-a="cancelPlace">Fertig <span class="kbd">esc</span></button>`;
+    h.classList.add('on');
+  }
+  function startTool(id) {
+    const t = KY.sandbox.TOOL[id];
+    if (!t) return;
+    KY.order.cancel(true);
+    ui.st.tool = id;
+    const done = r => {
+      if (!r.ok) { KY.audio.play('err'); hint(r.err); return; }
+      KY.audio.play(t.cat === 'natur' ? 'deep' : 'ok');
+      hint(null, r.msg);
+      KY.map.dataChanged(1); KY.map.redraw(); ui.refresh();
+    };
+    if (t.target === 'global') {
+      ui.confirm(t.n + ' auslösen?', esc(t.text || ''), 'Auslösen').then(ok => { if (ok) { const r = KY.sandbox.apply(id, {}, ui.st.sev); ui.toast({ t: r.ok ? t.n : 'Nicht möglich', d: r.ok ? r.msg : r.err, icon: t.icon, kind: r.ok ? 'warn' : 'crit' }); ui.refresh(); } });
+      return;
+    }
+    const pl = { kind: t.target === 'point' ? 'point' : t.target === 'nation' ? 'nation' : 'two' };
+    pl.onClick = (h, x, y) => {
+      const ll = KY.map.toLonLat(x, y);
+      const nid = h.type === 'nation' ? h.id : h.type === 'city' ? SIM.W.cities[h.id].nation : KY.geo.nationAt(ll.lon, ll.lat);
+      if (t.target === 'point') done(KY.sandbox.apply(id, { lon: ll.lon, lat: ll.lat }, ui.st.sev));
+      else if (t.target === 'nation') { if (nid < 0) { hint('Dort liegt kein Staat.'); return; } done(KY.sandbox.apply(id, { n: nid }, ui.st.sev)); }
+      else {
+        if (nid < 0) return;
+        if (pl.first < 0) { pl.first = nid; hint(null, 'Erster Staat: ' + SIM.nName(nid)); }
+        else if (nid !== pl.first) { done(KY.sandbox.apply(id, { n: pl.first, n2: nid }, ui.st.sev)); pl.first = -1; }
+      }
+    };
+    KY.map.place(pl);
+    document.body.classList.add('placing');
+    hint();
+    ui.renderPanel(true);
+  }
+
+  /* Regler im Staatsinspektor */
+  const baseNation = KY.INS.nation;
+  KY.INS.nation = function (id) {
+    const out = baseNation(id);
+    if (!out || !KY.sandbox.on()) return out;
+    const n = SIM.S.nations[id];
+    const val = E => E.gov ? n.gov[E.k] : E.op ? n.op : n[E.k];
+    const rows = KY.sandbox.EDIT.map(E => {
+      const v = Math.round(val(E));
+      return `<div class="b" style="grid-template-columns:150px 1fr 40px"><span>${esc(E.n)}</span><input type="range" min="${E.op ? -100 : 0}" max="100" value="${v}" data-sbedit="${E.k}" data-n="${id}" style="width:100%;accent-color:#c9a24f"><span>${v}</span></div>`;
+    }).join('');
+    out.body = `<div class="card goldb" style="margin-bottom:12px"><div class="lbl" style="margin-bottom:6px">${ic('sliders', 12)} Weltregie · Werte ändern</div><div class="bars">${rows}</div><div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn xs" data-a="sbQuick" data-v="election" data-n="${id}">${ic('ballot', 12)} Neuwahl</button><button class="btn xs" data-a="sbQuick" data-v="boom" data-n="${id}">${ic('trendUp', 12)} Boom</button><button class="btn xs" data-a="sbQuick" data-v="resource" data-n="${id}">${ic('mountain', 12)} Rohstofffund</button><button class="btn xs" data-a="sbQuick" data-v="epidemic" data-n="${id}">${ic('virus', 12)} Epidemie</button></div></div>` + out.body;
+    return out;
+  };
+  A.sbQuick = b => {
+    const r = KY.sandbox.apply(b.dataset.v, { n: +b.dataset.n }, ui.st.sev);
+    ui.toast({ t: r.ok ? 'Weltregie' : 'Nicht möglich', d: r.ok ? r.msg : r.err, icon: 'globe', kind: r.ok ? '' : 'warn' });
+    ui.renderInsp(true); KY.map.dataChanged(1);
+  };
+  document.addEventListener('change', e => {
+    const el = e.target;
+    if (!el.dataset || !el.dataset.sbedit) return;
+    KY.sandbox.setValue(+el.dataset.n, el.dataset.sbedit, el.value);
+    if (el.nextElementSibling) el.nextElementSibling.textContent = el.value;
+    KY.map.invalidate(); ui.updateBar();
+  });
+  document.addEventListener('input', e => {
+    const el = e.target;
+    if (el.dataset && el.dataset.sbedit && el.nextElementSibling) el.nextElementSibling.textContent = el.value;
+  });
+
+  /* ================= ORBITALE LEITSTELLE ================= */
+  ui.st.mission = { rocket: 'mittel', type: 'wetter', count: 4, site: null, safe: true };
+  P.orbit = {
+    title: 'Orbitale Leitstelle', kicker: 'Raumfahrt · Satelliten', wide: true,
+    sub: () => { const st = KY.orbit.state(); return st.sats.length + ' Satelliten im Orbit · ' + st.launches + ' Starts'; },
+    onOpen() { if (KY.map.layer !== 'orbit') { ui.st.prevLayer = KY.map.layer; KY.map.setLayer('orbit'); } },
+    onClose() { if (ui.st.prevLayer && KY.map.layer === 'orbit') KY.map.setLayer(ui.st.prevLayer); ui.st.prevLayer = null; },
+    render() {
+      const S = SIM.S, st = KY.orbit.state();
+      const M = ui.st.mission;
+      const sites = KY.orbit.sites();
+      if (!M.site || !sites.some(s => s.id === M.site)) M.site = sites[0] ? sites[0].id : null;
+      const q = KY.orbit.quote(M);
+      const cnt = t => KY.orbit.count(t);
+      const mods = KY.orbit.stationModules();
+      let h = `<div class="grid4">
+        <div class="stat"><div class="k">Satelliten</div><div class="v">${st.sats.length}</div><div class="s">${Object.keys(D.SATS).filter(t => cnt(t)).map(t => cnt(t) + ' ' + ({ wetter: 'Wetter', beob: 'Beobachtung', komm: 'Internet', navi: 'Navigation', wiss: 'Teleskop', modul: 'Station' })[t]).join(' · ') || 'noch keine'}</div></div>
+        <div class="stat"><div class="k">Internet aus dem All</div><div class="v">${U.pct(KY.orbit.coverage() * 100, 0)}</div><div class="s">der Weltbevölkerung</div></div>
+        <div class="stat"><div class="k">Frühwarnung</div><div class="v ${S.g.orbitWarn ? 'good' : ''}">${S.g.orbitWarn ? 'aktiv' : 'aus'}</div><div class="s">Opfer −${Math.round((S.g.orbitMit || 0) * 100)} %</div></div>
+        <div class="stat"><div class="k">Weltraumschrott</div><div class="v ${st.debris > 40 ? 'bad' : st.debris > 15 ? 'warnc' : ''}">${Math.round(st.debris)} %</div><div class="s">${st.fails} Fehlstarts</div></div></div>
+        <div class="row" style="gap:8px;margin:12px 0;flex-wrap:wrap"><button class="btn sm" data-a="layer" data-v="orbit">${ic('sat', 14)} Umlaufbahnen auf der Karte</button><button class="btn sm" data-a="orbitImg">${ic('camera', 14)} Wetterbild anfordern</button><button class="btn sm" data-a="orbitClean" ${st.debris < 5 ? 'disabled' : ''}>${ic('refresh', 14)} Aufräummission · ¤ 1,5 Mrd.</button>${mods ? `<span class="chip ${mods >= 3 ? 'green' : 'gold'}">${ic('sat', 12)} Raumstation ${mods >= 3 ? 'bewohnt' : mods + ' von 3 Modulen'}</span>` : ''}</div>`;
+      h += `<div class="grid2" style="gap:18px;align-items:start"><div>`;
+      h += `<div class="h3">${ic('rocket', 13)} Neue Mission</div><div class="og"><div class="ol">Trägerrakete</div><div class="choices">${D.ROCKETS.map(r => { const lock = r.tech && !S.res.done[r.tech]; return `<button class="choice ${M.rocket === r.id ? 'on' : ''}" data-a="msSet" data-k="rocket" data-v="${r.id}" ${lock ? 'style="opacity:.5"' : ''}><div class="l">${esc(r.n)} ${lock ? ic('lock', 11) : ''}</div><div class="n">${esc(r.kind)} · bis ${r.cap} Satelliten · ${U.pct(r.ok * 100, 1)} Erfolg</div></button>`; }).join('')}</div></div>`;
+      h += `<div class="og"><div class="ol">Nutzlast</div><div class="choices">${Object.keys(D.SATS).map(t => `<button class="choice ${M.type === t ? 'on' : ''}" data-a="msSet" data-k="type" data-v="${t}"><div class="l">${ic(D.SATS[t].icon, 13)} ${esc(D.SATS[t].n)}</div><div class="n">${esc(D.SATS[t].text)}</div></button>`).join('')}</div></div>`;
+      if (!D.SATS[M.type].station) h += `<div class="og"><div class="ol">Anzahl</div><div class="row" style="gap:8px"><button class="iconbtn" data-a="msCnt" data-v="-1">${ic('minus', 16)}</button><b style="font-size:18px;min-width:30px;text-align:center">${q.n}</b><button class="iconbtn" data-a="msCnt" data-v="1">${ic('plus', 16)}</button><span class="dim" style="font-size:12px">höchstens ${q.R ? q.R.cap : 1}</span></div></div>`;
+      h += `<div class="og"><div class="ol">Startplatz</div><div class="choices">${sites.map(s => `<button class="choice ${M.site === s.id ? 'on' : ''}" data-a="msSet" data-k="site" data-v="${s.id}"><div class="l">${esc(s.n)}</div><div class="n">${s.own ? 'Ihr eigener Raumhafen' : '50 % Aufschlag, Bilder gehen an den Gaststaat'}</div></button>`).join('')}</div>${sites.every(s => !s.own) ? '<div class="note" style="margin-top:6px">Mit einem eigenen Raumhafen (Handeln → Wissenschaft) starten Sie günstiger.</div>' : ''}</div>`;
+      h += `<div class="switch ${M.safe ? 'on' : ''}" data-a="msSafe"><div><div style="font-weight:600">Kontrollierter Absturz am Lebensende</div><div class="dim" style="font-size:12px">+20 % Kosten für die Nutzlast, hinterlässt keinen Schrott</div></div><div class="tg"></div></div>`;
+      h += `<div class="card" style="margin-top:12px"><div class="row sb"><div><div class="lbl">Kosten</div><div class="bigsum">${U.money(q.cost)}</div></div><div style="text-align:right"><div class="lbl">Erfolgschance</div><b style="font-size:18px">${U.pct(q.ok * 100, 1)}</b><div class="dim" style="font-size:12px">Start in ${q.days} Tagen</div></div></div>${q.errs.map(e => `<div class="errbox" style="margin-top:8px">${ic('x', 14)}<div>${esc(e)}</div></div>`).join('')}<button class="btn primary block hold" id="ms-go" style="margin-top:10px" ${q.valid ? '' : 'disabled'}><span class="fill"></span><span>${ic('rocket', 15)} Start anordnen</span></button></div>`;
+      h += `</div><div>`;
+      const plan = st.missions.filter(m => m.status === 'geplant');
+      h += `<div class="h3">${ic('clock', 13)} Countdown<span class="r dim">${plan.length}</span></div>` + (plan.length ? plan.map(m => `<div class="kv"><span>${ic('rocket', 12)} ${esc(D.ROCKET[m.rocket].n)} · ${m.n} × ${esc(D.SATS[m.type].n)}</span><span class="warnc">T−${m.launch - S.day} Tage</span></div>`).join('') : '<div class="dim" style="font-size:12px">Kein Start geplant.</div>');
+      const done = st.missions.filter(m => m.status !== 'geplant').sort((a, b) => b.launch - a.launch).slice(0, 8);
+      if (done.length) h += `<div class="h3">Letzte Starts</div>` + done.map(m => `<div class="kv"><span>${U.dateStr(m.launch, true)} · ${esc(D.ROCKET[m.rocket].n)} · ${m.n} × ${esc(D.SATS[m.type].n)}</span><span class="${m.status === 'erfolg' ? 'good' : 'bad'}">${m.status === 'erfolg' ? 'Erfolg' : 'Fehlstart'}</span></div>`).join('');
+      h += `<div class="h3">${ic('sat', 13)} Flotte</div>`;
+      if (!st.sats.length) h += '<div class="empty">Noch ist der Himmel leer. Ihr erster Start bringt die Flotte in die Umlaufbahn.</div>';
+      else h += '<table class="tbl"><tr><th>Name</th><th>Typ</th><th class="r">Bahnneigung</th><th class="r">Restlaufzeit</th></tr>' + st.sats.slice().sort((a, b) => a.until - b.until).slice(0, 40).map(s => `<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${D.SATS[s.type].col};margin-right:6px"></span>${esc(s.name)}</td><td>${esc(D.SATS[s.type].n)}</td><td class="r">${Math.round(s.inc)}°</td><td class="r">${U.days(s.until - S.day)}</td></tr>`).join('') + '</table>';
+      h += `</div></div>`;
+      return h;
+    },
+    after(body) {
+      const go = U.$('#ms-go', body);
+      if (go && !go.disabled) KY.crisis.holdBtn(go, () => {
+        const r = KY.orbit.plan(ui.st.mission);
+        if (!r.ok) { ui.toast({ t: 'Nicht möglich', d: r.err, icon: 'x', kind: 'warn' }); return; }
+        KY.audio.play('grant');
+        ui.toast({ t: 'Mission angeordnet', d: D.ROCKET[r.m.rocket].n + ' · Start am ' + U.dateStr(r.m.launch, true), icon: 'rocket', kind: 'good' });
+        ui.renderPanel(true);
+      });
+    },
+  };
+  A.msSet = b => { ui.st.mission[b.dataset.k] = b.dataset.v; if (b.dataset.k === 'rocket') ui.st.mission.count = Math.min(ui.st.mission.count, D.ROCKET[b.dataset.v].cap); ui.renderPanel(true); };
+  A.msCnt = b => { const M = ui.st.mission; M.count = U.clamp((M.count || 1) + +b.dataset.v, 1, D.ROCKET[M.rocket].cap); ui.renderPanel(true); };
+  A.msSafe = () => { ui.st.mission.safe = !ui.st.mission.safe; ui.renderPanel(true); };
+  A.orbitClean = () => { const r = KY.orbit.cleanup(); ui.toast(r.ok ? { t: 'Aufräummission gestartet', d: 'Der Trümmergürtel schrumpft.', icon: 'refresh', kind: 'good' } : { t: 'Nicht möglich', d: r.err, icon: 'x', kind: 'warn' }); ui.renderPanel(true); };
+
+  /* Wetterbild: Aufnahme von Wolken, Stürmen und Bränden unter einem Satelliten */
+  A.orbitImg = function () {
+    const S = SIM.S, st = KY.orbit.state();
+    const sats = st.sats.filter(s => s.type === 'wetter' || s.type === 'beob');
+    if (!sats.length) { ui.toast({ t: 'Kein passender Satellit', d: 'Wetter- oder Erdbeobachtungssatelliten liefern Bilder.', icon: 'sat', kind: 'warn' }); return; }
+    const ev = KY.events.active()[0];
+    const s = U.pick(sats);
+    const p = KY.map.satPos(s);
+    const lon = ev ? ev.lon : p.lon, lat = ev ? ev.lat : p.lat;
+    const cv = KY.map.snapshot(lon, lat, 720, 405, ev ? 180 : 320);
+    const g = cv.getContext('2d');
+    // Wolkendecke
+    for (let i = 0; i < 70; i++) {
+      const x = Math.random() * 720, y = Math.random() * 405, r = 20 + Math.random() * 70;
+      const gr = g.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, 'rgba(255,255,255,' + (0.18 + Math.random() * 0.25) + ')'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+    if (ev) {
+      g.strokeStyle = 'rgba(255,120,80,0.95)'; g.lineWidth = 2; g.setLineDash([6, 4]);
+      g.beginPath(); g.arc(360, 202, 46, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+      g.font = '700 14px Inter, sans-serif'; g.fillStyle = '#fff'; g.fillText(ev.name.toUpperCase(), 418, 196);
+    }
+    g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, 0, 720, 26);
+    g.font = '600 12px IBM Plex Mono, monospace'; g.fillStyle = '#9fe0ff';
+    g.fillText(s.name + ' · ' + D.SATS[s.type].n.toUpperCase() + ' · ' + U.dateStr(S.day, true) + ' · ' + U.n(Math.abs(lat), 1) + '° ' + (lat >= 0 ? 'N' : 'S') + ' ' + U.n(Math.abs(lon), 1) + '° ' + (lon >= 0 ? 'O' : 'W'), 10, 17);
+    ui.modal({ cls: 'w900', html: `<div class="mh"><div class="tt"><div class="lbl">Orbitale Leitstelle · Aufnahme</div><h2>${esc(ev ? ev.name : 'Wetterlage unter ' + s.name)}</h2></div><button class="iconbtn" data-a="mclose">${ic('close', 18)}</button></div><div class="mb"><img src="${cv.toDataURL('image/jpeg', 0.88)}" style="width:100%;border-radius:8px;display:block" alt="Satellitenbild"></div>` });
+  };
+})();
+
+
 /* ===== js/ui/contracts.js ===== */
 /* KYTHERA · MANDAT · Vertragsmappe: acht Urkunden, Paraphen, Unterschrift, Siegel */
 (function () {
@@ -10712,6 +11424,8 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       <div class="inner"><div class="brand"><div class="seal">${KY.sealSvg(64)}</div><div class="kicker">Streng vertraulich · Mandat</div><h1>KYTHERA<small>MANDAT</small></h1>
       <p>Ein Vermögen, das größer ist als die Wirtschaft ganzer Staaten. Eine Welt voller Menschen, denen Sie nie begegnen werden. Niemand kennt Ihren Namen – und jede Ihrer Entscheidungen hat Folgen.</p></div>
       <div class="menu"><button class="btn primary" id="t-new">Neues Mandat <span>${ic('arrowR', 16)}</span></button>
+      <button class="btn" id="t-sb" style="height:48px;justify-content:space-between;padding:0 18px">Freie Sandbox · Weltregie <span>${ic('globe', 16)}</span></button>
+      <div class="dim" style="font-size:11.5px;margin:-2px 2px 4px">Ohne Verträge, ohne Geldsorgen, alle Werkzeuge frei. Die Welt reagiert trotzdem auf alles.</div>
       ${slots.length ? `<div class="lbl" style="margin-top:10px">Mandat fortsetzen</div><div class="slots">${slots.map(x => `<button class="slot" data-slot="${x.s}"><span><b>${esc(x.m.codename)}</b><br><span class="dim" style="font-size:12px">${x.s === 'auto' ? 'Automatische Sicherung' : 'Speicherplatz ' + x.s} · ${U.dateStr(x.m.day, true)}</span></span><span class="dim" style="font-size:11px;text-align:right">${x.m.projects} Vorhaben${x.m.exposed ? '<br><span class="bad">öffentlich</span>' : ''}</span></button>`).join('')}</div>` : ''}
       <button class="btn ghost" id="t-imp" style="margin-top:4px">${ic('upload', 14)} Spielstand importieren</button></div></div>
       <div class="foot"><span>Für iPad im Querformat mit Magic Keyboard</span><span><span class="kbd">⌘</span> <span class="kbd">K</span> Suche</span><span><span class="kbd">Leertaste</span> Zeit</span><span>Fiktives Rollenspiel</span></div>`;
@@ -10725,6 +11439,7 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
       cv.getContext('2d').putImageData(new ImageData(px, 800, 400), 0, 0);
     }, 60);
     U.$('#t-new').addEventListener('click', () => { KY.audio.unlock(); KY.audio.play('boot'); B.newMandate(); });
+    U.$('#t-sb').addEventListener('click', () => { KY.audio.unlock(); KY.audio.play('boot'); B.newSandbox(); });
     U.$$('.slot', t).forEach(b => b.addEventListener('click', () => { KY.audio.unlock(); B.loadSlot(b.dataset.slot); }));
     U.$('#t-imp').addEventListener('click', () => {
       KY.audio.unlock();
@@ -10742,6 +11457,14 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     show('#contracts');
     const seed = 10000 + Math.floor(Math.random() * 899999);
     KY.contracts.run({ seed, akz: 'KY-' + seed, done: r => build(r.seed, (W) => SIM.newGame(W, r.vals, { sig: r.sig, initials: r.initials }), true) });
+  };
+
+  /* ---------- Freie Sandbox ---------- */
+  B.newSandbox = function () {
+    if (KY.ui) KY.ui.running = false;
+    const seed = 10000 + Math.floor(Math.random() * 899999);
+    const vals = { codename: 'Regie', jurisdiction: 'holmvik', trustee: 'castellan', strategy: 'bal', deadline: '7', fund: '1', envoy: 'vidal', principles: [] };
+    build(seed, W => SIM.newGame(W, vals, { mode: 'sandbox' }), true);
   };
 
   /* ---------- Weltaufbau ---------- */
@@ -10774,9 +11497,10 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     KY.audio.setOn(S.ui.sound !== false);
     KY.ui.closePanel(); KY.ui.closeInsp();
     KY.ui.start();
+    KY.ui.rebuildDock();
     if (isNew) {
       KY.ui.save('auto');
-      setTimeout(briefing, 500);
+      setTimeout(S.mode === 'sandbox' ? sandboxIntro : briefing, 500);
     } else {
       KY.ui.toast({ t: 'Willkommen zurück', d: S.codename + ' · ' + U.dateStr(S.day), icon: 'seal', kind: 'good' });
     }
@@ -10796,6 +11520,19 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
     });
     U.$('#br-help', m.el).addEventListener('click', () => setTimeout(() => KY.ui.panel('hilfe'), 50));
     U.$('#br-ok', m.el).addEventListener('click', () => setTimeout(() => KY.ui.panel('lage'), 50));
+  }
+
+  function sandboxIntro() {
+    const m = KY.ui.modal({
+      cls: 'w560', html: `<div class="mh"><div style="color:var(--gold)">${KY.sealSvg(40)}</div><div class="tt"><div class="lbl">Freie Sandbox</div><h2>Die Welt gehört Ihnen.</h2></div></div>
+      <div class="mb"><div class="col">
+        <div class="row">${ic('sliders', 18)}<div class="note"><b style="color:var(--text)">Weltregie</b> (<span class="kbd">W</span>): Erdbeben, Tsunamis, Vulkane, Meteoriten, Seuchen, Börsencrashs, Rohstofffunde, Neuwahlen, Annäherung und Eiszeit zwischen Staaten.</div></div>
+        <div class="row">${ic('sat', 18)}<div class="note"><b style="color:var(--text)">Orbitale Leitstelle</b> (<span class="kbd">U</span>): Raketen starten, Satellitenflotten aufbauen, eine Raumstation errichten.</div></div>
+        <div class="row">${ic('plus', 18)}<div class="note"><b style="color:var(--text)">Alle Vorhaben</b> (<span class="kbd">A</span>): unbegrenztes Geld, jede Genehmigung wird erteilt.</div></div>
+        <div class="row">${ic('users', 18)}<div class="note"><b style="color:var(--text)">Die Welt reagiert:</b> Regierungen, Wahlen, Medien und fünf Bevölkerungsgruppen erleben alles als echte Ereignisse. Klicken Sie auf einen Staat, um seine Werte direkt zu verändern.</div></div>
+      </div></div><div class="mf"><button class="btn primary" data-a="mclose" id="sbi-ok">Los geht’s</button></div>`,
+    });
+    U.$('#sbi-ok', m.el).addEventListener('click', () => setTimeout(() => KY.ui.panel('regie'), 50));
   }
 
   /* ---------- Laden ---------- */

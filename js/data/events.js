@@ -64,6 +64,18 @@
       dmg: [0.05, 0.25, 0.8, 2, 4], relief: 1, radius: [40, 200],
       text: ['Der Vulkan nahe {city} ist ausgebrochen. Aschewolken steigen kilometerhoch.', 'Der Flugverkehr in der Region ist eingestellt.'],
     },
+    tsunami: {
+      n: 'Tsunami', icon: 'wave', kind: 'Natur', rate: 0, where: 'coast', sev: [30, 30, 22, 12, 6], dur: [4, 12],
+      dead: [[0, 5], [5, 120], [120, 2500], [2500, 30000], [30000, 180000]], displaced: [[200, 5000], [5000, 60000], [60000, 400000], [400000, 1500000], [1500000, 4000000]],
+      dmg: [0.05, 0.3, 1.2, 3.5, 8], tech: 'fruehwarn', relief: 1.2, flood: true, radius: [80, 700],
+      text: ['Eine Flutwelle trifft die Küste bei {city}.', 'Das Meer zieht sich zurück – dann kommt die Welle. Ganze Uferviertel von {city} sind verwüstet.'],
+    },
+    meteor: {
+      n: 'Meteoriteneinschlag', icon: 'spark', kind: 'Natur', rate: 0.02, where: 'any', sev: [40, 30, 18, 9, 3], dur: [4, 10],
+      dead: [[0, 0], [0, 25], [25, 600], [600, 20000], [20000, 250000]], displaced: [[0, 500], [500, 20000], [20000, 200000], [200000, 1200000], [1200000, 5000000]],
+      dmg: [0.01, 0.1, 0.8, 4, 12], relief: 1.2, radius: [20, 650],
+      text: ['Ein Feuerball über {nation}: Ein Meteorit schlägt nahe {city} ein.', 'Ein Gesteinsbrocken aus dem All hinterlässt bei {city} einen gewaltigen Krater.'],
+    },
   };
 
   /* Gesellschaftliche und wirtschaftliche Krisen (entstehen aus der Simulation) */
@@ -77,6 +89,7 @@
     govfall: { n: 'Regierungskrise', icon: 'ballot', kind: 'Politik', text: 'Die Regierungskoalition ist zerbrochen. Neuwahlen stehen bevor.' },
     scandal: { n: 'Korruptionsskandal', icon: 'eyeglass', kind: 'Politik', text: 'Enthüllungen über Schmiergeldzahlungen erschüttern die Regierung.' },
     boom: { n: 'Wirtschaftsboom', icon: 'trendUp', kind: 'Wirtschaft', text: 'Die Wirtschaft wächst so schnell wie seit Jahrzehnten nicht.' },
+    resource: { n: 'Rohstofffund', icon: 'mountain', kind: 'Wirtschaft', text: 'Geologen melden ein gewaltiges Vorkommen seltener Rohstoffe.' },
   };
 
   /* Vorfälle an eigenen Vorhaben. dead/injured: Spannen je Stufe 1–5. dmg: Anteil der Investitionssumme. delay: Bauverzug (Tage) */

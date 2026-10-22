@@ -4,14 +4,17 @@
   const KY = window.KY;
   const SIM = KY.sim;
   const E = (KY.engine = {});
-  E.SPEEDS = [0, 1, 4, 12, 30];
-  E.SPEED_NAMES = ['Pause', '1 Tag/s', '4 Tage/s', '12 Tage/s', '30 Tage/s'];
+  E.SPEEDS = [0, 1, 4, 12, 30, 90];
+  E.SPEED_NAMES = ['Pause', '1 Tag/s', '4 Tage/s', '12 Tage/s', '30 Tage/s', '90 Tage/s'];
   let acc = 0;
 
   E.start = function (S, W, isNew) {
     SIM.bind(S, W);
     KY.events.reset();
+    KY.sandbox.init(S, S.mode);
+    KY.orbit.state();
     KY.nations.init();
+    KY.orbit.applyEffects();
     KY.media.initMarkets();
     if (isNew) KY.advisors.welcome();
   };
@@ -26,12 +29,15 @@
     KY.nations.daily();
     KY.cover.daily();
     KY.research.daily();
+    KY.orbit.daily();
+    KY.sandbox.daily();
     KY.media.daily();
     if (S.day % 30 === 0) {
       KY.nations.monthly();
       KY.finance.monthly();
       KY.incidents.monthly();
       KY.advisors.monthly();
+      KY.orbit.monthly();
       KY.bus.emit('month', S.day);
     }
     if (S.day % 365 === 0) {
@@ -47,7 +53,7 @@
     if (!S || S.paused) { acc = 0; return 0; }
     acc += Math.min(0.25, dt) * E.SPEEDS[S.speed];
     let n = 0;
-    while (acc >= 1 && n < 12) {
+    while (acc >= 1 && n < 16) {
       acc -= 1;
       E.stepDay();
       n++;

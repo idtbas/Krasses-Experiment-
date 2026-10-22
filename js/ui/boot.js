@@ -19,6 +19,8 @@
       <div class="inner"><div class="brand"><div class="seal">${KY.sealSvg(64)}</div><div class="kicker">Streng vertraulich · Mandat</div><h1>KYTHERA<small>MANDAT</small></h1>
       <p>Ein Vermögen, das größer ist als die Wirtschaft ganzer Staaten. Eine Welt voller Menschen, denen Sie nie begegnen werden. Niemand kennt Ihren Namen – und jede Ihrer Entscheidungen hat Folgen.</p></div>
       <div class="menu"><button class="btn primary" id="t-new">Neues Mandat <span>${ic('arrowR', 16)}</span></button>
+      <button class="btn" id="t-sb" style="height:48px;justify-content:space-between;padding:0 18px">Freie Sandbox · Weltregie <span>${ic('globe', 16)}</span></button>
+      <div class="dim" style="font-size:11.5px;margin:-2px 2px 4px">Ohne Verträge, ohne Geldsorgen, alle Werkzeuge frei. Die Welt reagiert trotzdem auf alles.</div>
       ${slots.length ? `<div class="lbl" style="margin-top:10px">Mandat fortsetzen</div><div class="slots">${slots.map(x => `<button class="slot" data-slot="${x.s}"><span><b>${esc(x.m.codename)}</b><br><span class="dim" style="font-size:12px">${x.s === 'auto' ? 'Automatische Sicherung' : 'Speicherplatz ' + x.s} · ${U.dateStr(x.m.day, true)}</span></span><span class="dim" style="font-size:11px;text-align:right">${x.m.projects} Vorhaben${x.m.exposed ? '<br><span class="bad">öffentlich</span>' : ''}</span></button>`).join('')}</div>` : ''}
       <button class="btn ghost" id="t-imp" style="margin-top:4px">${ic('upload', 14)} Spielstand importieren</button></div></div>
       <div class="foot"><span>Für iPad im Querformat mit Magic Keyboard</span><span><span class="kbd">⌘</span> <span class="kbd">K</span> Suche</span><span><span class="kbd">Leertaste</span> Zeit</span><span>Fiktives Rollenspiel</span></div>`;
@@ -32,6 +34,7 @@
       cv.getContext('2d').putImageData(new ImageData(px, 800, 400), 0, 0);
     }, 60);
     U.$('#t-new').addEventListener('click', () => { KY.audio.unlock(); KY.audio.play('boot'); B.newMandate(); });
+    U.$('#t-sb').addEventListener('click', () => { KY.audio.unlock(); KY.audio.play('boot'); B.newSandbox(); });
     U.$$('.slot', t).forEach(b => b.addEventListener('click', () => { KY.audio.unlock(); B.loadSlot(b.dataset.slot); }));
     U.$('#t-imp').addEventListener('click', () => {
       KY.audio.unlock();
@@ -49,6 +52,14 @@
     show('#contracts');
     const seed = 10000 + Math.floor(Math.random() * 899999);
     KY.contracts.run({ seed, akz: 'KY-' + seed, done: r => build(r.seed, (W) => SIM.newGame(W, r.vals, { sig: r.sig, initials: r.initials }), true) });
+  };
+
+  /* ---------- Freie Sandbox ---------- */
+  B.newSandbox = function () {
+    if (KY.ui) KY.ui.running = false;
+    const seed = 10000 + Math.floor(Math.random() * 899999);
+    const vals = { codename: 'Regie', jurisdiction: 'holmvik', trustee: 'castellan', strategy: 'bal', deadline: '7', fund: '1', envoy: 'vidal', principles: [] };
+    build(seed, W => SIM.newGame(W, vals, { mode: 'sandbox' }), true);
   };
 
   /* ---------- Weltaufbau ---------- */
@@ -81,9 +92,10 @@
     KY.audio.setOn(S.ui.sound !== false);
     KY.ui.closePanel(); KY.ui.closeInsp();
     KY.ui.start();
+    KY.ui.rebuildDock();
     if (isNew) {
       KY.ui.save('auto');
-      setTimeout(briefing, 500);
+      setTimeout(S.mode === 'sandbox' ? sandboxIntro : briefing, 500);
     } else {
       KY.ui.toast({ t: 'Willkommen zurück', d: S.codename + ' · ' + U.dateStr(S.day), icon: 'seal', kind: 'good' });
     }
@@ -103,6 +115,19 @@
     });
     U.$('#br-help', m.el).addEventListener('click', () => setTimeout(() => KY.ui.panel('hilfe'), 50));
     U.$('#br-ok', m.el).addEventListener('click', () => setTimeout(() => KY.ui.panel('lage'), 50));
+  }
+
+  function sandboxIntro() {
+    const m = KY.ui.modal({
+      cls: 'w560', html: `<div class="mh"><div style="color:var(--gold)">${KY.sealSvg(40)}</div><div class="tt"><div class="lbl">Freie Sandbox</div><h2>Die Welt gehört Ihnen.</h2></div></div>
+      <div class="mb"><div class="col">
+        <div class="row">${ic('sliders', 18)}<div class="note"><b style="color:var(--text)">Weltregie</b> (<span class="kbd">W</span>): Erdbeben, Tsunamis, Vulkane, Meteoriten, Seuchen, Börsencrashs, Rohstofffunde, Neuwahlen, Annäherung und Eiszeit zwischen Staaten.</div></div>
+        <div class="row">${ic('sat', 18)}<div class="note"><b style="color:var(--text)">Orbitale Leitstelle</b> (<span class="kbd">U</span>): Raketen starten, Satellitenflotten aufbauen, eine Raumstation errichten.</div></div>
+        <div class="row">${ic('plus', 18)}<div class="note"><b style="color:var(--text)">Alle Vorhaben</b> (<span class="kbd">A</span>): unbegrenztes Geld, jede Genehmigung wird erteilt.</div></div>
+        <div class="row">${ic('users', 18)}<div class="note"><b style="color:var(--text)">Die Welt reagiert:</b> Regierungen, Wahlen, Medien und fünf Bevölkerungsgruppen erleben alles als echte Ereignisse. Klicken Sie auf einen Staat, um seine Werte direkt zu verändern.</div></div>
+      </div></div><div class="mf"><button class="btn primary" data-a="mclose" id="sbi-ok">Los geht’s</button></div>`,
+    });
+    U.$('#sbi-ok', m.el).addEventListener('click', () => setTimeout(() => KY.ui.panel('regie'), 50));
   }
 
   /* ---------- Laden ---------- */
