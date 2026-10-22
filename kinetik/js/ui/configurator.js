@@ -80,7 +80,7 @@ export class Configurator {
         const opts = Object.fromEntries(info.options.map((k) => [k, DRIVES[k]]));
         this.choice(body, info.name, opts, c.antrieb[g], (k) => this.change({ antrieb: { ...c.antrieb, [g]: k } }), (d) => ({
           model: d.model, desc: d.desc, price: d.price * info.axes, priceNote: `${info.axes} × ${fmtEuro(d.price)}`,
-          specs: [['Moment', `${fmtNum(d.torque / ref.torque * 100, 0)} %`], ['Drehzahl', `${fmtNum(d.speed / ref.speed * 100, 0)} %`], ['Steifigkeit', `${fmtNum(d.stiff / ref.stiff * 100, 0)} %`], ['η', `${Math.round(d.eff * 100)} %`], ['Masse', `${fmtNum(d.mass / ref.mass * 100, 0)} %`]],
+          specs: [['Moment', `${fmtNum(d.torque / ref.torque * 100, 0)} %`], ['Drehzahl', `${fmtNum(d.speed / ref.speed * 100, 0)} %`], ['Steifigkeit', `${fmtNum(d.stiff / ref.stiff * 100, 0)} %`], ['Wirkungsgrad', `${Math.round(d.eff * 100)} %`], ['Masse', `${fmtNum(d.mass / ref.mass * 100, 0)} %`]],
         }));
       }
       body.appendChild(h('p.note', 'Werte relativ zum Referenzantrieb der Achsgruppe. Schwache oder ineffiziente Antriebe erwärmen sich unter Last und werden ab 90 °C gedrosselt.'));

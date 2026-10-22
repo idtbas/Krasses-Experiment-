@@ -102,7 +102,7 @@ export class MissionCard {
     });
     body.appendChild(ul);
     this.timeEl = h('b', this.time != null ? fmtNum(this.time, 1) + ' s' : '–');
-    body.appendChild(h('div.meta', h('span', 'Zeit ', this.timeEl), h('span', 'Ziel ', h('b', `≤ ${fmtNum(m.par.time * 1.3, 0)} s`)), h('span', 'Anw. ', h('b', `≤ ${m.par.stmts}`)), m.budget ? h('span', 'Budget ', h('b', fmtEuro(m.budget))) : null));
+    body.appendChild(h('div.meta', h('span', 'Zeit', this.timeEl), h('span', 'Ziel', h('b', `≤ ${fmtNum(m.par.time * 1.3, 0)} s`)), h('span', 'Anweis.', h('b', `≤ ${m.par.stmts}`)), m.budget ? h('span', 'Budget', h('b', fmtEuro(m.budget))) : h('span', 'Budget', h('b', '–'))));
     this.el.appendChild(body);
   }
 

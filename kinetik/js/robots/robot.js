@@ -248,7 +248,7 @@ export class Robot extends Entity {
       }
       case 'waermebild': {
         const c = m.camera || {};
-        this.sensors.waerme = new ThermalCam(this, part, c.pos ? { x: c.pos[0], y: c.pos[1], z: c.pos[2] } : P([0, 0.023, 0.042]), c.dir ? { x: c.dir[0], y: c.dir[1], z: c.dir[2] } : D([0, 0, 1]), { fov: c.thermalFov || 56, wide: c.wide || 0, range: c.range || 6 });
+        this.sensors.waerme = new ThermalCam(this, part, c.pos ? { x: c.pos[0], y: c.pos[1], z: c.pos[2] } : P([0, 0.023, 0.042]), c.dir ? { x: c.dir[0], y: c.dir[1], z: c.dir[2] } : D([0, 0, 1]), { fov: c.thermalFov || 56, wide: c.wide || 0, range: c.range || 6, feedFov: c.feedFov || Math.min(c.thermalFov || 56, 66) });
         break;
       }
       case 'lidar2d': this.sensors.lidar = new Lidar(this, part, P([0, 0.035, 0]), { kind: '2d', hfov: 360, range: 12, rate: 10, steps: 360, yaw: m.rot ? m.rot[1] : 0 }); break;

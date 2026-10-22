@@ -332,6 +332,7 @@ export class App {
     this.stopProgram();
     if (this.devices) { this.devices.setPip(null); this.toolMonitor && this.toolMonitor.classList.remove('on'); }
     this.docs.clear();
+    for (const d of p.robots) d.config = withDefaults(d.config);
     for (const d of p.robots) this.docs.set(d.id, new ProgramDoc(d.code || '', d.layout || []));
     this.currentId = p.robots[0] ? p.robots[0].id : null;
     this.buildWorld();

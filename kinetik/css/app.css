@@ -123,7 +123,8 @@ svg.i.fill { fill: currentColor; stroke: none; }
 #home .actions .btn { min-height: 58px; justify-content: flex-start; padding: 0 16px; font-size: 15px; gap: 14px; background: rgba(27, 31, 36, .9); }
 #home .actions .btn.primary { background: var(--accent); }
 #home .actions .btn small { display: block; font-weight: 500; font-size: 12px; opacity: .72; margin-top: 2px; }
-#home .actions .btn .txt { display: flex; flex-direction: column; align-items: flex-start; text-align: left; line-height: 1.2; flex: 1; }
+#home .actions .btn .txt { display: flex; flex-direction: column; align-items: flex-start; text-align: left; line-height: 1.2; flex: 1; min-width: 0; }
+#home .actions .btn .txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 #home .actions .btn svg.i { width: 22px; height: 22px; }
 #home .actions .btn .arrow { opacity: .5; }
 #home .stats { display: grid; grid-template-columns: repeat(3, auto); gap: 4px 26px; max-width: 420px; margin-top: 4px; }
@@ -188,8 +189,9 @@ svg.i.fill { fill: currentColor; stroke: none; }
 #mission-card li.done .box { background: var(--ok); border-color: var(--ok); }
 #mission-card li.done .box svg { width: 11px; height: 11px; stroke: #062a10; stroke-width: 3.2; }
 #mission-card .row { display: flex; gap: 6px; margin-top: 10px; align-items: center; }
-#mission-card .meta { display: flex; gap: 12px; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); font: 11.5px var(--mono); color: var(--muted); }
-#mission-card .meta b { color: var(--text-2); font-weight: 600; }
+#mission-card .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
+#mission-card .meta span { display: flex; flex-direction: column; gap: 1px; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+#mission-card .meta b { color: var(--text-2); font: 600 12px var(--mono); letter-spacing: 0; text-transform: none; white-space: nowrap; }
 #mission-card.min .mbody { display: none; }
 #mission-card.min .mhead { border-bottom: 0; }
 
@@ -227,8 +229,7 @@ svg.i.fill { fill: currentColor; stroke: none; }
 #console.min { width: auto; }
 #console .lineref { text-decoration: underline; cursor: pointer; }
 
-#pip { left: 10px; top: 10px; width: 330px; overflow: hidden; z-index: 6; }
-#mission-card:not(.hidden) ~ #pip { top: auto; bottom: 10px; left: auto; right: calc(min(430px, 56%) + 20px); }
+#pip { right: 64px; top: 10px; width: min(320px, calc(100% - 420px)); min-width: 220px; overflow: hidden; z-index: 6; }
 #pip .devtitle { padding: 5px 4px 5px 10px; }
 #pip canvas { display: block; width: 100%; height: auto; background: #000; }
 

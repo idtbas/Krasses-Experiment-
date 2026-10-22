@@ -142,7 +142,7 @@ export class Arm extends Robot {
       farbsensor: { part: 'hand', pos: [0, 0.022, 0], hidden: true, range: 0.3 },
       kamera: { part: 'sockel', pos: [0, 0.49, -0.15], rot: [0.38, 0, 0], camera: { pos: [0, 0.5, -0.12], dir: [0, -0.4, 1], fov: 360, range: 2.5, feedFov: 70 } },
       tiefenkamera: { part: 'sockel', pos: [0, 0.495, -0.15], rot: [0.38, 0, 0], camera: { pos: [0, 0.5, -0.12], dir: [0, -0.4, 1], fov: 360, range: 2.5, feedFov: 70 } },
-      waermebild: { part: 'sockel', pos: [0.06, 0.492, -0.15], rot: [0.45, 0, 0], camera: { pos: [0.06, 0.5, -0.12], dir: [0, -0.5, 1], thermalFov: 80, wide: 330, range: 2.5 } },
+      waermebild: { part: 'sockel', pos: [0.06, 0.492, -0.15], rot: [0.6, 0, 0], camera: { pos: [0.06, 0.5, -0.12], dir: [0, -0.7, 1], thermalFov: 80, wide: 330, range: 2.5, feedFov: 66 } },
       lidar3d: { part: 'sockel', pos: [0, 0.572, -0.185] },
       radar: { part: 'sockel', pos: [-0.06, 0.4, -0.16] },
       scheinwerfer: { part: 'sockel', pos: [-0.065, 0.492, -0.15], rot: [0.62, 0, 0] },

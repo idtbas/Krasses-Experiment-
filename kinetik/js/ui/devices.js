@@ -35,6 +35,11 @@ function thermalMaterial(bucket) {
   return m;
 }
 
+const cloudBase = new THREE.ShaderMaterial({
+  vertexShader: 'varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: 'varying vec3 vN; void main(){ float k = 0.05 + 0.07 * abs(vN.z); gl_FragColor = vec4(vec3(k, k*1.1, k*1.25), 1.0); }',
+});
+
 const depthMat = new THREE.ShaderMaterial({
   uniforms: { range: { value: 6 } },
   vertexShader: 'varying float vD; void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vD = -mv.z; gl_Position = projectionMatrix * mv; }',
@@ -137,15 +142,14 @@ export class DeviceMonitor {
     const now = performance.now();
     this.frameNo++;
     const list = this.visible && this.app.tab === 'devices' ? this.tiles : this.pip ? [this.pip.tile] : [];
-    let renders = 0;
-    for (const t of list) {
-      const camKind = t.kind === 'rgb' || t.kind === 'depth' || t.kind === 'thermal' || t.kind === 'cloud';
-      const hz = camKind ? 10 : t.kind === 'drives' || t.kind === 'radio' ? 4 : 15;
-      if (now - t.last < 1000 / hz) continue;
-      if (camKind && renders >= 2) continue;
+    const isCam = (t) => t.kind === 'rgb' || t.kind === 'depth' || t.kind === 'thermal' || t.kind === 'cloud';
+    // Kamerabilder reihum (älteste zuerst), höchstens zwei je Bild
+    const due = list.filter((t) => now - t.last >= 1000 / (isCam(t) ? 10 : t.kind === 'drives' || t.kind === 'radio' ? 4 : 15));
+    const cams = due.filter(isCam).sort((a, b) => a.last - b.last).slice(0, 2);
+    for (const t of [...cams, ...due.filter((x) => !isCam(x))]) {
       t.last = now;
       try {
-        if (camKind) { this.renderCamera(r, t); renders++; }
+        if (isCam(t)) this.renderCamera(r, t);
         else this.draw2d(r, t);
       } catch (e) { console.warn(e); }
       if (this.pip && this.pip.tile === t) this.pip.canvas.getContext('2d').drawImage(t.canvas, 0, 0, this.pip.canvas.width, this.pip.canvas.height);
@@ -201,13 +205,26 @@ export class DeviceMonitor {
       scene.background = new THREE.Color('#05040c');
       scene.fog = null;
     } else if (t.kind === 'cloud') {
-      cam.layers.set(LIDAR_LAYER);
       scene.background = new THREE.Color('#05070a');
+      scene.overrideMaterial = cloudBase;
+      scene.fog = null;
     }
     gl.setScissorTest(true);
     gl.setScissor(0, 0, w, hgt);
     gl.setViewport(0, 0, w, hgt);
-    gl.render(scene, cam);
+    if (t.kind === 'cloud') {
+      // Umgebung als dunkle Silhouette, darüber die farbigen Messpunkte (wie in einem Visualisierungstool)
+      R.helpers.visible = false;
+      gl.render(scene, cam);
+      scene.overrideMaterial = null;
+      R.helpers.visible = true;
+      cam.layers.set(LIDAR_LAYER);
+      const ac = gl.autoClear;
+      gl.autoClear = false;
+      gl.clearDepth();
+      gl.render(scene, cam);
+      gl.autoClear = ac;
+    } else gl.render(scene, cam);
     const dpr = gl.getPixelRatio();
     const ctx = t.ctx;
     ctx.drawImage(gl.domElement, 0, gl.domElement.height - hgt * dpr, w * dpr, hgt * dpr, 0, 0, t.canvas.width, t.canvas.height);
@@ -222,22 +239,37 @@ export class DeviceMonitor {
   }
 
   // Wärmebild: jedes Mesh bekommt die Farbe seiner Temperatur
+  // Scheinbare Temperatur: Metalle strahlen wenig ab (niedriger Emissionsgrad) und wirken kühler,
+  // Leuchtmittel und Elektronik wärmer. Die Skala passt sich automatisch an (AGC) und ist gestaucht.
   applyThermal(robot, swapped) {
     const sim = this.app.sim;
     const amb = sim.ambient();
-    let hot = amb + 25;
-    for (const e of sim.entities) if (e.temperature) hot = Math.max(hot, e.temperature() + 2);
-    this.thermalSpan = [amb - 4, hot];
+    let hot = amb + 20;
+    for (const e of sim.entities) if (e.temperature) hot = Math.max(hot, e.temperature() + 3);
+    const lo = amb - 6;
+    this.thermalSpan = [lo, hot];
+    const k = (t) => Math.pow(clamp((t - lo) / (hot - lo), 0, 1), 0.55);
+    const apparent = (o, temp) => {
+      const m = o.material;
+      if (m && m.emissive && (m.emissiveIntensity || 0) > 0.5 && m.emissive.getHex() !== 0) return Math.max(temp, amb + 18);
+      if (m && m.metalness > 0.7) return amb + (temp - amb) * 0.6 - 3;
+      return temp;
+    };
     const set = (obj, temp) => {
-      const b = Math.round(temp * 2) / 2;
-      const m = thermalMaterial(b);
-      m.uniforms.col.value.copy(ironbow((temp - this.thermalSpan[0]) / (this.thermalSpan[1] - this.thermalSpan[0])));
-      obj.traverse((o) => { if (o.isMesh || o.isPoints) { swapped.push([o, o.material]); o.material = m; } });
+      obj.traverse((o) => {
+        if (!(o.isMesh || o.isPoints)) return;
+        const tt = apparent(o, temp);
+        const b = Math.round(tt * 2) / 2;
+        const m = thermalMaterial(b);
+        m.uniforms.col.value.copy(ironbow(k(b)));
+        swapped.push([o, o.material]);
+        o.material = m;
+      });
     };
     const R = this.app.renderer;
-    set(R.hall, amb - 1.5);
-    set(R.floor, amb - 0.5);
-    for (const c of R.scene.children) if (c !== R.world && c !== R.helpers && c !== R.hall && c !== R.floor && !c.isLight) set(c, amb - 0.8);
+    set(R.hall, amb - 2.5);
+    set(R.floor, amb - 1);
+    for (const c of R.scene.children) if (c !== R.world && c !== R.helpers && c !== R.hall && c !== R.floor && !c.isLight) set(c, amb - 1.2);
     for (const e of sim.entities) {
       if (e.isRobot) { for (const p of e.parts.values()) set(p.group, e.partTemp(p)); }
       else set(e.root, e.temperature ? e.temperature() : amb);
@@ -289,7 +321,7 @@ export class DeviceMonitor {
       const th = robot.sensors.waerme;
       const span = this.thermalSpan || [18, 50];
       const g = ctx.createLinearGradient(0, H - 10, 0, 10);
-      for (let i = 0; i <= 10; i++) { const c = ironbow(i / 10); g.addColorStop(i / 10, c.getStyle()); }
+      for (let i = 0; i <= 10; i++) { const c = ironbow(Math.pow(i / 10, 0.55)); g.addColorStop(i / 10, c.getStyle()); }
       ctx.fillStyle = g; ctx.fillRect(W - 14, 10, 6, H - 20);
       ctx.fillStyle = '#e6e8eb';
       ctx.fillText(`${Math.round(span[1])}°`, W - 40, 8);
@@ -439,7 +471,7 @@ export class DeviceMonitor {
       ctx.fillText(`${fmtNum(tg.dist, 1)} m ${tg.vr >= 0 ? '+' : ''}${fmtNum(tg.vr, 1)} m/s`, x + 6, y - 5);
     }
     ctx.fillStyle = '#9ff0c0';
-    ctx.fillText(`${rd.targets.length} ZIELE · ${rd.approaching() ? 'ANNÄHERUNG' : 'KEINE ANNÄHERUNG'}`, 8, 6);
+    ctx.fillText(`${rd.targets.length} ${rd.targets.length === 1 ? 'ZIEL' : 'ZIELE'} · ${rd.approaching() ? 'ANNÄHERUNG' : 'KEINE ANNÄHERUNG'}`, 8, 6);
   }
 
   setInfo(robot, t) {
@@ -448,6 +480,13 @@ export class DeviceMonitor {
     if (t.kind === 'drives') {
       const tab = h('table.drv');
       tab.appendChild(h('tr', h('th', 'Achse'), h('th', 'Ist'), h('th', 'Last'), h('th', 'Temp.'), h('th', 'Antrieb')));
+      if (robot.wheels) for (const [side, wh] of Object.entries(robot.wheels)) {
+        const soll = robot.drive[side], ist = wh.part.body.angvel ? null : null;
+        void ist;
+        const lv = wh.part.body.linvel();
+        const v = Math.hypot(lv.x, lv.z);
+        tab.appendChild(h('tr', h('td', side === 'l' ? 'Rad links' : 'Rad rechts'), h('td.mono', `${fmtNum(v, 2)} m/s`), h('td', h('div.mbar', h('i', { style: { width: Math.round(clamp(Math.abs(soll) / (robot.vmax + 0.06), 0, 1) * 100) + '%', background: 'var(--ok)' } }))), h('td.mono', `Soll ${fmtNum(soll, 2)}`), h('td.muted', (DRIVES[robot.config.antrieb.fahr] || {}).name || '')));
+      }
       for (const s of robot.servos.values()) {
         if (s.hidden) continue;
         const ld = clamp(s.load, 0, 1);
