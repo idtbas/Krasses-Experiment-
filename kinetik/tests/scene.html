@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KINETIK Testszene</title>
+<style>html,body{margin:0;height:100%;background:#111}#wrap{position:absolute;inset:0}canvas{width:100%;height:100%;display:block}#log{position:absolute;left:8px;bottom:8px;color:#fff;font:12px monospace;white-space:pre;background:rgba(0,0,0,.5);padding:6px;max-height:40%;overflow:auto}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.min.js" } }</script>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="log"></div>
+<script type="module">
+import RAPIER from '../vendor/rapier.mjs';
+import { Renderer } from '../js/render/renderer.js';
+import { OrbitCam } from '../js/render/camera.js';
+import { Sim } from '../js/sim/sim.js';
+import { createObject } from '../js/world/objects.js';
+import { createRobot } from '../js/robots/index.js';
+import { RobotHost } from '../js/robots/host.js';
+import { parse } from '../js/lang/parser.js';
+import { Runtime } from '../js/lang/interp.js';
+import * as THREE from 'three';
+
+const params = new URLSearchParams(location.search);
+const logEl = document.getElementById('log');
+const log = (...a) => { logEl.textContent += a.join(' ') + '\n'; console.log(...a); };
+window.LOG = [];
+await RAPIER.init();
+const renderer = new Renderer(document.getElementById('c'));
+const cam = new OrbitCam(renderer.camera, document.getElementById('c'));
+const sim = new Sim(RAPIER, renderer);
+window.sim = sim;
+
+const scene = params.get('scene') || 'arm';
+const scenes = await import('./scenes.js');
+const setup = scenes[scene](sim, { createObject, createRobot, cam });
+const robot = setup.robot;
+robot.onWarn = (r, m) => { log('WARN', m); window.LOG.push('WARN ' + m); };
+robot.onSay = (r, m) => { log('SAGT', m); window.LOG.push('SAGT ' + m); };
+const host = new RobotHost(robot, { sim, broadcast: (m) => rt.receive(m), log: () => {} });
+const src = setup.program;
+let rt = new Runtime(parse(src), host, {
+  onError: (e) => { log('FEHLER Z.' + e.line + ': ' + e.message); window.LOG.push('FEHLER ' + e.message); },
+  onFinish: () => { log('FERTIG t=' + sim.time.toFixed(2)); window.DONE = true; },
+});
+sim.hooks.push((dt) => rt.tick(dt));
+sim.running = true;
+rt.start();
+window.rt = rt;
+
+const fast = params.get('fast');
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (fast) { const t0 = performance.now(); while (performance.now() - t0 < +fast) sim.substep(); }
+  else sim.advance(dt);
+  sim.sync();
+  for (const s of Object.values(robot.sensors)) s.show && s.show(true);
+  cam.update(dt);
+  renderer.render();
+  if (setup.check) window.CHECK = setup.check();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.READY = true;
+</script>
+</body>
+</html>
