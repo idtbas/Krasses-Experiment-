@@ -202,6 +202,8 @@ export class Home {
   // Kurze Einführung beim ersten Missionsstart
   tour() {
     const app = this.app;
+    if (app.mode !== 'blocks') app.setMode('blocks');
+    app.showTab('program');
     const steps = [
       { el: () => app.blockEd.rail, title: 'Die Palette', text: 'Hier liegen alle Bausteine – nach Farben sortiert. Tippe eine Kategorie an und ziehe einen Baustein nach rechts.' },
       { el: () => app.blockEd.ws, title: 'Dein Programm', text: 'Bausteine rasten untereinander ein. Antippen probiert einen Stapel sofort aus. Lange drücken öffnet das Menü.' },

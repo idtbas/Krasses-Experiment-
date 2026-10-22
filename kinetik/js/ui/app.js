@@ -61,7 +61,11 @@ export class App {
       audio: this.audio,
       onLog: (robot, text, kind) => this.log(text, kind, robot),
       onSay: () => {},
-      onWarn: (robot, text) => { this.log(text, 'warn', robot); this.mctx && this.mctx.onWarn && this.mctx.onWarn(text); },
+      onWarn: (robot, text) => {
+        this.log(text, 'warn', robot);
+        if (!robot.speech || this.sim.time > robot.speech.until) robot.speech = { text: '⚠ ' + text.split(/[–.:]/)[0].trim(), t: this.sim.time, until: this.sim.time + 2.5, warn: true };
+        this.mctx && this.mctx.onWarn && this.mctx.onWarn(text);
+      },
       onError: (slot, err) => this.runtimeError(slot, err),
       onFinish: () => this.programFinished(),
       onStop: () => {},
@@ -305,7 +309,7 @@ export class App {
     this.loadProject(project);
     this.missionCard.hide();
     this.enterBench();
-    this.applyCamera(project.camera || { target: [0, 0.5, 0.3], dist: 3.0, yaw: 0.7, pitch: 0.45 });
+    this.applyCamera(project.camera || { target: [0, 0.45, 0.3], dist: 2.4, yaw: 0.7, pitch: 0.5 });
   }
 
   loadProject(p) {

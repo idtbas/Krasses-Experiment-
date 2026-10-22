@@ -257,7 +257,7 @@ export class Viewport {
       let b = this.bubbles.get(r);
       if (!b || b.text !== s.text) {
         if (b) b.el.remove();
-        const el = h('div.bubble', s.text);
+        const el = h('div.bubble' + (s.warn ? '.warn' : ''), s.text);
         this.overlay.appendChild(el);
         b = { el, text: s.text };
         this.bubbles.set(r, b);
