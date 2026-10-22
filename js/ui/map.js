@@ -31,7 +31,7 @@
   ];
   const BLUE = ['#0d366b', '#104281', '#184f95', '#1c5cab', '#256abf', '#2a78d6', '#3987e5', '#5598e7', '#6da7ec', '#86b6ef', '#9ec5f4', '#b7d3f6', '#cde2fb'];
   const ORANGE = ['#3a1d10', '#5a2a14', '#7a3716', '#9a4418', '#b9521c', '#d95926', '#ea7040', '#f08c62', '#f5aa88', '#f9c8ae'];
-  const EVCOL = { quake: '#ec835a', storm: '#7b8cff', flood: '#3987e5', drought: '#c9a24f', fire: '#ff6a3d', epidemic: '#d55181', heat: '#ff7a45', cold: '#7fd3ff', volcano: '#ff4d3d' };
+  const EVCOL = { quake: '#ec835a', storm: '#7b8cff', flood: '#3987e5', drought: '#c9a24f', fire: '#ff6a3d', epidemic: '#d55181', heat: '#ff7a45', cold: '#7fd3ff', volcano: '#ff4d3d', tsunami: '#4fb3ff', tornado: '#9a8f82', landslide: '#a07850', sandstorm: '#d9b46a', locusts: '#9a8a3a', solarstorm: '#ffb04a', aurora: '#5fe0a0', eclipse: '#b69cff', meteor: '#ff9a3c' };
   const PHCOL = { antrag: '#9aa4b1', bau: '#fab219', laufend: '#5aa7f0', betrieb: '#4fc46a', abgeschlossen: '#8fa0b3', abgelehnt: '#d03b3b', pausiert: '#c9a24f', stillgelegt: '#6b7280', aufgegeben: '#6b7280', uebergeben: '#8fa0b3' };
   const hexRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
   const rampColor = (ramp, t) => { const i = U.clamp(t, 0, 1) * (ramp.length - 1); const a = hexRgb(ramp[Math.floor(i)]), b = hexRgb(ramp[Math.min(ramp.length - 1, Math.floor(i) + 1)]); const f = i - Math.floor(i); return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]; };
@@ -140,6 +140,7 @@
   M.init = function (canvas, world) {
     cv = canvas; ctx = cv.getContext('2d'); W = world;
     sel = null; M.placing = null; overlayKey = ''; overlay = null; detail = null; djob = null;
+    if (KY.fx) KY.fx.reset();
     resize();
     if (!M.bound) { M.bound = true; window.addEventListener('resize', () => { resize(); dirty = true; }); bindInput(); }
     M.home(true);
@@ -313,12 +314,14 @@
       clampView(); dirty = true;
       if (anim.t >= 1) { anim = null; saveView(); }
     }
+    if (KY.fx) KY.fx.update(dt);
     const animating = M.hasAnim();
-    if (!dirty && !(animating && time - lastDraw > 1 / 30)) return;
+    const fast = KY.fx && KY.fx.busy();
+    if (!dirty && !(animating && (fast || time - lastDraw > 1 / 30))) return;
     dirty = false; lastDraw = time;
     draw();
   };
-  M.hasAnim = () => SIM.S && (SIM.S.events.some(e => e.phase !== 'vorbei') || SIM.S.incidents.some(i => i.status === 'offen') || M.placing || SIM.S.cities.some(c => c.protest) || (SIM.S.orbit && SIM.S.orbit.sats.length) || launchFx.length);
+  M.hasAnim = () => SIM.S && (SIM.S.events.some(e => e.phase !== 'vorbei') || SIM.S.incidents.some(i => i.status === 'offen') || M.placing || SIM.S.cities.some(c => c.protest) || (SIM.S.orbit && SIM.S.orbit.sats.length) || launchFx.length || (KY.fx && KY.fx.busy()));
   M.redraw = () => { dirty = true; };
 
   function worldCopies() {
@@ -341,6 +344,11 @@
     ctx.fillRect(0, 0, SW, SH);
     const copies = worldCopies();
     const wt = off => ctx.setTransform(z * dpr, 0, 0, z * dpr, (off - view.x) * z * dpr + SW / 2 * dpr, (-view.y) * z * dpr + SH / 2 * dpr);
+    const FX = KY.fx;
+    if (FX) FX.begin({
+      ctx, dpr, SW, SH, z, zl, WW, WH, ll: llScreen, km: km => kmUnits(km) * z, nat: natOutline, placing: M.placing, hoverNation,
+      eachWorld: (g, s, fn) => { for (const off of copies) { g.setTransform(z * s, 0, 0, z * s, (off - view.x) * z * s + SW / 2 * s, (-view.y) * z * s + SH / 2 * s); fn(off); } },
+    });
     for (const off of copies) {
       wt(off);
       ctx.imageSmoothingEnabled = true;
@@ -380,6 +388,7 @@
         ctx.strokeStyle = U.fill('rgba({r},{g},{b},' + a.toFixed(2) + ')', (c => ({ r: c[0], g: c[1], b: c[2] }))(hexRgb(EVCOL[ev.type] || '#ffffff')));
         ctx.lineWidth = 2.6 / z; ctx.stroke(natOutline[ev.n]);
       });
+      if (FX) FX.world(ctx, z);
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     hits = [];
@@ -387,11 +396,13 @@
     drawRelations();
     drawNationLabels(zl);
     drawProjectShapes(zl);
+    if (FX) FX.under();
     drawEvents(zl);
     drawCities(zl);
     drawProjects(zl);
     drawOrbit(zl);
     drawPlacing();
+    if (FX) FX.over();
   }
 
   /* ---------- Satelliten und Raketenstarts ---------- */
@@ -440,6 +451,7 @@
       sats.forEach(sat => {
         const pp = satPos(sat, time), q = llScreen(pp.lon, pp.lat);
         if (q[0] < -10 || q[0] > SW + 10 || q[1] < -10 || q[1] > SH + 10) return;
+        if (KY.fx && KY.fx.satGlitch()) return;
         const col = D.SATS[sat.type].col;
         const r = full ? (sat.type === 'modul' ? 4.5 : 3) : 1.8;
         if (full) { ctx.fillStyle = col; ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(q[0], q[1], r * 3, 0, Math.PI * 2); ctx.fill(); }
@@ -618,6 +630,7 @@
           ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.6 * (1 - ph)).toFixed(2) + ')'; ctx.lineWidth = 2; ctx.stroke();
         }
       }
+      if (KY.fx) { ctx.save(); KY.fx.ambient(ctx, ev, p[0], p[1], ev.radius ? kmUnits(ev.radius) * view.z : 0, done); ctx.restore(); }
       if (ev.type === 'storm' && !done) {
         ctx.save(); ctx.translate(p[0], p[1]); ctx.rotate(-time * 2.2);
         const s = 18 + ev.sev * 4;
@@ -653,8 +666,9 @@
         ctx.beginPath(); ctx.arc(p[0], p[1], r + 4 + ph * 6, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(227,196,122,' + (0.8 * (1 - ph)).toFixed(2) + ')'; ctx.lineWidth = 2; ctx.stroke();
       }
+      const dark = KY.fx ? KY.fx.cityDim(c.nation) : 0;
       ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
-      ctx.fillStyle = sc.dmg > 0.2 ? '#ec835a' : '#f4ecda'; ctx.fill();
+      ctx.fillStyle = dark > 0.5 ? '#34342f' : sc.dmg > 0.2 ? '#ec835a' : '#f4ecda'; ctx.fill();
       ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(8,10,14,0.85)'; ctx.stroke();
       if (c.capital) { ctx.beginPath(); ctx.arc(p[0], p[1], r + 2.6, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(244,236,218,0.8)'; ctx.lineWidth = 1.1; ctx.stroke(); }
       if (sel && sel.type === 'city' && sel.id === c.id) { ctx.beginPath(); ctx.arc(p[0], p[1], r + 7, 0, Math.PI * 2); ctx.strokeStyle = '#e3c47a'; ctx.lineWidth = 2.2; ctx.stroke(); }
@@ -730,8 +744,9 @@
     M.placing = Object.assign({ first: -1, a: null, drag: null, mouse: null }, o);
     cv.classList.add('placing');
     dirty = true;
+    KY.bus.emit('place', M.placing);
   };
-  M.cancelPlace = function () { M.placing = null; cv.classList.remove('placing'); dirty = true; };
+  M.cancelPlace = function () { M.placing = null; cv.classList.remove('placing'); dirty = true; KY.bus.emit('place', null); };
   function drawPlacing() {
     const pl = M.placing;
     if (!pl) return;
@@ -751,7 +766,7 @@
         ctx.fillStyle = '#f4ecda'; ctx.fillText(t, mx, my);
       }
     }
-    if (pl.kind === 'point' && pl.mouse) {
+    if (pl.kind === 'point' && pl.mouse && !pl.sb) {
       const ok = pl.valid !== false;
       ctx.beginPath(); ctx.arc(pl.mouse[0], pl.mouse[1], 14, 0, Math.PI * 2);
       ctx.strokeStyle = ok ? '#4fc46a' : '#ef6b5f'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]);

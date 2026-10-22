@@ -10,38 +10,66 @@
   ui.st.sev = 3;
 
   /* ================= WELTREGIE ================= */
+  const SHORT = {
+    quake: 'Erdbeben', tsunami: 'Tsunami', storm: 'Tropensturm', flood: 'Hochwasser', volcano: 'Vulkan', fire: 'Waldbrand', tornado: 'Tornado', landslide: 'Erdrutsch',
+    sandstorm: 'Sandsturm', locusts: 'Heuschrecken', drought: 'Dürre', heat: 'Hitze', cold: 'Kälte', epidemic: 'Epidemie', meteor: 'Meteorit', solarstorm: 'Sonnensturm',
+    aurora: 'Polarlicht', eclipse: 'Finsternis', crash: 'Börsencrash', oilshock: 'Ölschock', techjump: 'Tech-Sprung', tourism: 'Touristen', bankrun: 'Bankenkrise',
+    harvest: 'Rekordernte', boom: 'Boom', resource: 'Rohstoffe', debt: 'Schulden', cropfail: 'Missernte', blackout: 'Blackout', election: 'Neuwahl', reform: 'Reform',
+    statevisit: 'Staatsbesuch', borderopen: 'Grenzöffnung', detente: 'Annäherung', freeze: 'Eiszeit', trade: 'Handel', summit: 'Weltgipfel', worldcup: 'WM',
+    cure: 'Heilmittel', medbreak: 'Medizin', rain: 'Regen', aidwave: 'Hilfswelle',
+  };
+  KY.sandbox.SHORT = SHORT;
+  const TGT = { point: 'Ort', nation: 'Staat', two: 'Zwei Staaten', global: 'Weltweit' };
+  const CLIMN = ['heutiges Klima', '+0,5 °C', '+1 °C', '+1,5 °C', '+2 °C', '+3 °C'];
   P.regie = {
     title: 'Weltregie', kicker: 'Sandbox · Sie lenken die Welt',
     sub: () => 'Werkzeug wählen, dann auf die Karte klicken. Es bleibt aktiv, bis Sie Esc drücken.',
     render() {
       const S = SIM.S, sb = S.sb;
       const sw = (k, l, sub) => `<div class="switch ${sb[k] ? 'on' : ''}" data-a="sbSet" data-k="${k}"><div><div style="font-weight:600">${l}</div>${sub ? '<div class="dim" style="font-size:12px">' + sub + '</div>' : ''}</div><div class="tg"></div></div>`;
-      let h = `<div class="card goldb" style="margin-bottom:12px"><div class="row">${ic('globe', 20)}<div class="note" style="font-size:12.5px">In der Weltregie gibt es keine Genehmigungen und keine Regeln für Sie. Die Welt reagiert trotzdem: Regierungen, Medien und die Bevölkerung erleben alles als echte Ereignisse.</div></div></div>`;
+      const act = KY.events.active();
+      const dead = act.reduce((a, e) => a + (e.deadNow || 0), 0);
+      const feed = KY.reactions.feed();
+      let h = `<div class="grid4" style="margin-bottom:12px">
+        <div class="stat"><div class="k">Laufende Ereignisse</div><div class="v">${act.length}</div><div class="s">${act.filter(e => e.byDirector).length} von Ihnen ausgelöst</div></div>
+        <div class="stat"><div class="k">Opfer bisher</div><div class="v ${dead ? 'bad' : ''}">${U.count(dead)}</div><div class="s">in laufenden Lagen</div></div>
+        <div class="stat"><div class="k">Reaktionen</div><div class="v">${feed.filter(r => S.day - r.day <= 30).length}</div><div class="s">in den letzten 30 Tagen</div></div>
+        <div class="stat"><div class="k">Eingriffe</div><div class="v">${sb.log.length}</div><div class="s">seit Beginn</div></div></div>`;
       h += `<div class="og"><div class="ol">Stärke für Naturgewalten</div><div class="seg">${[1, 2, 3, 4, 5].map(v => `<button class="${ui.st.sev === v ? 'on' : ''}" data-a="sbSev" data-v="${v}">Stufe ${v}</button>`).join('')}</div></div>`;
       KY.sandbox.CATS.forEach(c => {
-        h += `<div class="h3">${ic(c.icon, 13)} ${esc(c.n)}</div><div class="cats" style="margin-bottom:6px">`;
+        h += `<div class="h3"><span class="catdot" style="background:${KY.fx.CATCOL[c.id]}"></span>${ic(c.icon, 13)} ${esc(c.n)}</div><div class="cats" style="margin-bottom:6px">`;
         KY.sandbox.TOOLS.filter(t => t.cat === c.id).forEach(t => {
           const on = ui.st.tool === t.id && KY.map.placing;
-          h += `<button class="cat ${on ? 'on' : ''}" data-a="sbTool" data-v="${t.id}" title="${esc(t.text || '')}">${ic(t.icon, 18)}<span class="n">${esc(t.n)}</span><span class="dim" style="font-size:10.5px;line-height:1.3">${t.target === 'point' ? 'Ort' : t.target === 'nation' ? 'Staat' : t.target === 'two' ? 'Zwei Staaten' : 'Weltweit'}</span></button>`;
+          h += `<button class="cat ${on ? 'on' : ''}" data-a="sbTool" data-v="${t.id}" title="${esc(t.text || '')}">${ic(t.icon, 18)}<span class="n">${esc(t.n)}</span><span class="dim" style="font-size:10.5px;line-height:1.3">${TGT[t.target]}</span></button>`;
         });
         h += '</div>';
       });
+      const fq = sb.freq === undefined ? 1 : sb.freq, cm = sb.climate || 0;
+      h += `<div class="h3">${ic('cloud', 13)} Weltklima</div>
+        <div class="og"><div class="ol">Zufällige Naturereignisse</div><div class="seg">${KY.sandbox.FREQ.map(f => `<button class="${fq === f.v ? 'on' : ''}" data-a="sbFreq" data-v="${f.v}">${esc(f.n)}</button>`).join('')}</div></div>
+        <div class="og"><div class="ol">Erderwärmung · häufigere Stürme, Dürren, Brände und Hitze</div><div class="seg">${KY.sandbox.CLIMATE.map((v, i) => `<button class="${cm === v ? 'on' : ''}" data-a="sbClim" data-v="${v}">${CLIMN[i]}</button>`).join('')}</div></div>`;
       h += `<div class="h3">${ic('sliders', 13)} Schalter</div>${sw('money', 'Unbegrenztes Vermögen', 'Das Vermögen fällt nie unter ¤ 5 Bio.')}${sw('approve', 'Genehmigungen immer erteilt', 'Regierungen sagen zu allem Ja')}`;
       h += `<div class="note" style="margin-top:10px">Staatswerte ändern: Klicken Sie auf einen Staat. Im Inspektor erscheinen Regler für Zufriedenheit, Gesundheit, Pressefreiheit und mehr.</div>`;
+      h += `<div class="h3">${ic('megaphone', 13)} So reagiert die Welt<span class="r dim">${feed.length}</span></div>`;
+      h += feed.length ? feed.slice().reverse().slice(0, 16).map(r => `<div class="rfeed ${r.tone > 0.15 ? 'good' : r.tone < -0.15 ? 'bad' : ''}" ${r.lon !== undefined ? `data-a="focus" data-lon="${r.lon}" data-lat="${r.lat}"` : ''}><span class="ri">${ic(r.icon, 13)}</span><span class="rt">${esc(r.text)}</span><span class="dim">${U.dateStr(r.day, true)}</span></div>`).join('') : '<div class="empty">Noch ist es ruhig. Lösen Sie etwas aus und lassen Sie die Zeit laufen: Regierungen, Nachbarn, Märkte und Menschen antworten.</div>';
       if (sb.log.length) h += `<div class="h3">Protokoll der Regie</div>` + sb.log.slice().reverse().slice(0, 14).map(l => `<div class="kv"><span>${esc(l.txt)}</span><span class="dim">${U.dateStr(l.day, true)}</span></div>`).join('');
       return h;
     },
   };
-  A.sbSev = b => { ui.st.sev = +b.dataset.v; ui.renderPanel(true); if (KY.map.placing && ui.st.tool) hint(); };
+  A.sbSev = b => { ui.st.sev = +b.dataset.v; ui.renderPanel(true); renderBar(); if (KY.map.placing && ui.st.tool) hint(); };
   A.sbSet = b => { const S = SIM.S; S.sb[b.dataset.k] = !S.sb[b.dataset.k]; b.classList.toggle('on', S.sb[b.dataset.k]); ui.updateBar(); };
-  A.sbTool = b => startTool(b.dataset.v);
+  A.sbFreq = b => { SIM.S.sb.freq = +b.dataset.v; ui.renderPanel(true); };
+  A.sbClim = b => { SIM.S.sb.climate = +b.dataset.v; ui.renderPanel(true); };
+  A.sbTool = b => { if (ui.st.tool === b.dataset.v && KY.map.placing) { KY.order.cancel(true); return; } startTool(b.dataset.v); };
+  A.rbCat = b => { ui.st.rbCat = b.dataset.v; renderBar(); };
+  A.rbMin = () => { const S = SIM.S; S.ui.rbMin = !S.ui.rbMin; renderBar(); };
 
   function hint(err, ok) {
     const t = KY.sandbox.TOOL[ui.st.tool];
     if (!t) return;
     const h = U.$('#placehint');
-    const what = t.target === 'point' ? 'Klicken Sie auf einen Ort.' : t.target === 'nation' ? 'Klicken Sie auf einen Staat.' : 'Wählen Sie nacheinander zwei Staaten.';
-    h.innerHTML = `<div class="ic-c" style="color:var(--gold2)">${ic(t.icon, 20)}</div><div class="t"><b>Weltregie · ${esc(t.n)}</b><div>${esc(what)}${ok ? ' <span class="good">' + esc(ok) + '</span>' : ''}</div>${err ? '<div class="err">' + esc(err) + '</div>' : ''}</div>${t.sev ? `<div class="seg">${[1, 2, 3, 4, 5].map(v => `<button class="${ui.st.sev === v ? 'on' : ''}" data-a="sbSev" data-v="${v}">${v}</button>`).join('')}</div>` : ''}<button class="btn sm ghost" data-a="cancelPlace">Fertig <span class="kbd">esc</span></button>`;
+    const what = t.target === 'point' ? (t.coast ? 'Klicken Sie aufs Meer vor einer Küste.' : 'Klicken Sie auf einen Ort.') : t.target === 'nation' ? 'Klicken Sie auf einen Staat.' : 'Wählen Sie nacheinander zwei Staaten.';
+    h.innerHTML = `<div class="ic-c" style="color:${KY.fx.CATCOL[t.cat]}">${ic(t.icon, 20)}</div><div class="t"><b>Weltregie · ${esc(t.n)}</b><div>${esc(what)}${ok ? ' <span class="good">' + esc(ok) + '</span>' : ''}</div>${err ? '<div class="err">' + esc(err) + '</div>' : ''}</div>${t.sev ? `<div class="seg">${[1, 2, 3, 4, 5].map(v => `<button class="${ui.st.sev === v ? 'on' : ''}" data-a="sbSev" data-v="${v}">${v}</button>`).join('')}</div>` : ''}<button class="btn sm ghost" data-a="cancelPlace">Fertig <span class="kbd">esc</span></button>`;
     h.classList.add('on');
   }
   function startTool(id) {
@@ -49,17 +77,21 @@
     if (!t) return;
     KY.order.cancel(true);
     ui.st.tool = id;
+    ui.st.rbCat = t.cat;
     const done = r => {
       if (!r.ok) { KY.audio.play('err'); hint(r.err); return; }
-      KY.audio.play(t.cat === 'natur' ? 'deep' : 'ok');
       hint(null, r.msg);
-      KY.map.dataChanged(1); KY.map.redraw(); ui.refresh();
+      KY.map.dataChanged(1); KY.map.redraw(); ui.refresh(); renderBar();
     };
     if (t.target === 'global') {
-      ui.confirm(t.n + ' auslösen?', esc(t.text || ''), 'Auslösen').then(ok => { if (ok) { const r = KY.sandbox.apply(id, {}, ui.st.sev); ui.toast({ t: r.ok ? t.n : 'Nicht möglich', d: r.ok ? r.msg : r.err, icon: t.icon, kind: r.ok ? 'warn' : 'crit' }); ui.refresh(); } });
+      renderBar();
+      ui.confirm(t.n + ' auslösen?', esc(t.text || ''), 'Auslösen').then(ok => {
+        if (ok) { const r = KY.sandbox.apply(id, {}, ui.st.sev); if (!r.ok) ui.toast({ t: 'Nicht möglich', d: r.err, icon: t.icon, kind: 'crit' }); ui.refresh(); }
+        ui.st.tool = null; renderBar();
+      });
       return;
     }
-    const pl = { kind: t.target === 'point' ? 'point' : t.target === 'nation' ? 'nation' : 'two' };
+    const pl = { kind: t.target === 'point' ? 'point' : t.target === 'nation' ? 'nation' : 'two', sb: id };
     pl.onClick = (h, x, y) => {
       const ll = KY.map.toLonLat(x, y);
       const nid = h.type === 'nation' ? h.id : h.type === 'city' ? SIM.W.cities[h.id].nation : KY.geo.nationAt(ll.lon, ll.lat);
@@ -67,7 +99,7 @@
       else if (t.target === 'nation') { if (nid < 0) { hint('Dort liegt kein Staat.'); return; } done(KY.sandbox.apply(id, { n: nid }, ui.st.sev)); }
       else {
         if (nid < 0) return;
-        if (pl.first < 0) { pl.first = nid; hint(null, 'Erster Staat: ' + SIM.nName(nid)); }
+        if (pl.first < 0) { pl.first = nid; hint(null, 'Erster Staat: ' + SIM.nName(nid)); KY.audio.play('click'); }
         else if (nid !== pl.first) { done(KY.sandbox.apply(id, { n: pl.first, n2: nid }, ui.st.sev)); pl.first = -1; }
       }
     };
@@ -75,7 +107,38 @@
     document.body.classList.add('placing');
     hint();
     ui.renderPanel(true);
+    renderBar();
   }
+  KY.sandbox.startTool = startTool;
+
+  /* ================= REGIE-LEISTE (unten auf der Karte) ================= */
+  function renderBar() {
+    const el = U.$('#regiebar');
+    if (!el) return;
+    const S = SIM.S;
+    const show = !!(S && KY.sandbox.on());
+    el.classList.toggle('on', show);
+    if (!show) { document.body.style.setProperty('--rbh', '0px'); document.body.classList.remove('rb-on'); return; }
+    document.body.classList.add('rb-on');
+    const cat = ui.st.rbCat || 'natur';
+    const active = KY.map.placing && KY.map.placing.sb ? ui.st.tool : (ui.st.tool && KY.sandbox.TOOL[ui.st.tool] && KY.sandbox.TOOL[ui.st.tool].target === 'global' ? ui.st.tool : null);
+    const min = !!S.ui.rbMin;
+    let h = `<div class="rb-top"><span class="rb-t">${ic('globe', 14)} Weltregie</span>`;
+    h += KY.sandbox.CATS.map(c => `<button class="rb-cat ${c.id === cat && !min ? 'on' : ''}" data-a="rbCat" data-v="${c.id}" style="--cc:${KY.fx.CATCOL[c.id]}" title="${esc(c.n)}">${ic(c.icon, 14)}<span>${esc(c.n)}</span></button>`).join('');
+    h += `<span class="rb-sp"></span><div class="seg sm" title="Stärke für Naturgewalten">${[1, 2, 3, 4, 5].map(v => `<button class="${ui.st.sev === v ? 'on' : ''}" data-a="sbSev" data-v="${v}">${v}</button>`).join('')}</div>`;
+    h += `<button class="iconbtn sm" data-a="rbMin" title="${min ? 'Leiste ausklappen' : 'Leiste einklappen'} (B)">${ic(min ? 'chevU' : 'chevD', 15)}</button></div>`;
+    if (!min) {
+      h += `<div class="rb-tools">` + KY.sandbox.TOOLS.filter(t => t.cat === cat).map(t => `<button class="rb-tool ${active === t.id ? 'on' : ''}" data-a="sbTool" data-v="${t.id}" style="--cc:${KY.fx.CATCOL[t.cat]}" title="${esc(t.n + ' · ' + TGT[t.target] + (t.text ? ' – ' + t.text : ''))}">${ic(t.icon, 19)}<span>${esc(SHORT[t.id] || t.n)}</span></button>`).join('') + `</div>`;
+    }
+    el.innerHTML = h;
+    el.classList.toggle('min', min);
+    document.body.style.setProperty('--rbh', (el.offsetHeight + 10) + 'px');
+  }
+  ui.renderRegiebar = renderBar;
+  KY.bus.on('place', pl => {
+    if (!pl) { const t = KY.sandbox.TOOL[ui.st.tool]; if (!t || t.target !== 'global') ui.st.tool = null; }
+    renderBar();
+  });
 
   /* Regler im Staatsinspektor */
   const baseNation = KY.INS.nation;

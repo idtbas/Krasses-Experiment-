@@ -1,10 +1,10 @@
 /* KYTHERA · MANDAT · Erzeugt geschwärzte Entwicklungs-Screenshots („SECRET“), damit nichts vorweggenommen wird.
-   Aufruf: node tools/redact.js <quellordner> <zielordner> */
+   Aufruf: node tools/redact.js <quellordner> <zielordner> [Präfix] */
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('/opt/node-tools/node_modules/playwright');
-const [src, dst] = process.argv.slice(2);
+const [src, dst, prefix] = process.argv.slice(2);
 (async () => {
   fs.mkdirSync(dst, { recursive: true });
   const files = fs.readdirSync(src).filter(f => /\.png$/.test(f)).sort();
@@ -53,7 +53,7 @@ const [src, dst] = process.argv.slice(2);
       return c.toDataURL('image/png').split(',')[1];
     }, { b64, seed: 9973 + n * 131 });
     n++;
-    fs.writeFileSync(path.join(dst, 'SECRET_MANDAT_' + String(n).padStart(2, '0') + '.png'), Buffer.from(out, 'base64'));
+    fs.writeFileSync(path.join(dst, 'SECRET_' + (prefix || 'MANDAT') + '_' + String(n).padStart(2, '0') + '.png'), Buffer.from(out, 'base64'));
   }
   await browser.close();
   console.log(n, 'geschwärzte Aufnahmen in', dst);

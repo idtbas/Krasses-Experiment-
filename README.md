@@ -10,7 +10,7 @@ Alle Staaten, Personen, Organisationen, Sender und Ereignisse sind frei erfunden
 ## Zwei Arten zu spielen
 
 - **Neues Mandat:** Vertragsmappe unterschreiben, mit begrenztem Vermögen handeln und für alle Folgen geradestehen.
-- **Freie Sandbox · Weltregie:** ohne Verträge und Geldsorgen. Naturgewalten, Wirtschaft und Politik frei auslösen, Staatswerte verändern, Raketen starten und Satellitenflotten aufbauen – die Welt reagiert auf alles. (Im Mandat lässt sich die Weltregie unter System freischalten.)
+- **Freie Sandbox · Weltregie:** ohne Verträge und Geldsorgen. 42 Werkzeuge in fünf Bereichen (Naturgewalten, Himmel und All, Wirtschaft, Politik, Gesellschaft) frei auslösen, Klima und Häufigkeit von Naturereignissen einstellen, Staatswerte verändern, Raketen starten und Satellitenflotten aufbauen. Jede Auslösung ist auf der Karte zu sehen – Meteoriten mit Druckwelle und Krater, Tsunami-Wellen über dem Meer, Beben mit Rissen, Aschesäulen, Wirbelstürme, Polarlichter, Feuerwerk – und die Welt reagiert: Regierungen, Nachbarstaaten, Märkte und Menschen antworten über Tage und Wochen. (Im Mandat lässt sich die Weltregie unter System freischalten.)
 
 ## Gerät
 
@@ -24,6 +24,7 @@ Gestaltet für das **iPad im Querformat mit Magic Keyboard** (Safari). Bedienung
 | A | Handlungskatalog |
 | U | Orbitale Leitstelle |
 | W | Weltregie (Sandbox) |
+| B | Regie-Leiste ein- und ausklappen |
 | E | Krisenstab |
 | G | Kartenebene wechseln |
 | ? | Einweisung |

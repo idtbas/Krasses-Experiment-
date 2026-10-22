@@ -162,6 +162,7 @@
     if (opts.tab) ui.st.tab[id] = opts.tab;
     const P = KY.P[id];
     ui.$panel.classList.add('open');
+    document.body.classList.add('panel-open');
     ui.$panel.classList.toggle('wide', !!P.wide);
     ui.$panel.innerHTML = `<div class="ph"><div class="tt"><div class="lbl">${U.esc(P.kicker || 'Vertraulich')}</div><h2>${U.esc(P.title)}</h2><div class="sub" id="p-sub"></div></div><button class="iconbtn" data-a="closePanel" title="Schließen (Esc)">${ic('close', 18)}</button></div>${P.tabs ? '<div class="tabs" id="p-tabs"></div>' : ''}<div class="pb" id="p-body"></div>`;
     U.$$('button[data-p]', ui.$dock).forEach(b => b.classList.toggle('on', b.dataset.p === id));
@@ -172,6 +173,7 @@
     if (ui.cur && KY.P[ui.cur] && KY.P[ui.cur].onClose) KY.P[ui.cur].onClose();
     ui.cur = null;
     ui.$panel.classList.remove('open');
+    document.body.classList.remove('panel-open');
     U.$$('button[data-p]', ui.$dock).forEach(b => b.classList.remove('on'));
   };
   ui.renderPanel = function (force) {
@@ -290,6 +292,7 @@
     if (k === ' ') { e.preventDefault(); KY.engine.toggle(); ui.updateBar(); return; }
     if (k >= '1' && k <= '4') { KY.engine.setSpeed(+k); ui.updateBar(); return; }
     if (k === '5' && KY.sandbox.on()) { KY.engine.setSpeed(5); ui.updateBar(); return; }
+    if ((k === 'b' || k === 'B') && KY.sandbox.on()) { KY.A.rbMin(); return; }
     if (k === '/' || k === '#') { e.preventDefault(); KY.A.palette(); return; }
     if (k === '?') { ui.panel('hilfe'); return; }
     if (k === ',') { ui.panel('system'); return; }
@@ -357,7 +360,8 @@
     });
     KY.bus.on('event', ev => {
       KY.map.dataChanged(1);
-      if (ev.sev >= 3) {
+      // Selbst ausgelöste Ereignisse zeigt die Effekt-Engine mit Eilmeldung
+      if (ev.sev >= 3 && !(ev.byDirector && KY.fx && SIM.S.ui.fx !== false)) {
         KY.audio.play('note');
         ui.toast({ t: ev.name, d: ev.text, icon: D.EVENTS[ev.type].icon, kind: ev.sev >= 4 ? 'crit' : 'warn', onClick: () => { KY.map.focus(ev.lon, ev.lat, 4); ui.inspect('ev', ev.id); }, ms: 7000 });
         if (ev.sev >= 4 && SIM.S.ui.autoPause !== false) KY.engine.pause('katastrophe');

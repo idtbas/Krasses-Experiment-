@@ -70,6 +70,48 @@
       dmg: [0.05, 0.3, 1.2, 3.5, 8], tech: 'fruehwarn', relief: 1.2, flood: true, radius: [80, 700],
       text: ['Eine Flutwelle trifft die Küste bei {city}.', 'Das Meer zieht sich zurück – dann kommt die Welle. Ganze Uferviertel von {city} sind verwüstet.'],
     },
+    tornado: {
+      n: 'Tornado', icon: 'storm', kind: 'Natur', rate: 1.2, where: 'plains', sev: [34, 30, 20, 11, 5], dur: [1, 3],
+      dead: [[0, 0], [0, 3], [3, 25], [25, 120], [120, 500]], displaced: [[0, 200], [200, 2000], [2000, 15000], [15000, 60000], [60000, 150000]],
+      dmg: [0.005, 0.02, 0.08, 0.2, 0.4], relief: 0.6, radius: [12, 80], track: true,
+      text: ['Ein Tornado zieht eine Schneise der Verwüstung bei {city}.', 'Ein Wirbelsturm der höchsten Stufe reißt bei {city} Häuser aus dem Boden.'],
+    },
+    landslide: {
+      n: 'Erdrutsch', icon: 'mountain', kind: 'Natur', rate: 1.0, where: 'fault', sev: [34, 30, 20, 11, 5], dur: [2, 6],
+      dead: [[0, 2], [2, 20], [20, 150], [150, 900], [900, 4000]], displaced: [[0, 300], [300, 3000], [3000, 20000], [20000, 80000], [80000, 200000]],
+      dmg: [0.005, 0.02, 0.06, 0.15, 0.3], relief: 0.8, radius: [5, 40],
+      text: ['Nach Starkregen rutscht bei {city} ein ganzer Hang ab.', 'Eine Schlammlawine begräbt Dörfer oberhalb von {city}.'],
+    },
+    sandstorm: {
+      n: 'Sandsturm', icon: 'wind', kind: 'Natur', rate: 1.0, where: 'desert', sev: [36, 30, 20, 10, 4], dur: [2, 6],
+      dead: [[0, 0], [0, 4], [4, 40], [40, 200], [200, 800]], displaced: [[0, 0], [0, 500], [500, 5000], [5000, 20000], [20000, 60000]],
+      dmg: [0.01, 0.03, 0.08, 0.2, 0.4], relief: 0.5, radius: [150, 700], track: true,
+      text: ['Eine Wand aus Sand rollt auf {city} zu.', 'Sandsturm über {nation}: Sicht unter zehn Meter, Flughäfen geschlossen.'],
+    },
+    locusts: {
+      n: 'Heuschreckenplage', icon: 'wheat', kind: 'Natur', rate: 0.6, where: 'dry', sev: [30, 30, 22, 12, 6], dur: [40, 120],
+      dead: [[0, 0], [0, 20], [20, 400], [400, 4000], [4000, 20000]], displaced: [[0, 0], [0, 2000], [2000, 30000], [30000, 200000], [200000, 600000]],
+      dmg: [0.1, 0.3, 0.8, 1.6, 2.5], relief: 1, nationwide: true, devFactor: true, crops: true,
+      text: ['Milliarden Heuschrecken fallen über die Felder von {nation} her.', 'Der Himmel über {nation} verdunkelt sich: Ein Heuschreckenschwarm frisst ganze Ernten.'],
+    },
+    solarstorm: {
+      n: 'Sonnensturm', icon: 'sun', kind: 'Weltraum', rate: 0.15, where: 'pole', sev: [36, 30, 20, 10, 4], dur: [3, 8],
+      dead: [[0, 0], [0, 0], [0, 2], [0, 10], [0, 40]], displaced: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+      dmg: [0.01, 0.05, 0.2, 0.6, 1.2], relief: 0, nationwide: true, space: true,
+      text: ['Ein gewaltiger Sonnensturm trifft die Erde. Satelliten fallen aus, Stromnetze geraten ins Wanken.', 'Koronaler Massenauswurf: Polarlichter bis in südliche Breiten, Funkverbindungen brechen zusammen.'],
+    },
+    aurora: {
+      n: 'Polarlicht', icon: 'spark', kind: 'Himmel', rate: 0, where: 'pole', sev: [40, 30, 20, 8, 2], dur: [3, 7],
+      dead: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], displaced: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+      dmg: [0, 0, 0, 0, 0], relief: 0, nationwide: true, harmless: true, joy: 3,
+      text: ['Grüne und violette Lichtvorhänge tanzen über {nation}. Millionen stehen staunend auf den Straßen.', 'Polarlicht so weit im Süden wie seit Jahrhunderten nicht: {nation} feiert ein Himmelsschauspiel.'],
+    },
+    eclipse: {
+      n: 'Totale Sonnenfinsternis', icon: 'sun', kind: 'Himmel', rate: 0.3, where: 'any', sev: [40, 30, 20, 8, 2], dur: [1, 2],
+      dead: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], displaced: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+      dmg: [0, 0, 0, 0, 0], relief: 0, harmless: true, joy: 2, radius: [80, 200], track: true,
+      text: ['Am helllichten Tag wird es Nacht über {city}: totale Sonnenfinsternis.', 'Hunderttausende reisen nach {nation}, um die Finsternis zu sehen.'],
+    },
     meteor: {
       n: 'Meteoriteneinschlag', icon: 'spark', kind: 'Natur', rate: 0.02, where: 'any', sev: [40, 30, 18, 9, 3], dur: [4, 10],
       dead: [[0, 0], [0, 25], [25, 600], [600, 20000], [20000, 250000]], displaced: [[0, 500], [500, 20000], [20000, 200000], [200000, 1200000], [1200000, 5000000]],

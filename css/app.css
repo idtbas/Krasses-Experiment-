@@ -586,3 +586,60 @@ body.placing #toasts { top: calc(var(--bar) + 86px); }
   .gauge.opt { display: none; }
   #contracts .desk { padding: 26px 22px 60px; }
 }
+
+/* ---------- Weltregie: Leiste, Eilmeldung, Reaktionen ---------- */
+.og .seg { flex-wrap: wrap; }
+.seg.sm button { height: 24px; padding: 0 8px; font-size: 11px; }
+.iconbtn.sm { width: 28px; height: 28px; }
+.catdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+#regiebar {
+  position: absolute; left: calc(var(--dock) + 12px); bottom: calc(var(--ticker) + 10px); z-index: 22; display: none; flex-direction: column; gap: 6px;
+  max-width: calc(100vw - var(--dock) - 440px); min-width: 380px; padding: 8px; border-radius: 14px; background: rgba(9, 12, 18, 0.9); border: 1px solid var(--line2);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+#regiebar.on { display: flex; }
+body.panel-open #regiebar, body.insp-open #regiebar { display: none; }
+#regiebar .rb-top { display: flex; align-items: center; gap: 4px; min-width: 0; }
+#regiebar .rb-t { display: inline-flex; align-items: center; gap: 6px; font: 700 10px var(--sans); letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold2); padding: 0 8px 0 4px; white-space: nowrap; }
+#regiebar .rb-cat { height: 28px; padding: 0 8px; border-radius: 7px; display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: 11px; font-weight: 600; white-space: nowrap; }
+#regiebar .rb-cat span { display: none; }
+#regiebar .rb-cat.on span { display: inline; }
+#regiebar .rb-cat:hover { color: var(--text); background: rgba(255, 255, 255, 0.05); }
+#regiebar .rb-cat.on { color: var(--cc); background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 -2px 0 var(--cc); }
+#regiebar .rb-sp { flex: 1; }
+#regiebar .rb-tools { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 1px; }
+#regiebar .rb-tools::-webkit-scrollbar { display: none; }
+#regiebar .rb-tool { flex: none; width: 70px; height: 54px; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text2); border: 1px solid transparent; background: rgba(255, 255, 255, 0.03); transition: transform 0.12s, background 0.12s; }
+#regiebar .rb-tool span { font-size: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 64px; }
+#regiebar .rb-tool svg { color: var(--cc); }
+#regiebar .rb-tool:hover { background: rgba(255, 255, 255, 0.07); color: var(--text); transform: translateY(-1px); }
+#regiebar .rb-tool.on { border-color: var(--cc); background: rgba(255, 255, 255, 0.09); color: var(--text); box-shadow: 0 0 18px -6px var(--cc); }
+#regiebar.min { min-width: 0; }
+
+#fxbanner {
+  position: absolute; left: calc(var(--dock) + 12px); bottom: calc(var(--ticker) + 14px + var(--rbh, 0px)); z-index: 34; display: flex; align-items: stretch; max-width: min(620px, calc(100vw - var(--dock) - 440px));
+  border-radius: 10px; overflow: hidden; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55); pointer-events: none; opacity: 0; transform: translateX(-24px); transition: opacity 0.3s, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+body.panel-open #fxbanner { left: calc(var(--dock) + var(--panelW) + 12px); bottom: calc(var(--ticker) + 14px); max-width: min(560px, calc(100vw - var(--dock) - var(--panelW) - 430px)); }
+body.insp-open #fxbanner { bottom: calc(var(--ticker) + 14px); }
+#fxbanner.on { opacity: 1; transform: none; }
+#fxbanner .bt { flex: none; display: flex; align-items: center; padding: 0 14px; font: 800 11px var(--sans); letter-spacing: 0.16em; text-transform: uppercase; color: #fff; background: var(--crit); }
+#fxbanner.on .bt { animation: blink 1.4s 3; }
+#fxbanner.k-good .bt { background: #2f8f4a; }
+#fxbanner.k-info .bt { background: var(--gold); color: #140f05; }
+#fxbanner .bx { position: relative; flex: 1; min-width: 0; padding: 9px 14px; background: rgba(10, 13, 19, 0.97); display: flex; flex-direction: column; gap: 2px; }
+#fxbanner .bx b { font: 700 15px/1.25 var(--sans); color: #f4ecda; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#fxbanner .bx span { font-size: 12px; color: var(--text2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#fxbanner .bc { flex: none; display: flex; align-items: center; padding: 0 12px; font: 700 10px var(--mono); letter-spacing: 0.12em; color: var(--dim); background: rgba(16, 20, 28, 0.97); border-left: 1px solid var(--line); }
+#fxbanner .bx::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent); transform: translateX(-100%); }
+#fxbanner.on .bx::after { animation: sweep 1.4s 0.2s ease-out; }
+@keyframes sweep { to { transform: translateX(100%); } }
+
+.rfeed { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.rfeed[data-a] { cursor: pointer; }
+.rfeed[data-a]:hover { background: rgba(255, 255, 255, 0.03); }
+.rfeed .ri { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(227, 196, 122, 0.14); color: var(--gold2); }
+.rfeed.good .ri { background: rgba(79, 196, 106, 0.14); color: var(--goodT); }
+.rfeed.bad .ri { background: rgba(239, 107, 95, 0.14); color: var(--critT); }
+.rfeed .rt { min-width: 0; }
+.rfeed .dim { font-size: 11px; white-space: nowrap; }

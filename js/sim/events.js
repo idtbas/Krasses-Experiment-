@@ -51,6 +51,9 @@
       case 'hot': { const n = pickNation(w => (Math.abs(w.lat) < 38 ? 1 : 0.05) * Math.sqrt(w.pop)); return n ? W.cities[n.capital] : null; }
       case 'cold': { const n = pickNation(w => (Math.abs(w.lat) > 40 ? 1 : 0) * Math.sqrt(w.pop)); return n ? W.cities[n.capital] : null; }
       case 'coast': return pickCity(c => (c.coastal ? 1 : 0) * Math.sqrt(c.pop + 0.2));
+      case 'plains': return pickCity(c => ([6, 8, 10, 5].indexOf(c.biome) >= 0 ? 1 : 0.05) * (Math.abs(c.lat) > 20 && Math.abs(c.lat) < 50 ? 1 : 0.2));
+      case 'desert': return pickCity(c => (c.biome === 7 ? 1 : W.moist[c.cell] < 0.3 ? 0.4 : 0.01));
+      case 'pole': { const n = pickNation(w => (Math.abs(w.lat) > 45 ? 1 : 0.02) * Math.sqrt(w.pop)); return n ? W.cities[n.capital] : null; }
       case 'any': return pickCity(c => 1);
     }
     return null;
@@ -87,6 +90,7 @@
     }
     if (T.energyFactor) k *= 1.4 - n.energy / 160;
     k *= 1 - (S.g.orbitMit || 0);
+    k *= 1 - (n.fx.resil || 0);
     const dead = Math.round(SIM.rangeRoll(T.dead[sev - 1], 1.25) * k * (opts.k || 1));
     const displaced = Math.round(SIM.rangeRoll(T.displaced[sev - 1], 1.2) * (sc.fac.flood && type === 'storm' ? 0.3 : 1));
     const dur = Math.round(T.dur[0] + Math.random() * (T.dur[1] - T.dur[0]));
@@ -101,15 +105,29 @@
     if (T.track) { const a = Math.random() * Math.PI * 2; ev.from = { lon: ev.lon + Math.cos(a) * 9, lat: ev.lat + Math.sin(a) * 4 }; }
     S.events.unshift(ev);
     if (S.events.length > 160) S.events.length = 160;
-    // Folgen
-    n.gdp *= 1 - ev.dmg / 100;
-    SIM.shock(nid, 'happy', -sev * 1.8, 150); SIM.shock(nid, 'unrest', sev * 1.6, 150); SIM.shock(nid, 'infra', -sev * 0.9, 365);
-    SIM.shock(nid, 'growth', -ev.dmg * 0.35, 220);
-    if (type === 'epidemic') SIM.shock(nid, 'health', -sev * 2.2, ev.dur + 60);
-    if (type === 'drought') SIM.shock(nid, 'poverty', sev * 1.6, ev.dur + 200);
-    if (!T.nationwide) sc.dmg = U.clamp(sc.dmg + sev * 0.11, 0, 1);
-    else SIM.citiesOf(nid).forEach(c => { S.cities[c.id].dmg = U.clamp(S.cities[c.id].dmg + sev * 0.03, 0, 1); });
+    // Folgen (harmlose Himmelsereignisse richten keinen Schaden an)
+    if (!T.harmless) {
+      const mild = T.space ? 0.4 : 1;
+      n.gdp *= 1 - ev.dmg / 100;
+      SIM.shock(nid, 'happy', -sev * 1.8 * mild, 150); SIM.shock(nid, 'unrest', sev * 1.6 * mild, 150); SIM.shock(nid, 'infra', -sev * 0.9 * mild, 365);
+      SIM.shock(nid, 'growth', -ev.dmg * 0.35, 220);
+      if (type === 'epidemic') SIM.shock(nid, 'health', -sev * 2.2, ev.dur + 60);
+      if (type === 'drought') SIM.shock(nid, 'poverty', sev * 1.6, ev.dur + 200);
+      if (!T.space) {
+        if (!T.nationwide) sc.dmg = U.clamp(sc.dmg + sev * (type === 'meteor' ? 0.16 : 0.11), 0, 1);
+        else SIM.citiesOf(nid).forEach(c => { S.cities[c.id].dmg = U.clamp(S.cities[c.id].dmg + sev * 0.03, 0, 1); });
+      }
+    }
     n.events++;
+    // Lerneffekt: Staaten, die schon Katastrophen erlebt haben, schützen sich besser
+    if (!T.harmless) n.fx.resil = Math.min(0.35, (n.fx.resil || 0) + 0.01 * sev);
+    special(ev, T, n, nid);
+    if (T.harmless) {
+      KY.media.story(null, { n: nid, c: city.id }, { h: U.fill(U.pick(T.text), { city: city.name, nation: W.nations[nid].short }), tone: 0.6, heat: 14 + sev * 4, ev: ev.id, key: 'spectacle' });
+      SIM.chron('himmel', ev.name + ': ' + ev.text, { ev: ev.id });
+      KY.bus.emit('event', ev);
+      return ev;
+    }
     // Medien und Krisenstab
     KY.media.story('disaster', { n: nid, c: city.id, extra: { kind: T.n } }, { tone: -0.5, heat: 12 + sev * sev * 3 + W.nations[nid].pop / 20, ev: ev.id, sub: ev.text });
     SIM.chron('katastrophe', ev.name + ': ' + ev.text, { ev: ev.id });
@@ -137,9 +155,36 @@
     q.forEach(f => { if (f && f.type) E.spawn(f.type, { city: f.city, sev: f.sev, noChain: true, director: f.director }); });
   };
 
+  /* Sonderwirkungen einzelner Ereignistypen */
+  function special(ev, T, n, nid) {
+    const S = SIM.S;
+    if (T.joy) {
+      SIM.shock(nid, 'happy', T.joy + ev.sev, 90);
+      SIM.opImpulse(nid, 0.1, 0.2);
+      S.nations[nid].gdp *= 1 + 0.0005 * ev.sev;
+    }
+    if (T.crops) { SIM.shock(nid, 'poverty', ev.sev * 1.8, 300); SIM.shock(nid, 'happy', -ev.sev * 1.2, 200); }
+    if (T.space) {
+      // Satelliten fallen aus, Stromnetze in hohen Breiten brechen zusammen
+      const st = S.orbit;
+      if (st && st.sats.length) {
+        const lost = Math.round(st.sats.length * Math.min(0.5, ev.sev * 0.05));
+        for (let i = 0; i < lost; i++) st.sats.splice(Math.floor(Math.random() * st.sats.length), 1);
+        if (lost) SIM.chron('raumfahrt', 'Sonnensturm: ' + lost + ' Satelliten ausgefallen.', null);
+        ev.satLost = lost;
+      }
+      if (ev.sev >= 3) SIM.W.nations.forEach(w => {
+        if (Math.abs(w.lat) < 42) return;
+        const m = S.nations[w.id];
+        m.crisis = m.crisis || { k: 'blackout', start: S.day, until: S.day + 10 };
+        SIM.shock(w.id, 'happy', -ev.sev, 40); SIM.shock(w.id, 'growth', -0.1 * ev.sev, 60);
+      });
+    }
+  }
+
   /* Verlauf: Opfer pro Tag nach Ereignistyp */
   function curve(type, t) {
-    if (type === 'quake' || type === 'volcano' || type === 'meteor' || type === 'tsunami') return 1 - Math.exp(-t * 2.2);
+    if (type === 'quake' || type === 'volcano' || type === 'meteor' || type === 'tsunami' || type === 'landslide' || type === 'tornado') return 1 - Math.exp(-t * 2.2);
     if (type === 'storm' || type === 'flood' || type === 'fire' || type === 'heat' || type === 'cold') return 1 - Math.exp(-t * 0.5);
     return U.smooth(Math.min(1, t / 1));
   }
@@ -150,7 +195,8 @@
     // Neue Ereignisse
     for (const type in D.EVENTS) {
       const T = D.EVENTS[type];
-      if (Math.random() < T.rate / 365 * SCALE) {
+      const sbk = S.sb && S.sb.on ? (S.sb.freq === undefined ? 1 : S.sb.freq) * (1 + (S.sb.climate || 0) * (['storm', 'drought', 'fire', 'heat', 'flood', 'tornado', 'sandstorm', 'locusts'].indexOf(type) >= 0 ? 0.35 : 0)) : 1;
+      if (Math.random() < T.rate / 365 * SCALE * sbk) {
         if ((S.g.warn || S.g.orbitWarn) && ['storm', 'drought', 'fire', 'heat'].indexOf(type) >= 0 && Math.random() < 0.85) forecast(type);
         else E.spawn(type);
       }
@@ -176,12 +222,12 @@
         }
       }
       const age = S.day - ev.start;
-      if (age === 10 && ev.sev >= 3 && !Object.keys(ev.helped).length && !ev.relNone && Math.random() < 0.6) {
+      if (age === 10 && ev.sev >= 3 && !Object.keys(ev.helped).length && !ev.relNone && !D.EVENTS[ev.type].harmless && D.EVENTS[ev.type].relief && Math.random() < 0.6) {
         ev.relNone = true;
         KY.media.story('relief_none', { n: ev.n }, { tone: -0.4, heat: 22, ev: ev.id });
       }
       // Grundsatz „Hilfe bei jeder Katastrophe mit Todesopfern“
-      if (!ev.breakChecked && age >= 14) {
+      if (!ev.breakChecked && age >= 14 && !D.EVENTS[ev.type].harmless) {
         ev.breakChecked = true;
         // Wo bekannt ist, dass es einen reichen Geldgeber gibt, fällt fehlende Hilfe auf
         const nn = S.nations[ev.n];

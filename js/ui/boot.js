@@ -93,6 +93,7 @@
     KY.ui.closePanel(); KY.ui.closeInsp();
     KY.ui.start();
     KY.ui.rebuildDock();
+    if (KY.ui.renderRegiebar) KY.ui.renderRegiebar();
     if (isNew) {
       KY.ui.save('auto');
       setTimeout(S.mode === 'sandbox' ? sandboxIntro : briefing, 500);

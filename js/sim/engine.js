@@ -31,6 +31,7 @@
     KY.research.daily();
     KY.orbit.daily();
     KY.sandbox.daily();
+    KY.reactions.daily();
     KY.media.daily();
     if (S.day % 30 === 0) {
       KY.nations.monthly();

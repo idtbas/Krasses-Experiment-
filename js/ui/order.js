@@ -41,6 +41,7 @@
   KY.A.cancelPlace = () => O.cancel();
   O.cancel = function (silent) {
     if (!KY.map.placing) return;
+    if (KY.map.placing.sb) silent = true;
     KY.map.cancelPlace();
     document.body.classList.remove('placing');
     U.$('#placehint').classList.remove('on');
