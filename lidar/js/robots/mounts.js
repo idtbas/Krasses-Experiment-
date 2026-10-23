@@ -169,6 +169,8 @@ export class Mounts {
     if (wasOn) dev.stop();
     this.detach();
     dev.unmount();
+    // übliche Positionsbestimmung je Plattform: Drohnen fliegen mit RTK-GNSS/INS, Roboter und Handgeräte mit SLAM
+    this.opts.pos = kind === 'drohne' ? 'ideal' : 'slam';
     if (kind === 'rover') this.buildRover(dev, at);
     else if (kind === 'arm') this.buildArm(dev);
     else if (kind === 'drohne') this.buildDrone(dev, at);
@@ -361,7 +363,15 @@ export class Mounts {
   // Positionsbestimmung für eine Aufnahme
   recordOptions(d, o = {}) {
     const kind = d.mountKind;
-    if (kind === 'stativ' || !PLATFORMS[kind]) return { mode: 'ideal', drift: 'fixed', deskew: true, ...o };
+    if (kind === 'stativ' || !PLATFORMS[kind]) {
+      // Stativ im Messraum mit drehendem Teller: Punkte in Drehteller-Koordinaten, beschnitten auf den Messbereich
+      const T = this.world.turntable;
+      if (T && T.speed && !o.turntable) {
+        const pl = T.plate.getWorldPosition(new THREE.Vector3()), obj = this.studioObject(), fp = obj ? footprint(obj.root) : { top: 1 };
+        o = { ...o, turntable: { plate: T.plate, cx: pl.x, cz: pl.z, crop: { r: 0.4, y0: pl.y + 0.03, y1: fp.top + 0.25 } }, name: o.name || `Drehteller · ${obj ? obj.name : 'Objekt'} · ${d.spec.model}` };
+      }
+      return { mode: 'ideal', drift: 'fixed', deskew: true, ...o };
+    }
     const P = PLATFORMS[kind];
     return { mode: kind === 'arm' ? 'ideal' : this.opts.pos, drift: P.drift, deskew: this.opts.deskew, voxel: this.app.sceneId === 'aussen' || this.app.sceneId === 'pruef' ? 0.35 : 0.2, ...o };
   }

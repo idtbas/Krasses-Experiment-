@@ -26,6 +26,12 @@ export function render(f, P) {
     f._tlsBar = bar.firstChild;
     P.appendChild(h('div', h('div.row', h('span.cap', 'Stationsscan läuft'), h('div.grow'), h('span.mono.muted', 'Kopf schwenkt 180°, Spiegel rotiert')), bar));
   }
+  // Drehteller (Messraum): drehen lassen; eine Aufnahme vom Stativ landet dann in Objektkoordinaten
+  const T = a.world.turntable;
+  if (T && d.mountKind === 'stativ') {
+    P.appendChild(field('Drehteller', h('div.row.wrap', seg([[0, 'Stopp'], [2 * Math.PI / 40, '40 s/U'], [2 * Math.PI / 20, '20 s/U'], [2 * Math.PI / 10, '10 s/U']], T.speed, (v) => { T.speed = v; f.render(); }),
+      h('span.muted', { style: { fontSize: '11.5px' } }, T.speed ? 'Aufnahme in Objektkoordinaten' : ''))));
+  }
   const g = h('div.fgrid');
   f._stats = g;
   P.appendChild(g);

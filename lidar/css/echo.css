@@ -120,7 +120,9 @@ svg { display: block; flex: none; }
 #top .brand small { display: block; font-size: 9.5px; color: var(--muted); letter-spacing: .18em; margin-top: -2px; }
 #top .pick { display: flex; flex-direction: column; justify-content: center; height: 40px; padding: 0 12px 0 10px; border-radius: 7px; border: 1px solid transparent; cursor: pointer; background: transparent; text-align: left; min-width: 0; }
 #top .pick:hover { background: var(--panel2); border-color: var(--line); }
-#top .pick small { font-size: 9.5px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; font-weight: 600; }
+#top .pick small { font-size: 9.5px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#top .pick { overflow: hidden; }
+@media (max-width: 1120px) { #top .pick { padding: 0 7px; } #top .pick span em { display: none; } #top .pick span { max-width: 150px; } #top .pick small { letter-spacing: .06em; } }
 #top .pick span { display: flex; align-items: center; gap: 6px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
 #top .pick span em { font-style: normal; color: var(--muted); font-weight: 400; font-size: 12px; }
 #top .go { min-width: 118px; height: 36px; }
