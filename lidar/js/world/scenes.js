@@ -316,6 +316,51 @@ function buildPruef(world) {
   place(world, P.person('dunkel'), 6.5, 0, 25, Math.PI, { name: 'Person dunkel (25 m)', kind: 'person' });
   place(world, P.person('arbeit'), 7.5, 0, 25, Math.PI, { name: 'Person Warnweste (25 m)', kind: 'person' });
   for (const d of [30, 60, 90]) place(world, P.pallet(), 9, 0, d, 0, { name: `Palette (${d} m)`, kind: 'hindernis', blasKey: 'pallet' });
+  trackSurroundings(world);
+}
+
+// Umgebung der Prüfstrecke: Messcontainer, Messfahrzeug, Leitkegel, Windsack, Entfernungsschilder, Bäume
+function trackSurroundings(world) {
+  // Messcontainer (20 ft) mit Tür, Fenster und Treppe
+  const ct = new THREE.Group();
+  const shell = lmTint('lack_weiss', '#e3e5e2');
+  ct.add(mesh(G.box(6.06, 2.59, 2.44), shell, 0, 1.295 + 0.15, 0));
+  for (let x = -2.9; x <= 2.9; x += 0.2) ct.add(mesh(G.box(0.05, 2.4, 0.02), shell, x, 1.44, 1.23));
+  ct.add(mesh(G.box(0.9, 2.0, 0.04), lmTint('lack_silber', '#8d949b'), -1.6, 1.15, 1.245));
+  ct.add(mesh(G.box(1.4, 0.9, 0.03), lm('glas_getoent'), 1.0, 1.75, 1.245));
+  ct.add(mesh(G.box(1.5, 1.0, 0.03), lm('alu_blech'), 1.0, 1.75, 1.235));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) ct.add(mesh(G.box(0.3, 0.15, 0.3), lm('beton_hell'), sx * 2.7, 0.075, sz * 0.95));
+  for (let k = 0; k < 3; k++) ct.add(mesh(G.box(1.0, 0.04, 0.28), lm('stahl_verzinkt'), -1.6, 0.18 + k * 0.17, 1.42 + (2 - k) * 0.25));
+  ct.add(rod([-2.15, 0.2, 1.95], [-2.15, 1.25, 1.3], 0.02, lm('stahl_verzinkt'), 8));
+  ct.add(mesh(G.box(0.5, 0.3, 0.25), lm('kunststoff_grau'), 2.4, 2.25, 1.35)); // Klimagerät
+  place(world, ct, -17, 0, 6, Math.PI / 2, { name: 'Messcontainer', kind: 'gebäude', solid: true });
+  place(world, O.car('lack_weiss'), -14.2, 0, 1.5, 0.08, { name: 'Messfahrzeug', kind: 'fahrzeug' });
+  // Leitkegel am Start
+  const cone = () => { const g = new THREE.Group(); g.add(mesh(G.box(0.38, 0.03, 0.38), lm('kunststoff_schwarz'), 0, 0.015, 0)); g.add(mesh(G.cyl(0.03, 0.15, 0.7, 20), lm('lack_orange'), 0, 0.38, 0)); for (const y of [0.42, 0.56]) g.add(mesh(G.cyl(0.115 - (y - 0.38) * 0.17, 0.125 - (y - 0.38) * 0.17, 0.06, 20, true), lm('retro_weiss'), 0, y, 0)); return g; };
+  for (let k = 0; k < 7; k++) place(world, cone(), -10.8 + k * 3.6, 0, -0.6, 0, { name: 'Leitkegel', kind: 'hindernis', blasKey: 'cone' });
+  // Windsack am Mast
+  const ws = new THREE.Group();
+  ws.add(mesh(G.cyl(0.04, 0.05, 6, 12), lm('stahl_verzinkt'), 0, 3, 0));
+  for (let k = 0; k < 5; k++) { const r0 = 0.3 - k * 0.04; const m2 = mesh(G.cyl(r0, r0 - 0.04, 0.32, 16, true), lm(k % 2 ? 'retro_weiss' : 'lack_orange'), 0.35 + k * 0.31, 5.7 - k * 0.04, 0, 0, 0, Math.PI / 2 + 0.08); ws.add(m2); }
+  place(world, ws, -15, 0, 14, 0.6, { name: 'Windsack', kind: 'schild' });
+  // Entfernungsschilder alle 50 m (mit Aufschrift)
+  for (const d of [50, 100, 150, 200]) {
+    const g = new THREE.Group();
+    g.add(mesh(G.cyl(0.04, 0.04, 1.6, 10), lm('stahl_verzinkt'), 0, 0.8, 0));
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+    const c2 = cv.getContext('2d'); c2.fillStyle = '#f4f4f0'; c2.fillRect(0, 0, 256, 128); c2.fillStyle = '#111'; c2.font = 'bold 84px system-ui, sans-serif'; c2.textAlign = 'center'; c2.textBaseline = 'middle'; c2.fillText(d + ' m', 128, 68);
+    const mat = lm('retro_weiss').clone(); mat.map = new THREE.CanvasTexture(cv); mat.map.colorSpace = THREE.SRGBColorSpace; mat.userData = lm('retro_weiss').userData;
+    g.add(mesh(G.box(0.8, 0.4, 0.02), mat, 0, 1.75, 0));
+    place(world, g, -12.6, 0, d, Math.PI / 2, { name: `Entfernungsschild ${d} m`, kind: 'schild' });
+  }
+  // Bäume und Büsche entlang der Strecke: drei Baumvarianten (der Scan-Kern teilt ihre Geometrie), weniger Laub
+  let k = 0;
+  for (const [z, side] of [[22, -1], [40, 1], [70, -1], [96, 1], [128, -1], [150, 1], [185, -1], [205, 1]]) {
+    const v = k % 3;
+    place(world, O.tree(7 + v * 1.5, 3 + v, { leaves: 6000 }), side * (22 + v * 2), 0, z, k * 0.9, { name: 'Baum', kind: 'vegetation', blasKey: 'trackTree' + v });
+    if (k % 2) place(world, O.bush(1.3, 5), side * 19, 0, z + 7, k, { name: 'Busch', kind: 'vegetation', blasKey: 'trackBush' });
+    k++;
+  }
 }
 
 /* ======================= Messraum mit Drehteller ======================= */
@@ -356,6 +401,88 @@ function buildMessraum(world, opts = {}) {
   place(world, P.sphereTarget(1.4), -2.8, 0, 1.8, 0, { name: 'Referenzkugel', kind: 'prüfmittel', blasKey: 'sphere' });
   place(world, P.checkerTarget(), -3.6, 0, -2.4, 0.6, { name: 'Schachbrett-Zielmarke', kind: 'prüfmittel' });
   place(world, P.workbench(), 3.2, 0, 2.9, Math.PI, { name: 'Werkbank', kind: 'möbel', solid: true });
+  labFittings(world, X, Z, Hh);
+}
+
+// Ausstattung des Messlabors: Wandverkleidung, Rasterdecke, Tür, Granit-Messtisch, Messplatz, Regal, Akustik
+function labFittings(world, X, Z, Hh) {
+  const fit = new THREE.Group();
+  const panel = lmTint('lack_weiss', '#dfe2e3'), rail = lm('alu_blech'), dark = lm('kunststoff_schwarz');
+  // halbhohe Wandverkleidung (1,1 m) mit Abschlussleiste, an der Tür ausgespart
+  const wall = (len, x, z, ry, gap) => {
+    const segs = gap ? [[-len / 2, gap[0]], [gap[1], len / 2]] : [[-len / 2, len / 2]];
+    for (const [a, b] of segs) {
+      const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; fit.add(g);
+      g.add(mesh(G.box(b - a, 1.1, 0.02), panel, (a + b) / 2, 0.55, 0.01));
+      g.add(mesh(G.box(b - a, 0.03, 0.035), rail, (a + b) / 2, 1.115, 0.018));
+      g.add(mesh(G.box(b - a, 0.08, 0.025), lm('kunststoff_grau'), (a + b) / 2, 0.04, 0.0225));
+    }
+  };
+  wall(2 * X, 0, -Z, 0); wall(2 * X, 0, Z, Math.PI, [-1.9, -0.9]); wall(2 * Z, -X, 0, Math.PI / 2); wall(2 * Z, X, 0, -Math.PI / 2);
+  // Tür (geschlossen) in der vorderen Wand
+  const door = new THREE.Group(); door.position.set(1.4, 0, Z - 0.01); door.rotation.y = Math.PI; fit.add(door);
+  door.add(mesh(G.box(1.0, 2.1, 0.045), lmTint('lack_weiss', '#c9ccce'), 0, 1.05, 0.03));
+  for (const sx of [-1, 1]) door.add(mesh(G.box(0.06, 2.16, 0.07), rail, sx * 0.53, 1.08, 0.03));
+  door.add(mesh(G.box(1.12, 0.06, 0.07), rail, 0, 2.13, 0.03));
+  door.add(rod([-0.38, 1.02, 0.07], [-0.24, 1.02, 0.07], 0.011, lm('edelstahl'), 10));
+  door.add(mesh(G.box(0.05, 0.16, 0.012), lm('edelstahl'), -0.39, 1.0, 0.06));
+  // Rasterdecke: Schienen alle 0,6 m
+  for (let x = -X + 0.6; x < X; x += 0.6) fit.add(mesh(G.box(0.022, 0.03, 2 * Z), rail, x, Hh - 0.016, 0));
+  for (let z = -Z + 0.6; z < Z; z += 0.6) fit.add(mesh(G.box(2 * X, 0.03, 0.022), rail, 0, Hh - 0.016, z));
+  // Akustik-Paneele an der Rückwand
+  for (let k = 0; k < 4; k++) fit.add(mesh(G.rbox(0.9, 0.6, 0.05, 0.02), lmTint('textil', '#56606d'), -2.7 + k * 1.15, 1.95, -Z + 0.03));
+  // Sicherheitslinie (gelb/schwarz) um die Roboterzelle am Drehteller
+  const R = 1.6;
+  for (let k = 0; k < 40; k++) {
+    const a0 = (k / 40) * Math.PI * 2, a1 = ((k + 1) / 40) * Math.PI * 2;
+    stripe(fit, Math.cos(a0) * R, Math.sin(a0) * R, Math.cos(a1) * R, Math.sin(a1) * R, 0.06, lm(k % 2 ? 'markierung_gelb' : 'kunststoff_schwarz'));
+  }
+  bake(fit);
+  world.content.add(fit);
+  world.register(fit, { name: 'Laborausbau', kind: 'gebäude', static: true, target: false });
+
+  // Granit-Messtisch mit Kugelstab, Endmaßen und Stufenkörper
+  const gr = new THREE.Group();
+  const granite = lmTint('beton', '#3a3d42');
+  gr.add(mesh(G.rbox(1.6, 0.18, 1.0, 0.01), granite, 0, 0.78, 0));
+  const steel = lmTint('lack_blau', '#3d5a80');
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    gr.add(mesh(G.box(0.06, 0.66, 0.06), steel, sx * 0.68, 0.36, sz * 0.4));
+    gr.add(mesh(G.cyl(0.035, 0.04, 0.03, 16), rail, sx * 0.68, 0.015, sz * 0.4));
+  }
+  for (const sz of [-1, 1]) gr.add(mesh(G.box(1.42, 0.06, 0.05), steel, 0, 0.2, sz * 0.4));
+  gr.add(mesh(G.sphere(0.0254, 20, 14), lm('chrom'), -0.5, 0.92, 0.1));
+  gr.add(mesh(G.sphere(0.0254, 20, 14), lm('chrom'), -0.1, 0.92, 0.1));
+  gr.add(rod([-0.48, 0.92, 0.1], [-0.12, 0.92, 0.1], 0.008, lmTint('kunststoff_schwarz', '#1b2a3a'), 10));
+  for (let k = 0; k < 8; k++) gr.add(mesh(G.box(0.009, 0.035, 0.01 + k * 0.012), lm('edelstahl'), 0.25 + k * 0.03, 0.887, -0.25 + (0.01 + k * 0.012) / 2));
+  const art = T.stepArtifact(); art.scale.setScalar(0.5); art.position.set(0.45, 0.87, 0.2); gr.add(art);
+  place(world, gr, -2.6, 0, -2.4, 0, { name: 'Granit-Messtisch', kind: 'möbel', solid: true });
+
+  // Messplatz: Tisch, zwei Monitore, Tastatur, Rechner, Stuhl
+  const desk = new THREE.Group();
+  desk.add(mesh(G.box(1.6, 0.03, 0.8), lm('holz_hell'), 0, 0.735, 0));
+  for (const sx of [-1, 1]) { desk.add(mesh(G.box(0.05, 0.72, 0.7), lm('stahl_grau'), sx * 0.76, 0.36, 0)); }
+  for (const [x, ry] of [[-0.3, 0.15], [0.3, -0.15]]) {
+    const mon = new THREE.Group(); mon.position.set(x, 0.75, -0.22); mon.rotation.y = ry; desk.add(mon);
+    mon.add(mesh(G.rbox(0.55, 0.33, 0.025, 0.006), dark, 0, 0.32, 0));
+    mon.add(mesh(G.box(0.52, 0.3, 0.004), lm('bildschirm'), 0, 0.32, 0.014));
+    mon.add(mesh(G.box(0.04, 0.16, 0.03), dark, 0, 0.1, -0.02));
+    mon.add(mesh(G.rbox(0.2, 0.014, 0.16, 0.006), dark, 0, 0.007, -0.02));
+  }
+  desk.add(mesh(G.rbox(0.44, 0.02, 0.14, 0.006), dark, 0, 0.76, 0.1));
+  desk.add(mesh(G.rbox(0.06, 0.02, 0.1, 0.01), dark, 0.32, 0.76, 0.12));
+  desk.add(mesh(G.rbox(0.2, 0.44, 0.45, 0.01), dark, 0.55, 0.22, -0.1));
+  place(world, desk, -3.4, 0, 0.2, Math.PI / 2, { name: 'Messplatz', kind: 'möbel', solid: true });
+  place(world, H.chair(), -2.75, 0, 0.3, -Math.PI / 2, { name: 'Bürostuhl', kind: 'möbel' });
+
+  // Regal mit Behältern an der rechten Wand
+  const sh = new THREE.Group();
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) sh.add(mesh(G.box(0.035, 2.0, 0.035), rail, sx * 0.58, 1.0, sz * 0.22));
+  for (const y of [0.12, 0.62, 1.12, 1.62]) {
+    sh.add(mesh(G.box(1.2, 0.025, 0.48), lm('stahl_verzinkt'), 0, y, 0));
+    for (let k = 0; k < 3; k++) { const b = P.klt(k % 2 ? 'kunststoff_blau' : 'kunststoff_grau', 0.4, 0.3, 0.22); b.position.set(-0.38 + k * 0.38, y + 0.013, 0); sh.add(b); }
+  }
+  place(world, sh, X - 0.32, 0, -1.4, -Math.PI / 2, { name: 'Lagerregal mit Behältern', kind: 'regal', solid: true });
 }
 
 /* ======================= Registrierung ======================= */

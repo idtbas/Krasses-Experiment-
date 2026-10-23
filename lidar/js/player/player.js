@@ -102,7 +102,7 @@ export class Player {
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
-    document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === this.lockEl; this.lockHint.classList.toggle('hidden', this.locked || TOUCH || this.tabletOpen); });
+    document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === this.lockEl; this.syncLockHint(); });
     document.addEventListener('mousemove', (e) => { if (this.locked) this.look(e.movementX, e.movementY); });
   }
   // Szenenfläche: Klick fängt den Zeiger (Desktop), Ziehen dreht die Sicht (Touch), Joystick links unten
@@ -135,7 +135,13 @@ export class Player {
     };
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
     el.addEventListener('wheel', (e) => { if (this.view === 'tps') { e.preventDefault(); this.camDist = clamp(this.camDist * (1 + Math.sign(e.deltaY) * 0.12), 1.2, 5); } }, { passive: false });
-    this.lockHint.classList.toggle('hidden', TOUCH);
+    this.syncLockHint();
+  }
+  // Hinweis „Klick zum Umsehen“ und Platz für das Aktionsmenü darüber
+  syncLockHint() {
+    const show = !this.locked && !TOUCH && !this.tabletOpen;
+    this.lockHint.classList.toggle('hidden', !show);
+    document.body.classList.toggle('unlocked', show);
   }
   look(dx, dy) {
     this.yaw -= dx * 0.0023;
@@ -156,9 +162,10 @@ export class Player {
     if (open && !this.hasTablet) { toast('Der Feldrechner liegt an der Geräteausgabe – hingehen und mit F nehmen.', 'warn'); return; }
     this.tabletOpen = open;
     document.body.classList.toggle('tabopen', open);
-    if (open) { this.app.fpc.setTab('live'); this.app.fpc.aimAtDevice(); }
+    // der Feldrechner merkt sich den zuletzt offenen Tab; in der Live-Ansicht Blick auf den Scanner
+    if (open && this.app.fpc.tab === 'live') this.app.fpc.aimAtDevice();
     if (open && document.pointerLockElement) document.exitPointerLock();
-    this.lockHint.classList.toggle('hidden', open || this.locked || TOUCH);
+    this.syncLockHint();
     this.app.fpc.render();
     this.app.top.render();
   }

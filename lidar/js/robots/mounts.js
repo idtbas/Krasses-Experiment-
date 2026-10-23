@@ -232,8 +232,22 @@ export class Mounts {
     for (const p of rb.parts.values()) p.group.userData.lidarBody = true;
     const reg = w.register(rb.root, { name: 'Fahrroboter AMR-1', kind: 'roboter', target: false, movable: false });
     const c = { kind: 'rover', robot: rb, reg, groups: [], mast: null, top: null, pos: () => { const t = rb.chassis.body.translation(); return new THREE.Vector3(t.x, 0, t.z); } };
+    this.decorateRover(c);
     this.buildMast(c, 0.78);
     return c;
+  }
+  // Ausstattung eines Transportroboters: Sicherheitsscanner an den vorderen Ecken, Stoßfänger, Schiebegriff
+  decorateRover(c) {
+    const ch = c.robot.chassis.group, yellow = lmTint('lack_gelb', '#e9b711'), dark = lm('kunststoff_schwarz'), rub = lm('gummi');
+    for (const sx of [-1, 1]) {
+      const sc = new THREE.Group(); sc.position.set(sx * 0.145, 0.074, 0.15); sc.rotation.y = sx * 0.78; ch.add(sc);
+      sc.add(mesh(G.rbox(0.062, 0.05, 0.058, 0.008), yellow, 0, 0.025, -0.006));
+      sc.add(mesh(G.cyl(0.024, 0.024, 0.026, 24), dark, 0, 0.026, 0.012));
+      sc.add(mesh(G.box(0.03, 0.004, 0.004), lmTint('kunststoff_gruen', '#38d27a'), 0, 0.046, -0.034));
+    }
+    ch.add(mesh(G.rbox(0.33, 0.026, 0.022, 0.009), rub, 0, 0.043, 0.193));
+    for (const sx of [-1, 1]) ch.add(mesh(G.cyl(0.006, 0.006, 0.07, 10), lm('alu_blech'), sx * 0.09, 0.108, -0.172));
+    ch.add(rod([-0.09, 0.143, -0.172], [0.09, 0.143, -0.172], 0.008, dark, 10));
   }
   buildMast(c, H) {
     if (c.mast) c.mast.removeFromParent();
