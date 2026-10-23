@@ -171,7 +171,7 @@ export class App {
     for (const d of this.devices) { d.stop(); d.unmount(); }
     this.world.clear();
     this.world.setLighting(def.lighting, { bg: def.bg, ...(def.light || {}) });
-    def.build(this.world);
+    def.build(this.world, { object: this.studioObject });
     this.world.def = def;
     this.sceneId = id;
     this.engine.setEnv(this.world.setWeather(def.weather || 'klar'));
@@ -297,7 +297,7 @@ export class App {
     C.factor += ((dtr > 0 ? dt / dtr : 0) - C.factor) * Math.min(1, dtr * 3);
     this.world.update(dt, C.t);
     this.lw.sync();
-    for (const d of this.devices) { d.tick(dt, C.t); d.measure(dtr); }
+    for (const d of this.devices) { d.tick(dt, C.t); d.measure(); }
     this.orbit.update(dtr);
     this.vorbit.update(dtr);
     this.fpc.frame(dtr);

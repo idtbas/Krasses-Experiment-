@@ -355,8 +355,11 @@ export function person(style = 'arbeit', pose = 0) {
   const legs = style === 'arbeit' ? lmTint('textil', '#3b4250') : lm('jeans');
   const shoes = lm('kunststoff_schwarz');
   // Beine
+  g.userData.limbs = { legs: [], arms: [] };
   const leg = (sx, a) => {
     const L = new THREE.Group(); L.position.set(sx, 0.92, 0); L.rotation.x = a; g.add(L);
+    L.userData.lidarBody = true; // Gliedmaßen bewegen sich: eigene Instanz im Scan-Kern
+    g.userData.limbs.legs.push(L);
     L.add(mesh(G.lathe([[0, 0], [0.075, 0.0], [0.072, -0.12], [0.058, -0.45], [0.05, -0.5], [0.048, -0.78], [0.04, -0.84], [0, -0.85]], 16), legs));
     L.add(mesh(G.rbox(0.1, 0.07, 0.26, 0.03), shoes, 0, -0.86, 0.05));
     return L;
@@ -368,6 +371,8 @@ export function person(style = 'arbeit', pose = 0) {
   // Arme
   for (const sx of [-1, 1]) {
     const A = new THREE.Group(); A.position.set(sx * 0.22, 1.42, 0); A.rotation.x = -sx * pose * 0.35; A.rotation.z = sx * 0.08; g.add(A);
+    A.userData.lidarBody = true;
+    g.userData.limbs.arms.push(A);
     A.add(mesh(G.lathe([[0, 0], [0.055, -0.02], [0.05, -0.3], [0.04, -0.55], [0.035, -0.6], [0, -0.62]], 12), top));
     A.add(mesh(G.sphere(0.045, 12, 8), skin, 0, -0.66, 0));
   }

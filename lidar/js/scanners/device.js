@@ -137,6 +137,7 @@ export class ScannerDevice {
     this.t = this.app.clock.t;
     this.pending = 0;
     this.poses = [];
+    this.stats.win = [];
     this.recordPose(this.t);
   }
   stop() { this.state = 'idle'; this.pending = 0; }
@@ -201,13 +202,16 @@ export class ScannerDevice {
   }
 
   // Punktrate glätten (für Anzeige)
-  measure(dt) {
-    const s = this.stats;
-    const p = s.pts - (s._p || 0), sh = s.shots - (s._s || 0);
-    s._p = s.pts; s._s = s.shots;
-    const a = 1 - Math.exp(-dt * 2);
-    s.rate += (p / Math.max(dt, 1e-3) - s.rate) * a;
-    s.srate += (sh / Math.max(dt, 1e-3) - s.srate) * a;
+  // Raten über ein gleitendes Fenster von einer Sekunde Simulationszeit
+  measure() {
+    const s = this.stats, now = this.t;
+    const W = s.win || (s.win = []);
+    W.push([now, s.pts, s.shots]);
+    while (W.length > 2 && W[0][0] < now - 1) W.shift();
+    const a = W[0], b = W[W.length - 1], dt = b[0] - a[0];
+    if (this.state !== 'stream' || dt <= 0) { if (this.state !== 'stream') { s.rate *= 0.9; s.srate *= 0.9; } return; }
+    s.rate = (b[1] - a[1]) / dt;
+    s.srate = (b[2] - a[2]) / dt;
   }
 
   /* ---------- Darstellung des Geräts ---------- */
