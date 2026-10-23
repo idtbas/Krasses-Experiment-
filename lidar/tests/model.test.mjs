@@ -78,3 +78,25 @@ function scanRoom(nRays, origin) {
   console.log(`Netz: ${m.index.length / 3} → ${post.index.length / 3} Dreiecke, Abweichung ${(rr * 1000).toFixed(2)} → ${(rp * 1000).toFixed(2)} mm`);
 }
 console.log('model ok');
+
+{
+  // Umgebungsverdeckung: Innenecke eines Würfels (von innen gesehen) dunkler als die Flächenmitte
+  const { vertexAO } = await import('../js/cloud/model.js');
+  const P = [], I = [];
+  const quad = (a, b, c, d) => { const o = P.length / 3; P.push(...a, ...b, ...c, ...d); I.push(o, o + 1, o + 2, o, o + 2, o + 3); };
+  const n = 20, s = 1 / n;
+  // Boden (Normale nach oben) und Rückwand (Normale nach +z), Innenecke bei y = 0, z = 0
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    quad([i * s, 0, j * s], [i * s, 0, (j + 1) * s], [(i + 1) * s, 0, (j + 1) * s], [(i + 1) * s, 0, j * s]);
+    quad([i * s, j * s, 0], [(i + 1) * s, j * s, 0], [(i + 1) * s, (j + 1) * s, 0], [i * s, (j + 1) * s, 0]);
+  }
+  const ao = vertexAO(new Float32Array(P), new Uint32Array(I), { radius: 0.3, budget: 4e5 });
+  let corner = 0, cn = 0, open = 0, on = 0;
+  for (let v = 0; v < P.length / 3; v++) {
+    const y = P[v * 3 + 1], z = P[v * 3 + 2];
+    if (y < 1e-6 && z < 0.06) { corner += ao[v]; cn++; } else if (y < 1e-6 && z > 0.6) { open += ao[v]; on++; }
+  }
+  corner /= cn; open /= on;
+  assert.ok(corner < open - 0.08, `Ecke dunkler (${corner.toFixed(2)} gegen ${open.toFixed(2)})`);
+  console.log(`AO: Innenecke ${corner.toFixed(2)}, freie Fläche ${open.toFixed(2)}`);
+}

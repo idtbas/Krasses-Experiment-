@@ -110,6 +110,7 @@ export class FieldPC {
 
   setTab(id) {
     this.tab = id;
+    if (this.studio) this.studio.visible = false; // das Studio blendet der Modell-Tab selbst ein
     for (const b of this.rail.children) b.classList.toggle('on', b.dataset.tab === id);
     this.render();
   }

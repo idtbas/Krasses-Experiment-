@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { h, seg, toggle, toast, fmtInt, fmtNum, select, setText } from '../../ui/dom.js';
 import { icon } from '../../ui/icons.js';
 import { originsFor } from '../../cloud/meshing.js';
-import { meshObject, setLook, roomObject, floorPlanSVG, roomJSON, groupMeshData, LOOKS } from '../../cloud/modelgeo.js';
+import { meshObject, setLook, roomObject, floorPlanSVG, roomJSON, groupMeshData, LOOKS, studio, placeStudio } from '../../cloud/modelgeo.js';
 import { writeOBJ, writeSTL, writeMeshPLY, download } from '../../cloud/export.js';
 
 const safe = (s) => s.replace(/[^\wäöüÄÖÜß\-]+/g, '_');
@@ -165,10 +165,12 @@ async function build(f) {
   f.render();
 }
 
-async function meshPoints(a, pts, voxel, smooth, minPart) {
+// TSDF-Netz, dann aufräumen, glätten und Umgebungsverdeckung (aoRadius) im Worker
+async function meshPoints(a, pts, voxel, smooth, minPart, aoRadius, onStep) {
   const r = await a.proc.run('mesh', { pos: pts.pos.slice(), rgb: pts.rgb.slice(), origins: pts.origins, oIndex: pts.oi.slice(), voxel, trunc: voxel * 3, box: null });
   if (!r.index.length) return null;
-  return a.proc.run('meshpost', { pos: r.pos, rgb: r.rgb, index: r.index, opts: { minPart, smooth } }, [r.pos.buffer, r.rgb.buffer, r.index.buffer]);
+  if (onStep) onStep(`Glätten und Schattieren (${fmtInt(r.index.length / 3)} Dreiecke) …`);
+  return a.proc.run('meshpost', { pos: r.pos, rgb: r.rgb, index: r.index, opts: { minPart, smooth, ao: true, aoRadius } }, [r.pos.buffer, r.rgb.buffer, r.index.buffer]);
 }
 
 async function buildObject(f, scans) {
@@ -188,9 +190,10 @@ async function buildObject(f, scans) {
   const ext = robustSize(pts.pos, pts.n), sp = spacingOf(pts.pos, pts.n);
   const voxel = O.detail === 'auto' ? Math.min(0.04, Math.max(0.006, sp * 2.5, Math.round(Math.max(ext[0], ext[1], ext[2]) / 300 * 200) / 200)) : O.detail;
   msg(f, `Vernetzen (Voxel ${fmtNum(voxel * 100, 1)} cm, ${fmtInt(pts.n)} Punkte) …`);
-  const r = await meshPoints(a, pts, voxel, O.smooth, O.clean ? 0.015 : 0);
+  const aoR = Math.min(0.4, Math.max(0.06, Math.max(ext[0], ext[1], ext[2]) * 0.08));
+  const r = await meshPoints(a, pts, voxel, O.smooth, O.clean ? 0.015 : 0, aoR, (t) => msg(f, t));
   if (!r || !r.index.length) { msg(f, 'Kein Netz entstanden – zu wenige oder zu verstreute Punkte?'); return; }
-  const mesh = meshObject({ pos: r.pos, rgb: r.rgb, index: r.index }, O.look);
+  const mesh = meshObject({ pos: r.pos, rgb: r.rgb, index: r.index, ao: r.ao }, O.look);
   setLook(mesh, O.look, O.wire);
   const box = mesh.geometry.boundingBox, size = box.getSize(new THREE.Vector3());
   const model = add(f, { name: `Modell ${String((a.project.models.length || 0) + 1).padStart(2, '0')} · ${scans.length > 1 ? scans.length + ' Scans' : scans[0].name}`, group: mesh, data: mesh.userData.data, tris: r.index.length / 3, voxel, size: [size.x, size.z, size.y] });
@@ -214,9 +217,9 @@ async function buildRoom(f, scans) {
     const inside = insideTest(room, 0.1);
     const inner = keep(pts, (k) => { const y = pts.pos[k * 3 + 1]; return y > room.floor + 0.04 && y < room.top - 0.08 && inside(pts.pos[k * 3], pts.pos[k * 3 + 2]); });
     if (inner.n > 500) {
-      const r = await meshPoints(a, inner, 0.025, 4, 0.004);
+      const r = await meshPoints(a, inner, 0.025, 4, 0.004, 0.22, (t) => msg(f, 'Möbel: ' + t));
       if (r && r.index.length) {
-        const m = meshObject({ pos: r.pos, rgb: r.rgb, index: r.index }, O.look);
+        const m = meshObject({ pos: r.pos, rgb: r.rgb, index: r.index, ao: r.ao }, O.look);
         group.add(m);
         furn = r.index.length / 3;
       }
@@ -277,6 +280,8 @@ export function frameModel(f, m, doll = false) {
     s = new THREE.Vector3(lo[3] - lo[0], lo[4] - lo[1], lo[5] - lo[2]);
   }
   const R = Math.max(s.x, s.y, s.z);
+  const st = studio(f.app.world);
+  placeStudio(st, new THREE.Box3().setFromCenterAndSize(c, s).union(new THREE.Box3(new THREE.Vector3(c.x, box.min.y, c.z), new THREE.Vector3(c.x, box.min.y, c.z))));
   f.app.vorbit.lookAt(c, Math.max(1.2, R * (m.room ? 1.05 : 1.25)), f.app.vorbit.goal.yaw, m.room || doll ? 0.95 : 0.45);
 }
 
@@ -284,6 +289,11 @@ export function frameModel(f, m, doll = false) {
 export function frame(f, dt) {
   const O = f.mopts;
   if (O && O.spin) f.app.vorbit.goal.yaw += dt * 0.35;
+  // Studio nur im Modell-Tab und nur, wenn ein Modell sichtbar ist
+  const any = (f.app.project.models || []).some((m) => m.group.visible);
+  const st = studio(f.app.world);
+  st.visible = any;
+  f.studio = st;
 }
 
 // Perzentil-Hüllquader (2 … 98 %) aus einer Stichprobe

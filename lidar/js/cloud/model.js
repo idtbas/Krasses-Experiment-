@@ -1,3 +1,5 @@
+import { TriBVH, Hit, intersectTri } from '../engine/bvh.js';
+
 // Modellbildung im Verarbeitungs-Worker (wie Polycam: „Objekt“ und „Raum“).
 // meshPost: Netz aus der TSDF aufräumen (schwebende Kleinteile entfernen) und glätten (Taubin, volumenerhaltend).
 // roomModel: rechtwinkliger Raum aus einem Innenraumscan – Boden, Decke, Hauptrichtung, Wandlinien, Grundriss über
@@ -37,7 +39,62 @@ export function meshPost(pos, rgb, index, o = {}) {
   let q = 0;
   for (let t = 0; t < nt; t++) if (keepT[t]) { I[q++] = remap[index[t * 3]]; I[q++] = remap[index[t * 3 + 1]]; I[q++] = remap[index[t * 3 + 2]]; }
   if (o.smooth > 0 && m) taubin(P, C, I, o.smooth, o.lambda ?? 0.5, o.mu ?? -0.53);
-  return { pos: P, rgb: C || new Float32Array(0), index: I, parts, dropped, removedTris: nt - kept };
+  const ao = o.ao && m ? vertexAO(P, I, { radius: o.aoRadius || 0.3, budget: o.aoBudget || 1.6e6 }) : new Float32Array(0);
+  return { pos: P, rgb: C || new Float32Array(0), index: I, ao, parts, dropped, removedTris: nt - kept };
+}
+
+// Umgebungsverdeckung je Eckpunkt: Strahlen über die Halbkugel um die Normale (kosinusgewichtet), Treffer am
+// eigenen Netz innerhalb radius verdunkeln – je näher, desto mehr. Danach über die Nachbarn geglättet.
+// Ergebnis 0 (ganz verdeckt) … 1 (frei). Die Normalen zeigen zur gescannten (freien) Seite.
+export function vertexAO(P, I, o = {}) {
+  const nv = P.length / 3, nt = I.length / 3, R = o.radius || 0.3;
+  const tris = new Float32Array(nt * 9);
+  const N = new Float32Array(nv * 3);
+  for (let t = 0; t < nt; t++) {
+    const a = I[t * 3] * 3, b = I[t * 3 + 1] * 3, c = I[t * 3 + 2] * 3;
+    for (let q = 0; q < 3; q++) { tris[t * 9 + q] = P[a + q]; tris[t * 9 + 3 + q] = P[b + q]; tris[t * 9 + 6 + q] = P[c + q]; }
+    const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2], vx = P[c] - P[a], vy = P[c + 1] - P[a + 1], vz = P[c + 2] - P[a + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    for (const v of [a, b, c]) { N[v] += nx; N[v + 1] += ny; N[v + 2] += nz; }
+  }
+  const bvh = TriBVH.build(tris);
+  const K = Math.max(4, Math.min(16, Math.round((o.budget || 1.6e6) / Math.max(1, nv))));
+  // feste, gleichmäßig verteilte Richtungen (Fibonacci, kosinusgewichtet), je Eckpunkt um die Normale gedreht
+  const dirs = [];
+  for (let k = 0; k < K; k++) { const u = (k + 0.5) / K, r = Math.sqrt(u), phi = k * 2.399963; dirs.push([r * Math.cos(phi), r * Math.sin(phi), Math.sqrt(1 - u)]); }
+  const ao = new Float32Array(nv), hit = new Hit();
+  let seed = 7;
+  for (let i = 0; i < nv; i++) {
+    let nx = N[i * 3], ny = N[i * 3 + 1], nz = N[i * 3 + 2];
+    const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+    // Tangentenbasis, zufällig verdreht (gegen Streifenmuster)
+    let tx = Math.abs(nx) < 0.9 ? 1 : 0, ty = tx ? 0 : 1, tz = 0;
+    let bx = ny * tz - nz * ty, by = nz * tx - nx * tz, bz = nx * ty - ny * tx;
+    const bl = Math.hypot(bx, by, bz); bx /= bl; by /= bl; bz /= bl;
+    tx = by * nz - bz * ny; ty = bz * nx - bx * nz; tz = bx * ny - by * nx;
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const rot = (seed / 4294967296) * Math.PI * 2, cr = Math.cos(rot), sr = Math.sin(rot);
+    const ox = P[i * 3] + nx * R * 0.02, oy = P[i * 3 + 1] + ny * R * 0.02, oz = P[i * 3 + 2] + nz * R * 0.02;
+    let occ = 0;
+    for (const [x0, y0, z] of dirs) {
+      const x = x0 * cr - y0 * sr, y = x0 * sr + y0 * cr;
+      const dx = tx * x + bx * y + nx * z, dy = ty * x + by * y + ny * z, dz = tz * x + bz * y + nz * z;
+      if (intersectTri(bvh, ox, oy, oz, dx, dy, dz, 1e-5, R, hit)) occ += 1 - hit.t / R;
+    }
+    ao[i] = 1 - occ / K;
+  }
+  // zweimal über die Nachbarn mitteln (Rauschen der wenigen Strahlen)
+  const sum = new Float32Array(nv), cnt = new Uint16Array(nv);
+  for (let pass = 0; pass < 2; pass++) {
+    sum.set(ao); cnt.fill(1);
+    for (let t = 0; t < nt; t++) {
+      const a = I[t * 3], b = I[t * 3 + 1], c = I[t * 3 + 2];
+      sum[a] += ao[b] + ao[c]; sum[b] += ao[a] + ao[c]; sum[c] += ao[a] + ao[b];
+      cnt[a] += 2; cnt[b] += 2; cnt[c] += 2;
+    }
+    for (let i = 0; i < nv; i++) ao[i] = sum[i] / cnt[i];
+  }
+  return ao;
 }
 
 // Taubin-Glättung: abwechselnd glätten (λ) und aufblähen (μ) – rundet ab, ohne zu schrumpfen.

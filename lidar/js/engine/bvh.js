@@ -177,7 +177,7 @@ const STACK2 = new Int32Array(128);
 
 // Strahl gegen eine Dreiecks-BVH. Liefert true bei Treffer mit t < tmax und füllt hit.t/tri/u/v.
 // Die Kinder werden im Elternknoten getestet: nur getroffene kommen auf den Stapel, das nähere zuletzt.
-function intersectTri(b, ox, oy, oz, dx, dy, dz, tmin, tmax, hit) {
+export function intersectTri(b, ox, oy, oz, dx, dy, dz, tmin, tmax, hit) {
   const nf = b.nf, nu = b.nu, tri = b.tri;
   const ix = 1 / dx, iy = 1 / dy, iz = 1 / dz;
   // Vorzeichen bestimmen, welche Quaderseite die nahe ist
