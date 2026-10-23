@@ -3,7 +3,7 @@
 // Stative auf, setzt Scanner auf, montierst sie an Roboter und hältst den Feldrechner vor dich (Tab).
 // Die Figur ist für die Laser sichtbar – wer vor dem Scanner steht, wirft einen Scanschatten.
 import * as THREE from 'three';
-import { person } from '../world/props_industry.js';
+import { person, walkPose } from '../world/props_industry.js';
 import { h, toast } from '../ui/dom.js';
 import { openCatalog } from '../ui/catalog.js';
 import { PLATFORMS } from '../robots/mounts.js';
@@ -26,7 +26,7 @@ export class Player {
     this.pos = V(); this.vel = V();
     this.yaw = 0; this.pitch = -0.15; this.bodyYaw = 0;
     this.ground = 0; this.groundT = 0;
-    this.view = 'tps'; this.camDist = 3.0;
+    this.view = 'tps'; this.camDist = 2.7;
     this.keys = new Set(); this.joy = { x: 0, y: 0, on: false };
     this.hand = null;            // { type: 'device', dev } | { type: 'tripod', tripod }
     this.hasTablet = false;
@@ -72,8 +72,11 @@ export class Player {
     this.prompt = h('div#prompt.hidden');
     this.hotbar = h('div#hotbar');
     this.cross = h('div#cross');
-    this.keysHelp = h('div#keyshelp', { html: TOUCH ? '' : '<b>WASD</b> gehen · <b>Shift</b> schneller · <b>Maus</b> umsehen (klicken) · <b>E F R G</b> Aktionen · <b>Q</b> Objekt markieren · <b>Tab</b> Feldrechner · <b>V</b> Sicht' });
-    this.lockHint = h('div#lockhint.hidden', 'Klicken, um dich umzusehen · Esc gibt die Maus frei');
+    const K = (...k) => k.map((x) => `<kbd>${x}</kbd>`).join('');
+    this.keysHelp = h('div#keyshelp', { html: TOUCH ? '' : `<div>${K('W', 'A', 'S', 'D')}<span>gehen</span>${K('⇧')}<span>schneller</span>${K('Maus')}<span>umsehen</span></div><div>${K('E', 'F', 'R', 'G')}<span>Aktionen</span>${K('Q')}<span>markieren</span>${K('Tab')}<span>Feldrechner</span>${K('V')}<span>Sicht</span></div>` });
+    // nach einer Weile in den Hintergrund (beim Darüberfahren wieder voll da)
+    setTimeout(() => this.keysHelp.classList.add('quiet'), 20000);
+    this.lockHint = h('div#lockhint.hidden', { html: '<kbd>Klick</kbd><span>in die Szene, um dich umzusehen</span><span class="sep">·</span><kbd>Esc</kbd><span>gibt die Maus frei</span>' });
     this.touch = h('div#touchui' + (TOUCH ? '' : '.hidden'));
     this.joyEl = h('div.joy', h('i'));
     const btns = h('div.tbtns');
@@ -444,16 +447,12 @@ export class Player {
   syncModel() {
     const g = this.model, L = this.limbs;
     const w = clamp((this.speed || 0) / 1.35, 0, 1.4);
-    const sw = Math.sin(this.phase) * 0.48 * Math.min(1, w);
     g.position.set(this.pos.x, this.pos.y + 0.018 * Math.abs(Math.sin(this.phase)) * Math.min(1, w), this.pos.z);
     g.rotation.y = this.bodyYaw;
-    L.legs[0].rotation.x = sw; L.legs[1].rotation.x = -sw;
     const hd = this.hand;
-    if (this.tabletOpen) { L.arms[0].rotation.x = -0.95; L.arms[1].rotation.x = -0.95; }
-    else {
-      L.arms[1].rotation.x = -sw * 0.7;
-      L.arms[0].rotation.x = hd && hd.type === 'device' ? -1.0 - this.pitch * 0.5 : hd && hd.type === 'tripod' ? -0.12 : sw * 0.7;
-    }
+    // Arme: Feldrechner mit beiden Händen vor dir, Gerät in der rechten Hand, Stativ seitlich getragen, sonst Pendeln
+    const arm0 = this.tabletOpen ? -0.95 : hd && hd.type === 'device' ? -1.0 - this.pitch * 0.5 : hd && hd.type === 'tripod' ? -0.12 : null;
+    walkPose(g, this.phase, Math.min(1, w), [arm0, this.tabletOpen ? -0.95 : null]);
     // Geräte zeigen dorthin, wohin du schaust (auch nach oben/unten)
     const look = hd && hd.type === 'device';
     this.grip.position.set(-0.2, 1.15 + (look ? this.pitch * 0.25 : 0), 0.5 - (look ? Math.abs(this.pitch) * 0.12 : 0));
@@ -475,8 +474,9 @@ export class Player {
       cam.lookAt(eye.clone().add(dir));
       cam.layers.disable(PLAYER_LAYER);
     } else {
-      const head = V(this.pos.x, this.pos.y + 1.52, this.pos.z).addScaledVector(right, 0.42);
-      const c = head.clone().addScaledVector(dir, -this.camDist).add(V(0, 0.32, 0));
+      // über die rechte Schulter: Figur im linken Bilddrittel, Blickziel frei
+      const head = V(this.pos.x, this.pos.y + 1.56, this.pos.z).addScaledVector(right, 0.62);
+      const c = head.clone().addScaledVector(dir, -this.camDist).add(V(0, 0.22, 0));
       const b = a.world.bounds;
       if (b) { c.x = clamp(c.x, b[0] + 0.15, b[1] - 0.15); c.z = clamp(c.z, b[2] + 0.15, b[3] - 0.15); }
       // an Wänden rückt die Kamera näher – dann über die Schulter nach oben ausweichen

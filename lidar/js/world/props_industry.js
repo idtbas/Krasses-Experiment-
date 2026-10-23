@@ -348,40 +348,124 @@ export function ladder(h = 3.0) {
 /* ---------------- Menschen ---------------- */
 
 // Person (≈ 1,78 m) – Kleidung: 'arbeit' (Warnweste mit Retrostreifen), 'alltag', 'dunkel'
-export function person(style = 'arbeit', pose = 0) {
+// Person (1,80 m): Kopf mit Gesicht und Haaren, Rumpf mit Kragen und Gürtel, Arme mit Ellbogen und Händen,
+// Beine mit Knien und Schuhen. Stile: 'arbeit' (Warnweste, Arbeitshose, Sicherheitsschuhe, Bauhelm),
+// 'alltag' (helles Oberteil, Jeans, Turnschuhe), 'dunkel' (dunkle Jacke). Gelenke sind eigene Körper im Scan-Kern.
+// userData.limbs: { legs: [rechts, links], arms: [rechts, links] }, je mit userData.knee bzw. userData.elbow.
+export function person(style = 'arbeit', pose = 0, o = {}) {
   const g = new THREE.Group();
-  const skin = lm('haut');
-  const top = style === 'dunkel' ? lm('textil_dunkel') : style === 'alltag' ? lm('baumwolle_hell') : lm('warnweste');
-  const legs = style === 'arbeit' ? lmTint('textil', '#3b4250') : lm('jeans');
-  const shoes = lm('kunststoff_schwarz');
-  // Beine
+  const work = style === 'arbeit';
+  const skin = o.skin ? lmTint('haut', o.skin) : lm('haut');
+  const hair = o.hair ? lmTint('haare', o.hair) : lm('haare');
+  const shirt = work ? lmTint('textil', '#3c4656') : style === 'dunkel' ? lm('textil_dunkel') : o.top ? lmTint('baumwolle_hell', o.top) : lm('baumwolle_hell');
+  const pants = work ? lmTint('textil', '#2f3644') : style === 'dunkel' ? lmTint('textil_dunkel', '#23262b') : lm('jeans');
+  const shoe = work ? lmTint('leder', '#2b2420') : style === 'dunkel' ? lm('kunststoff_schwarz') : lmTint('kunststoff_weiss', '#e9eaec');
+  const sole = work ? lm('gummi') : lmTint('gummi', style === 'dunkel' ? '#1a1a1b' : '#f4f4f2');
+  const dark = lm('kunststoff_schwarz'), white = lmTint('kunststoff_weiss', '#f4f2ee'), lip = lmTint('haut', '#a8705c');
+  const helmet = lmTint('kunststoff_weiss', '#f2f2f0'); // Farbe f2f2f0: die Spielfigur färbt ihren Helm um
+  const retro = lm('retro_band');
   g.userData.limbs = { legs: [], arms: [] };
-  const leg = (sx, a) => {
-    const L = new THREE.Group(); L.position.set(sx, 0.92, 0); L.rotation.x = a; g.add(L);
-    L.userData.lidarBody = true; // Gliedmaßen bewegen sich: eigene Instanz im Scan-Kern
+  const part = (parent, x, y, z) => { const p = new THREE.Group(); p.position.set(x, y, z); p.userData.lidarBody = true; parent.add(p); return p; };
+
+  // ---------- Beine (Hüftgelenk 0,92 m, Knie 0,47 m) ----------
+  for (const [sx, a] of [[-1, -pose * 0.4], [1, pose * 0.4]]) {
+    const L = part(g, sx * 0.095, 0.92, 0); L.rotation.x = a;
+    L.add(mesh(G.lathe([[0, 0.02], [0.084, 0.02], [0.083, -0.06], [0.074, -0.24], [0.06, -0.42], [0.056, -0.46], [0, -0.46]], 18), pants));
+    if (work) L.add(mesh(G.rbox(0.05, 0.12, 0.03, 0.01), pants, sx * 0.07, -0.2, 0.0, 0, 0, 0)); // Seitentasche
+    const K = part(L, 0, -0.45, 0); K.rotation.x = Math.max(0, -a) * 0.6;
+    L.userData.knee = K;
+    K.add(mesh(G.lathe([[0, 0.02], [0.057, 0.02], [0.06, -0.12], [0.05, -0.28], [0.043, -0.37], [0, -0.38]], 16), pants));
+    if (work) {
+      K.add(mesh(G.rbox(0.085, 0.11, 0.03, 0.012), dark, 0, -0.02, 0.05)); // Knieschoner
+      K.add(mesh(G.cyl(0.054, 0.052, 0.035, 18, true), retro, 0, -0.24, 0));
+    }
+    // Schuh: Schaft, Fuß mit runder Kappe, Sohle
+    K.add(mesh(G.cyl(0.05, 0.052, work ? 0.1 : 0.05, 16), shoe, 0, -0.39, 0.0));
+    K.add(mesh(G.rbox(0.104, 0.07, 0.25, 0.032), shoe, 0, -0.44, 0.045));
+    K.add(mesh(G.rbox(0.112, 0.024, 0.27, 0.01), sole, 0, -0.468, 0.048));
     g.userData.limbs.legs.push(L);
-    L.add(mesh(G.lathe([[0, 0], [0.075, 0.0], [0.072, -0.12], [0.058, -0.45], [0.05, -0.5], [0.048, -0.78], [0.04, -0.84], [0, -0.85]], 16), legs));
-    L.add(mesh(G.rbox(0.1, 0.07, 0.26, 0.03), shoes, 0, -0.86, 0.05));
-    return L;
-  };
-  leg(-0.1, pose * 0.4); leg(0.1, -pose * 0.4);
-  // Rumpf
-  g.add(mesh(G.lathe([[0, 0], [0.17, 0], [0.18, 0.08], [0.17, 0.3], [0.2, 0.45], [0.21, 0.55], [0.15, 0.6], [0.06, 0.62], [0, 0.62]], 24), top, 0, 0.9, 0)).scale.set(1, 1, 0.68);
-  if (style === 'arbeit') for (const y of [1.08, 1.2]) g.add(mesh(G.cyl(0.183, 0.183, 0.05, 24, true), lm('retro_band'), 0, y, 0)).scale.set(1.06, 1, 0.74);
-  // Arme
-  for (const sx of [-1, 1]) {
-    const A = new THREE.Group(); A.position.set(sx * 0.22, 1.42, 0); A.rotation.x = -sx * pose * 0.35; A.rotation.z = sx * 0.08; g.add(A);
-    A.userData.lidarBody = true;
-    g.userData.limbs.arms.push(A);
-    A.add(mesh(G.lathe([[0, 0], [0.055, -0.02], [0.05, -0.3], [0.04, -0.55], [0.035, -0.6], [0, -0.62]], 12), top));
-    A.add(mesh(G.sphere(0.045, 12, 8), skin, 0, -0.66, 0));
   }
-  // Hals und Kopf
-  g.add(mesh(G.cyl(0.05, 0.055, 0.1, 12), skin, 0, 1.55, 0));
-  const head = mesh(G.sphere(0.105, 24, 16), skin, 0, 1.67, 0.0); head.scale.set(0.9, 1.15, 1); g.add(head);
-  const hair = mesh(new THREE.SphereGeometry(0.108, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), style === 'arbeit' ? lmTint('kunststoff_weiss', '#f2f2f0') : lm('haare'), 0, 1.69, -0.005); hair.scale.set(0.92, 1.1, 1.02); g.add(hair);
-  if (style === 'arbeit') g.add(mesh(G.cyl(0.13, 0.13, 0.012, 24), lmTint('kunststoff_weiss', '#f2f2f0'), 0, 1.72, 0.02));
+
+  // ---------- Rumpf ----------
+  const torso = mesh(G.lathe([[0, 0], [0.16, 0], [0.168, 0.05], [0.158, 0.2], [0.17, 0.32], [0.188, 0.44], [0.186, 0.52], [0.155, 0.58], [0.075, 0.625], [0, 0.63]], 28), shirt, 0, 0.86, 0);
+  torso.scale.set(1, 1, 0.66); g.add(torso);
+  for (const sx of [-1, 1]) g.add(mesh(G.sphere(0.064, 16, 12), shirt, sx * 0.192, 1.405, 0)); // Schultern
+  const belt = mesh(G.cyl(0.166, 0.166, 0.045, 28, true), work ? lmTint('leder', '#2a2420') : lm('kunststoff_schwarz'), 0, 0.955, 0); belt.scale.set(1.02, 1, 0.68); g.add(belt);
+  g.add(mesh(G.rbox(0.05, 0.035, 0.012, 0.004), lm('edelstahl'), 0, 0.955, 0.113)); // Schnalle
+  g.add(mesh(G.torus(0.052, 0.016, 8, 20), shirt, 0, 1.495, 0, Math.PI / 2, 0, 0)); // Kragen
+  if (work) {
+    // Warnweste über dem Hemd: Hülle mit zwei Reflexstreifen und Trägern über die Schultern
+    const vest = mesh(G.lathe([[0.176, 0], [0.166, 0.12], [0.178, 0.24], [0.196, 0.36], [0.19, 0.43], [0.15, 0.48]], 28), lm('warnweste'), 0, 0.98, 0);
+    vest.scale.set(1.02, 1, 0.7); g.add(vest);
+    for (const y of [1.07, 1.17]) { const b = mesh(G.cyl(0.18, 0.18, 0.04, 28, true), retro, 0, y, 0); b.scale.set(1.04, 1, 0.73); g.add(b); }
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(mesh(G.box(0.036, 0.2, 0.006), retro, sx * 0.085, 1.31, sz * 0.13, sz * -0.12, 0, 0));
+    g.add(mesh(G.box(0.008, 0.42, 0.006), dark, 0, 1.2, 0.132)); // Reißverschluss
+    g.add(mesh(G.rbox(0.07, 0.06, 0.012, 0.006), lm('warnweste'), -0.09, 1.27, 0.128)); // Brusttasche
+  } else if (style === 'dunkel') {
+    g.add(mesh(G.box(0.008, 0.5, 0.006), lm('stahl_grau'), 0, 1.16, 0.128)); // Jackenreißverschluss
+  }
+
+  // ---------- Hals und Kopf ----------
+  g.add(mesh(G.cyl(0.05, 0.054, 0.1, 14), skin, 0, 1.535, 0));
+  const H = new THREE.Group(); H.position.set(0, 1.665, 0.005); g.add(H);
+  // Kopf aus einem Profil gedreht (Kinn bis Scheitel): eine glatte Fläche ohne Naht
+  const skull = mesh(G.lathe([[0, -0.118], [0.03, -0.114], [0.052, -0.098], [0.068, -0.072], [0.079, -0.04], [0.086, -0.004], [0.088, 0.03], [0.083, 0.066], [0.068, 0.096], [0.043, 0.114], [0, 0.122]], 30), skin);
+  skull.scale.set(0.98, 1, 1.12); H.add(skull);
+  for (const sx of [-1, 1]) {
+    const ear = mesh(G.sphere(0.024, 12, 10), skin, sx * 0.085, -0.008, -0.006); ear.scale.set(0.42, 1.05, 0.75); H.add(ear);
+    const eye = mesh(G.sphere(0.0118, 14, 10), white, sx * 0.032, 0.008, 0.079); eye.scale.set(1.15, 0.8, 0.8); H.add(eye);
+    H.add(mesh(G.sphere(0.0066, 12, 8), dark, sx * 0.032, 0.008, 0.0874));
+    H.add(mesh(G.rbox(0.03, 0.0075, 0.008, 0.003), hair, sx * 0.034, 0.034, 0.091, 0, 0, -sx * 0.12));
+  }
+  const nose = mesh(G.sphere(0.0125, 12, 10), skin, 0, -0.017, 0.095); nose.scale.set(0.78, 1.25, 1.1); H.add(nose);
+  H.add(mesh(G.rbox(0.032, 0.006, 0.006, 0.0028), lip, 0, -0.055, 0.086));
+  // Haare: Kappe über Hinterkopf und Seiten (bei 'alltag' mit Pony)
+  const cap = mesh(new THREE.SphereGeometry(0.104, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.49), hair, 0, 0.004, -0.008, -0.66, 0, 0);
+  cap.scale.set(0.9, 1.05, 1.02); H.add(cap);
+  if (!work) { const fringe = mesh(new THREE.SphereGeometry(0.103, 20, 8, -Math.PI * 0.32, Math.PI * 0.64, 0, Math.PI * 0.3), hair, 0, 0.006, 0.004); fringe.scale.set(0.9, 1.05, 1.0); H.add(fringe); }
+  if (work) {
+    // Bauhelm: Kuppel mit Mittelgrat, nach vorn gezogener Schirm, Kopfband
+    const dome = mesh(new THREE.SphereGeometry(0.116, 28, 12, 0, Math.PI * 2, 0, Math.PI / 2), helmet, 0, 0.03, -0.004); dome.scale.set(1, 0.86, 1.1); H.add(dome);
+    const brim = mesh(G.cyl(0.124, 0.13, 0.012, 32), helmet, 0, 0.032, 0.022); brim.scale.set(1, 1, 1.2); H.add(brim);
+    const ridge = mesh(G.torus(0.113, 0.012, 8, 24, Math.PI), helmet, 0, 0.03, -0.004, 0, Math.PI / 2, 0); ridge.scale.set(1.1, 0.86, 1); H.add(ridge);
+    H.add(mesh(G.cyl(0.104, 0.104, 0.016, 28, true), dark, 0, 0.03, -0.004));
+  }
+
+  // ---------- Arme (Schulter 1,41 m, Ellbogen −0,29 m, Hand −0,27 m) ----------
+  for (const sx of [-1, 1]) {
+    const A = part(g, sx * 0.205, 1.41, 0); A.rotation.x = -sx * pose * 0.35; A.rotation.z = sx * 0.07;
+    A.add(mesh(G.lathe([[0, 0.03], [0.054, 0.02], [0.052, -0.08], [0.046, -0.24], [0.042, -0.3], [0, -0.3]], 14), shirt));
+    const E = part(A, 0, -0.29, 0); E.rotation.x = -0.18;
+    A.userData.elbow = E;
+    E.add(mesh(G.lathe([[0, 0.01], [0.043, 0.01], [0.042, -0.08], [0.036, -0.2], [0.034, -0.235], [0, -0.24]], 14), work || style === 'dunkel' ? shirt : skin));
+    if (!work && style !== 'dunkel') E.add(mesh(G.cyl(0.045, 0.045, 0.06, 14, true), shirt, 0, -0.02, 0)); // kurzer Ärmel
+    // Hand: Ballen, Finger leicht gekrümmt, Daumen nach innen
+    E.add(mesh(G.rbox(0.032, 0.085, 0.07, 0.014), skin, 0, -0.285, 0.004));
+    E.add(mesh(G.rbox(0.028, 0.06, 0.066, 0.012), skin, 0.002 * sx, -0.345, 0.016, 0.3, 0, 0));
+    E.add(mesh(G.rbox(0.022, 0.05, 0.022, 0.01), skin, -sx * 0.012, -0.29, 0.04, 0.25, 0, -sx * 0.35));
+    g.userData.limbs.arms.push(A);
+  }
+  // starre Teile je Material zusammenfassen (Rumpf mit Kopf, jedes Glied für sich): wenige Zeichenaufrufe
+  bake(g);
+  for (const L of g.userData.limbs.legs) { bake(L); bake(L.userData.knee); }
+  for (const A of g.userData.limbs.arms) { bake(A); bake(A.userData.elbow); }
   return g;
+}
+
+// Gehbewegung für Figuren aus person(): phase in Radiant, amount 0 … 1 (Stehen … Gehen)
+export function walkPose(g, phase, amount = 1, arm = [null, null]) {
+  const L = g.userData.limbs;
+  if (!L) return;
+  const sw = Math.sin(phase) * 0.46 * amount;
+  for (let k = 0; k < 2; k++) {
+    const s = k ? -sw : sw, leg = L.legs[k];
+    leg.rotation.x = s;
+    // Knie beugt sich, wenn das Bein nach hinten schwingt und beim Vorziehen
+    if (leg.userData.knee) leg.userData.knee.rotation.x = (Math.max(0, -Math.sin(phase + (k ? Math.PI : 0))) * 0.75 + 0.05) * amount;
+    const A = L.arms[k];
+    if (arm[k] == null) { A.rotation.x = -s * 0.75; if (A.userData.elbow) A.userData.elbow.rotation.x = -0.18 - Math.max(0, s) * 0.5; }
+    else { A.rotation.x = arm[k]; if (A.userData.elbow) A.userData.elbow.rotation.x = -0.35; }
+  }
 }
 
 /* ---------------- Prüfmittel ---------------- */

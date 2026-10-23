@@ -96,17 +96,17 @@ export class App {
 
   buildTools() {
     const T = this.toolsEl;
-    const tool = (name, title, fn, on) => {
-      const b = h('button.btn.icon' + (on ? '.on' : ''), { html: icon(name), title });
+    const tool = (name, title, fn, on, label) => {
+      const b = h('button.btn.icon' + (on ? '.on' : ''), { html: icon(name) + `<small>${label}</small>`, title });
       b.addEventListener('click', () => fn(b));
       T.appendChild(b);
       return b;
     };
     this.tool = 'none';
     // Einblendungen wie eine AR-Brille: Laserstrahlen und Live-Punkte in der Welt
-    tool('beam', 'Laserstrahlen einblenden', (b) => { this.view.beams = !this.view.beams; b.classList.toggle('on', this.view.beams); });
-    tool('layers', 'Live-Punkte in der Welt einblenden', (b) => { this.view.cloudInScene = !this.view.cloudInScene; b.classList.toggle('on', this.view.cloudInScene); }, true);
-    tool('eye', 'Schulterblick / Ich-Sicht (V)', () => this.player.key('V'));
+    tool('beam', 'Laserstrahlen einblenden', (b) => { this.view.beams = !this.view.beams; b.classList.toggle('on', this.view.beams); }, false, 'Strahlen');
+    tool('layers', 'Live-Punkte in der Welt einblenden', (b) => { this.view.cloudInScene = !this.view.cloudInScene; b.classList.toggle('on', this.view.cloudInScene); }, true, 'Punkte');
+    tool('eye', 'Schulterblick / Ich-Sicht (V)', () => this.player.key('V'), false, 'Sicht');
   }
 
   setupViews() {

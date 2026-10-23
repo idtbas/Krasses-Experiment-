@@ -134,7 +134,7 @@ function buildHalle(world) {
   place(world, P.ladder(3.2), -11.55, 0, -3.0, Math.PI / 2, { name: 'Leiter', kind: 'werkzeug' });
   place(world, P.extinguisher(), -6.0, 0.5, -7.62, 0, { name: 'Feuerlöscher', kind: 'sicherheit' });
   place(world, P.convexMirror(0.3, 2.4), 2.0, 0, 1.85, -Math.PI * 0.75, { name: 'Verkehrsspiegel (konvex)', kind: 'spiegel' });
-  place(world, P.person('arbeit', 0.15), 1.2, 0, 3.3, -0.6, { name: 'Person mit Warnweste', kind: 'person' });
+  place(world, P.person('arbeit', 0.15), -1.5, 0, -3.5, -0.88, { name: 'Person mit Warnweste', kind: 'person' });
   place(world, P.checkerTarget(), 3.4, 0, 0.9, -Math.PI / 2 + 0.3, { name: 'Schachbrett-Zielmarke', kind: 'prüfmittel' });
   for (const [x, z] of [[2.8, 2.6], [-2.4, 2.9], [0.4, -3.6]]) place(world, P.sphereTarget(1.1), x, 0, z, 0, { name: 'Referenzkugel Ø 145 mm', kind: 'prüfmittel', blasKey: 'sphere' });
   place(world, P.reflectanceBoard(), 8.2, 0, 0.4, -Math.PI / 2, { name: 'Reflektivitätstafel 5/10/50/90 %', kind: 'prüfmittel' });
@@ -183,9 +183,7 @@ function walker(world, person, x0, x1, z, speed = 1.35, phase = 0) {
     const x = fwd ? x0 + (x1 - x0) * u : x1 - (x1 - x0) * (u - 1);
     person.position.set(x, 0, z);
     person.rotation.y = (fwd ? 1 : -1) * Math.sign(x1 - x0) * Math.PI / 2;
-    const sw = Math.sin(t * speed * 5.4) * 0.45;
-    const L = person.userData.limbs;
-    if (L) { L.legs[0].rotation.x = sw; L.legs[1].rotation.x = -sw; L.arms[0].rotation.x = -sw * 0.7; L.arms[1].rotation.x = sw * 0.7; }
+    P.walkPose(person, t * speed * 5.4, 1);
   });
 }
 
