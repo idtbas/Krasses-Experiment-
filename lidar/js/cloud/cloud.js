@@ -61,8 +61,7 @@ let LUT = null;
 export function lut() { return LUT || (LUT = makeLUT()); }
 
 const VS = /* glsl */`
-attribute vec3 color;
-attribute float intensity;
+attribute vec4 cinfo;    // RGB + Reflektivität in einem 4-Byte-Paket (Metal/Safari braucht 4-Byte-Schritte)
 attribute vec4 meta;     // Echo-Info, Klasse, Kanal, Merker (0…255)
 attribute float ptime;
 attribute float dev;
@@ -86,6 +85,8 @@ varying vec3 vColor;
 vec3 lutc(float row, float t) { return texture2D(lut, vec2(clamp(t, 0.0, 1.0) * 0.996 + 0.002, (row + 0.5) / 6.0)).rgb; }
 vec3 catc(float k) { return lutc(4.0, fract(k * 0.61803398875)); }
 void main() {
+  vec3 color = cinfo.rgb;
+  float intensity = cinfo.a;
   vec4 wp = modelMatrix * vec4(position, 1.0);
   float flags = meta.w;
   bool kill = (hideBloom > 0.5 && mod(floor(flags / 64.0), 2.0) > 0.5) || (hideNoise > 0.5 && meta.y > 6.5 && meta.y < 7.5);
@@ -158,8 +159,9 @@ class Chunk {
     const g = new THREE.BufferGeometry();
     const A = (arr, n, norm = false) => { const a = new THREE.BufferAttribute(arr, n, norm); a.setUsage(THREE.DynamicDrawUsage); return a; };
     g.setAttribute('position', A(this.pos, 3));
-    g.setAttribute('color', A(this.rgb, 3, true));
-    g.setAttribute('intensity', A(this.inten, 1, true));
+    // für die GPU: Farbe und Reflektivität gepackt; 3- und 1-Byte-Attribute zeichnet Safari (Metal) nicht
+    this.cinfo = new Uint8Array(cap * 4);
+    g.setAttribute('cinfo', A(this.cinfo, 4, true));
     g.setAttribute('meta', A(this.meta, 4));
     g.setAttribute('ptime', A(this.time, 1));
     g.setAttribute('dev', noDev(cap)); // Platzhalter in voller Länge: Safari verwirft Zeichenaufrufe mit zu kurzen Attributen
@@ -180,7 +182,9 @@ class Chunk {
     const a = this.dirtyFrom, b = this.dirtyTo, n = b - a;
     const g = this.geo;
     const up = (name, k) => { const at = g.attributes[name]; at.clearUpdateRanges(); at.addUpdateRange(a * k, n * k); at.needsUpdate = true; };
-    up('position', 3); up('color', 3); up('intensity', 1); up('meta', 4); up('ptime', 1);
+    const ci = this.cinfo, rgb = this.rgb, it = this.inten;
+    for (let i = a; i < b; i++) { const j = i * 4, k = i * 3; ci[j] = rgb[k]; ci[j + 1] = rgb[k + 1]; ci[j + 2] = rgb[k + 2]; ci[j + 3] = it[i]; }
+    up('position', 3); up('cinfo', 4); up('meta', 4); up('ptime', 1);
     this.dirtyFrom = this.dirtyTo = -1;
   }
   ensureDev() {

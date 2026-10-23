@@ -99,6 +99,7 @@ export class Views {
     r.autoClear = false;
     this.r = r;
     this.list = [];
+    this.diag();
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
@@ -110,6 +111,24 @@ export class Views {
     this.canvas.style.height = h + 'px';
   }
   add(view) { this.list.push(view); return view; }
+
+  // Grafikfehler sichtbar machen (Shader, die ein Browser nicht übersetzt, verworfene Zeichenaufrufe)
+  diag() {
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;max-width:min(560px,90vw);max-height:40vh;overflow:auto;padding:8px 10px;border-radius:8px;background:#3a0d0d;color:#ffd6d6;font:11px/1.35 ui-monospace,monospace;white-space:pre-wrap;display:none';
+    box.addEventListener('click', () => { box.style.display = 'none'; });
+    document.body.appendChild(box);
+    const seen = new Set();
+    const show = (msg) => { if (seen.has(msg) || seen.size > 6) return; seen.add(msg); box.textContent += (box.textContent ? '\n' : 'Grafikfehler (antippen zum Schließen):\n') + msg; box.style.display = 'block'; };
+    const gl = this.r.getContext();
+    this.r.debug.onShaderError = (g, program, vs, fs) => {
+      const log = (sh) => g.getShaderInfoLog(sh) || '';
+      show('Shader: ' + (g.getProgramInfoLog(program) || '').trim() + ' ' + log(vs).trim() + ' ' + log(fs).trim());
+    };
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    this.glName = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    setInterval(() => { const e = gl.getError(); if (e) show(`WebGL-Fehler 0x${e.toString(16)} · ${this.glName}`); }, 1500);
+  }
 
   rectOf(el) {
     const b = el.getBoundingClientRect();
