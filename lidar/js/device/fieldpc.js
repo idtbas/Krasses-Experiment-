@@ -11,6 +11,7 @@ import * as live from './tabs/live.js';
 import * as scans from './tabs/scans.js';
 import * as align from './tabs/align.js';
 import * as edit from './tabs/edit.js';
+import * as model from './tabs/model.js';
 import * as measure from './tabs/measure.js';
 import * as compare from './tabs/compare.js';
 import * as exp from './tabs/export.js';
@@ -26,7 +27,7 @@ const TURBO = Array.from({ length: 256 }, (_, i) => {
 });
 
 const TABS = [
-  ['live', 'Live', 'live', live], ['scans', 'Scans', 'scans', scans], ['align', 'Ausricht.', 'align', align], ['edit', 'Bearb.', 'edit', edit],
+  ['live', 'Live', 'live', live], ['scans', 'Scans', 'scans', scans], ['align', 'Ausricht.', 'align', align], ['edit', 'Bearb.', 'edit', edit], ['model', 'Modell', 'cube', model],
   ['measure', 'Messen', 'measure', measure], ['compare', 'Vergl.', 'compare', compare], ['export', 'Export', 'export', exp], ['device', 'Gerät', 'device', device],
 ];
 
@@ -117,15 +118,18 @@ export class FieldPC {
     const d = this.dev;
     clear(this.head);
     const T = TABS.find((t) => t[0] === this.tab);
-    const titles = { live: 'Live-Ansicht', scans: 'Scans im Projekt', align: 'Ausrichten (Registrierung)', edit: 'Bearbeiten', measure: 'Messen', compare: 'Soll-Ist-Vergleich', export: 'Export', device: 'Gerät' };
+    const titles = { live: 'Live-Ansicht', scans: 'Scans im Projekt', align: 'Ausrichten (Registrierung)', edit: 'Bearbeiten', model: '3D-Modell', measure: 'Messen', compare: 'Soll-Ist-Vergleich', export: 'Export', device: 'Gerät' };
     this.head.append(h('h3', titles[this.tab] || T[1]), h('div.sub', d ? `· ${d.spec.maker} ${d.spec.model}` : ''), h('div.grow'));
     const modeSel = h('select');
     for (const m of COLOR_MODES) { const o = h('option', { value: m.id }, m.name); if (m.id === this.opts.mode) o.selected = true; modeSel.appendChild(o); }
     modeSel.addEventListener('change', () => { this.opts.mode = modeSel.value; this.updateLegend(); });
     this.head.appendChild(h('div.sel', modeSel));
+    // Bildlauf behalten, solange man im selben Tab bleibt (z. B. nach Umschaltern)
+    const keepScroll = this._lastTab === this.tab ? this.panel.scrollTop : 0;
     clear(this.panel);
-    this.panel.scrollTop = 0;
     T[3].render(this, this.panel);
+    this.panel.scrollTop = keepScroll;
+    this._lastTab = this.tab;
     this.rimg.classList.toggle('hidden', !(this.tab === 'live' && d && d.rimg));
     this.updateLegend();
   }
@@ -154,6 +158,8 @@ export class FieldPC {
       st.display = vis ? 'block' : 'none';
       if (vis) { st.left = r.x + 'px'; st.top = r.y + 'px'; st.width = r.w + 'px'; st.height = r.h + 'px'; }
     }
+    const TT = TABS.find((t) => t[0] === this.tab);
+    if (TT[3].frame) TT[3].frame(this, dt);
     this.ft = (this.ft || 0) + dt;
     if (this.ft < 0.12) return;
     this.ft = 0;
@@ -219,6 +225,12 @@ export class FieldPC {
     }
     return box;
   }
+  // Welche Punktwolken der Viewer zeigt (im Modell-Tab zunächst nur das Netz)
+  cloudShown(c) {
+    if (this.tab === 'model' && this.mopts && !this.mopts.points && (this.app.project.models || []).length) return false;
+    return c.isLive ? this.showLive : c.visible !== false;
+  }
+
   // Blick hinter dir auf den Scanner (beim Hochnehmen des Feldrechners)
   aimAtDevice() {
     const d = this.dev, a = this.app;

@@ -1,5 +1,6 @@
 // Verarbeitungs-Worker: Raster-Nachbarsuche, Normalen, Filter, Boden, Segmentierung, ICP, Abstände, Vernetzung.
 import { TriBVH, closestPoint } from '../engine/bvh.js';
+import { meshPost, roomModel } from './model.js';
 
 /* ---------------- Rasterindex (CSR) ---------------- */
 
@@ -409,6 +410,8 @@ if (typeof self !== 'undefined') self.onmessage = (e) => {
       case 'c2c': { const d = c2c(m.a, m.b); reply({ d }, [d.buffer]); break; }
       case 'c2m': { const d = c2m(m.pts, m.tris, m.maxD || 0.5); reply({ d }, [d.buffer]); break; }
       case 'mesh': { const r = tsdfMesh(m.pos, m.rgb, m.origins, m.oIndex, m.voxel, m.trunc, m.box); reply(r, [r.pos.buffer, r.rgb.buffer, r.index.buffer]); break; }
+      case 'meshpost': { const r = meshPost(m.pos, m.rgb, m.index, m.opts || {}); reply(r, [r.pos.buffer, r.rgb.buffer, r.index.buffer]); break; }
+      case 'room': { const r = roomModel(m.pos, m.oIndex, m.origins, m.opts || {}); reply({ room: r }); break; }
       case 'normals': { const g = new Grid(m.pos, m.r); const r = normals(g, m.pos, m.r, m.origin); reply({ N: r.N }, [r.N.buffer]); break; }
       default: reply({ error: 'unbekannte Operation ' + m.op });
     }

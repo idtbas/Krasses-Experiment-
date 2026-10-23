@@ -391,3 +391,8 @@ body.player.tabopen #vover { z-index: 4; }
 body.tabopen #keyshelp, body.tabopen #hotbar, body.tabopen #status, body.tabopen #tools, body.tabopen #hint { display: none !important; }
 .ov.c { left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; font: 13px var(--sans); color: #c9d1d9; background: rgba(10, 13, 17, .7); padding: 10px 16px; border-radius: 10px; line-height: 1.5; }
 .ov.c b { color: var(--accent); }
+
+/* Modell-Tab */
+.plan { background: #0a0e13; border: 1px solid var(--line); border-radius: 9px; padding: 6px; }
+.plan svg { display: block; width: 100%; height: auto; max-height: 340px; }
+.xrow { padding: 2px 0 6px 28px; gap: 6px; }

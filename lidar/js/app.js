@@ -152,7 +152,7 @@ export class App {
       // Punktwolke vorab in den eigenen Puffer, im Bildschirm-Durchgang nur noch zusammensetzen
       prepare: (r, rect, dpr) => {
         this.setCloudUniforms('viewer', rect, dpr, this.viewerCam);
-        for (const c of this.allClouds()) c.group.visible = c.isLive ? this.fpc.showLive : c.visible !== false;
+        for (const c of this.allClouds()) c.group.visible = this.fpc.cloudShown(c);
         const hl = this.world.headlight;
         hl.position.copy(this.viewerCam.position); hl.target.position.copy(this.vorbit.target); hl.target.updateMatrixWorld();
         this.edl.prepare(r, this.world.scene, this.viewerCam, rect, dpr);
