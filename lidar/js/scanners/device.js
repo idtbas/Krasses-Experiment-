@@ -248,7 +248,14 @@ export class ScannerDevice {
     this.unmount();
     this.mountKind = kind;
     const w = this.app.world;
-    if (kind === 'stativ') {
+    if (kind === 'stativ' && opts.tripod) {
+      // auf ein eigenständiges Stativ in der Welt (Spielfigur stellt es auf)
+      opts.tripod.top.add(this.root);
+      this.root.position.set(0, 0, 0); this.root.rotation.set(0, 0, 0);
+      this.holder.position.set(0, 0, 0);
+      this.mount = { kind, tripod: opts.tripod };
+      opts.tripod.device = this;
+    } else if (kind === 'stativ') {
       const h = opts.height ?? (this.spec.cls === 'tls' ? 1.45 : 1.5);
       const t = buildTripod(h);
       this.root.add(t.group);
@@ -259,16 +266,19 @@ export class ScannerDevice {
     } else if (opts.parent) {
       opts.parent.add(this.root);
       this.root.position.set(...(opts.offset || [0, 0, 0]));
+      this.root.rotation.set(0, 0, 0);
       this.holder.position.set(0, 0, 0);
       this.mount = { kind, obj: opts.parent };
     }
-    this.holder.rotation.x = opts.pitch || 0;
+    this.holder.rotation.set(opts.pitch || 0, 0, 0);
     return this;
   }
   unmount() {
-    if (this.mount && this.mount.kind === 'stativ') this.root.remove(this.mount.obj);
+    if (this.mount && this.mount.tripod) { if (this.mount.tripod.device === this) this.mount.tripod.device = null; }
+    else if (this.mount && this.mount.kind === 'stativ') this.root.remove(this.mount.obj);
     this.root.removeFromParent();
     this.mount = null;
+    this.holder.rotation.set(0, 0, 0);
   }
 
   setPosition(x, z, ry) {

@@ -346,3 +346,44 @@ body.athome #top, body.athome #dock, body.athome #scene > :not(#scene-hit) { vis
 .pres.hidden { display: none; }
 .pres .ptitle { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
 @media (max-width: 760px) { .phone { right: 50%; transform: translateX(50%); bottom: 64px; } .pcam { width: 56vw; } }
+
+/* ---------- Spielfigur: Aktionen, Fadenkreuz, Inventar, Touch ---------- */
+#cross { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255, 255, 255, .85); box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .45); pointer-events: none; }
+#prompt { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); min-width: 240px; max-width: min(560px, 92%); background: rgba(10, 13, 17, .86); border: 1px solid var(--line2); border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; pointer-events: none; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+#prompt.hidden { display: none; }
+#prompt .pt { font-size: 12px; color: var(--muted); letter-spacing: .02em; margin-bottom: 2px; }
+#prompt .pa { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+#prompt .pa.off { color: var(--muted); font-style: italic; font-size: 12.5px; }
+kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 5px; background: #e9edf1; color: #0d1014; font: 700 11.5px var(--mono); box-shadow: 0 2px 0 #8a939c; }
+#hotbar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 16px; background: rgba(10, 13, 17, .78); border: 1px solid var(--line); border-radius: 10px; padding: 7px 14px; font-size: 12.5px; color: var(--muted); white-space: nowrap; pointer-events: none; }
+#hotbar b { color: var(--text); font-weight: 600; }
+#hotbar kbd { height: 18px; min-width: 18px; font-size: 10px; margin-left: 3px; }
+#keyshelp { position: absolute; right: 12px; top: 10px; max-width: 46%; text-align: right; font-size: 11.5px; color: #c9d1d9; background: rgba(10, 13, 17, .62); border-radius: 8px; padding: 6px 10px; pointer-events: none; }
+#keyshelp:empty { display: none; }
+#keyshelp b { color: #fff; }
+#lockhint { position: absolute; left: 50%; top: 56%; transform: translateX(-50%); background: rgba(10, 13, 17, .78); color: #fff; font-size: 12.5px; padding: 6px 12px; border-radius: 8px; pointer-events: none; }
+#lockhint.hidden { display: none; }
+#touchui.hidden { display: none; }
+#touchui .joy { position: absolute; width: 110px; height: 110px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .35); background: rgba(10, 13, 17, .25); display: none; pointer-events: none; }
+#touchui .joy.on { display: block; }
+#touchui .joy i { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(255, 255, 255, .55); }
+#touchui .tbtns { position: absolute; right: 14px; bottom: 70px; display: grid; grid-template-columns: repeat(3, 58px); gap: 8px; }
+#touchui .tbtn { height: 52px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(10, 13, 17, .7); color: #fff; font: 700 15px var(--sans); touch-action: none; }
+#touchui .tbtn.dim { opacity: .4; }
+#top .tstatus { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; display: flex; align-items: center; gap: 6px; }
+#top .tstatus b { color: var(--text); font-weight: 600; }
+#top .tstatus em { font-style: normal; }
+#top .tstatus .recc { color: #ff6b5e; }
+
+/* ---------- Feldrechner in der Hand ---------- */
+body.player #scene { right: 0; }
+body.player #dock { display: none; }
+body.player.tabopen #dock { display: flex; position: fixed; left: 50%; right: auto; top: calc(var(--top) + 12px); bottom: 56px; transform: translateX(-50%); width: min(1080px, 96vw); background: transparent; border: 0; padding: 0; }
+#tabshade { display: none; }
+body.tabopen #tabshade { display: block; position: fixed; z-index: 3; pointer-events: none; border-radius: 26px; box-shadow: 0 0 0 300vmax rgba(4, 6, 9, .62); }
+#tabclose { display: none; }
+body.tabopen #tabclose { display: inline-flex; position: fixed; z-index: 6; left: 50%; bottom: 12px; transform: translateX(-50%); }
+body.tabopen #scene, body.tabopen #scene * { pointer-events: none !important; }
+body.tabopen #prompt, body.tabopen #cross, body.tabopen #touchui, body.tabopen .phone, body.tabopen #lockhint { display: none !important; }
+body.player.tabopen #vover { z-index: 4; }
+body.tabopen #keyshelp, body.tabopen #hotbar, body.tabopen #status, body.tabopen #tools, body.tabopen #hint { display: none !important; }

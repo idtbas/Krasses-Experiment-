@@ -122,7 +122,8 @@ function buildDrone() {
 export class Mounts {
   constructor(app) {
     this.app = app;
-    this.cur = null;     // aktuelle Halterung
+    this.cur = null;     // aktuelle Halterung (mit Scanner)
+    this.park = {};      // in der Szene stehende Plattformen
     this.job = null;     // laufender Autoscan
     this.opts = {
       pos: 'slam', deskew: true, target: null,
@@ -147,16 +148,34 @@ export class Mounts {
     return null;
   }
 
-  reset() { this.stopJob(null); this.cur = null; }
+  reset() { this.stopJob(null); this.cur = null; this.park = {}; }
 
-  // Halterung entfernen (Scanner bleibt ohne Halterung zurück)
+  // Plattformen, die in der Szene geparkt stehen (Fahrroboter, Arm am Drehteller, Drohne auf dem Landeplatz)
+  populate(def) {
+    const P = def.park || {};
+    if (P.rover) this.create('rover', ...P.rover);
+    if (P.arm && this.world.turntable) this.create('arm');
+    if (P.drohne) this.create('drohne', ...P.drohne);
+  }
+  create(kind, x = 0, z = 0, yaw = 0) {
+    let c = null;
+    if (kind === 'rover') c = this.createRover(x, z, yaw);
+    else if (kind === 'arm') c = this.createArm();
+    else if (kind === 'drohne') c = this.createDrone(x, z, yaw);
+    if (c) this.park[kind] = c;
+    return c;
+  }
+
+  // Scanner von der Plattform lösen – die Plattform bleibt stehen
   detach() {
     this.stopJob(null);
     const c = this.cur, w = this.world;
     if (!c) return;
-    if (c.robot) w.sim.remove(c.robot);
-    for (const g of c.groups || []) g.removeFromParent();
-    if (c.reg) { const i = w.objects.indexOf(c.reg); if (i >= 0) w.objects.splice(i, 1); }
+    if (c.npc) {
+      for (const g of c.groups || []) g.removeFromParent();
+      if (c.reg) { const i = w.objects.indexOf(c.reg); if (i >= 0) w.objects.splice(i, 1); }
+    }
+    if (c.kind === 'drohne' && c.st) { c.st.v.set(0, 0, 0); }
     if (w.turntable) { w.turntable.speed = 0; }
     this.cur = null;
   }
@@ -167,20 +186,35 @@ export class Mounts {
     const at = dev.root.getWorldPosition(new THREE.Vector3());
     const wasOn = dev.state === 'stream';
     if (wasOn) dev.stop();
-    this.detach();
+    if (this.cur) this.detach();
     dev.unmount();
     // übliche Positionsbestimmung je Plattform: Drohnen fliegen mit RTK-GNSS/INS, Roboter und Handgeräte mit SLAM
     this.opts.pos = kind === 'drohne' ? 'ideal' : 'slam';
-    if (kind === 'rover') this.buildRover(dev, at);
-    else if (kind === 'arm') this.buildArm(dev);
-    else if (kind === 'drohne') this.buildDrone(dev, at);
-    else if (kind === 'hand') this.buildHand(dev, at);
+    let c = this.park[kind];
+    if (kind === 'hand') {
+      if (this.app.player && this.app.player.model) this.attachPlayer(dev, this.app.player);
+      else this.buildHand(dev, at);
+      c = this.cur;
+    } else {
+      if (!c) c = this.create(kind, at.x, at.z, 0);
+      if (kind === 'rover') this.fitRover(c, dev);
+      else if (kind === 'arm') this.fitArm(c, dev);
+      else if (kind === 'drohne') this.fitDrone(c, dev);
+      this.cur = c;
+    }
     this.world.content.updateMatrixWorld(true);
     await this.app.rebuildLidar();
     if (wasOn) dev.start();
     this.app.fpc.render();
-    toast(`${dev.spec.model} auf ${PLATFORMS[kind].name} montiert – Autoscan im Feldrechner unter „Live“`, 'ok');
+    toast(`${dev.spec.model} an ${PLATFORMS[kind].name} montiert – Autoscan mit F oder im Feldrechner unter „Live“`, 'ok');
     return true;
+  }
+
+  // Spielfigur hält den Scanner (Handgerät) selbst
+  attachPlayer(dev, player) {
+    dev.mountOn('hand', { parent: player.grip });
+    if (dev.kind === 'phone') dev.holder.rotation.z = -Math.PI / 2; // Telefon im Querformat
+    this.cur = { kind: 'hand', player: true, person: player.model, grip: player.grip, reg: player.reg, groups: [], st: { t: 0 } };
   }
 
   // Scanner zurück aufs Stativ, an die Stelle der Plattform
@@ -192,15 +226,17 @@ export class Mounts {
   }
 
   /* ---------- Fahrroboter AMR-1 mit Sensormast ---------- */
-  buildRover(dev, at) {
+  createRover(x, z, yaw) {
     const w = this.world;
-    const fp = this.defaultTarget() ? footprint(this.defaultTarget().root) : null;
-    const yaw = fp ? Math.atan2(fp.cx - at.x, fp.cz - at.z) : 0;
-    const rb = createRobot(w.sim, { type: 'rover', name: 'AMR-1', module: [], werkzeug: 'keins', funk: 'keins', akku: 'lifepo4', antrieb: { fahr: 'bldc' }, lack: '#d8dbd5', akzent: '#35d0ff' }, { x: at.x, y: 0, z: at.z, yaw });
+    const rb = createRobot(w.sim, { type: 'rover', name: 'AMR-1', module: [], werkzeug: 'keins', funk: 'keins', akku: 'lifepo4', antrieb: { fahr: 'bldc' }, lack: '#d8dbd5', akzent: '#35d0ff' }, { x, y: 0, z, yaw });
     for (const p of rb.parts.values()) p.group.userData.lidarBody = true;
     const reg = w.register(rb.root, { name: 'Fahrroboter AMR-1', kind: 'roboter', target: false, movable: false });
-    const k = dev.kind, cls = dev.spec.cls;
-    const H = k === 'tls' ? 1.0 : cls === 'line' ? 0.1 : k === 'depth' ? 0.42 : 0.78;
+    const c = { kind: 'rover', robot: rb, reg, groups: [], mast: null, top: null, pos: () => { const t = rb.chassis.body.translation(); return new THREE.Vector3(t.x, 0, t.z); } };
+    this.buildMast(c, 0.78);
+    return c;
+  }
+  buildMast(c, H) {
+    if (c.mast) c.mast.removeFromParent();
     const alu = lm('alu_blech'), dark = lm('kunststoff_schwarz');
     const mast = new THREE.Group(); mast.position.set(0, 0.0755, 0.03);
     mast.add(mesh(G.box(0.14, 0.008, 0.14), alu, 0, 0.004, 0));
@@ -210,32 +246,28 @@ export class Mounts {
     mast.add(mesh(G.rbox(0.15, 0.05, 0.1, 0.006), dark, 0, 0.033, -0.12));                   // Rechner
     mast.add(mesh(G.box(0.02, 0.012, 0.004), lmTint('kunststoff_gruen', '#38d27a'), 0.05, 0.045, -0.0705));
     mast.add(rod([0.02, 0.058, -0.08], [0.02, 0.01 + H, 0.017], 0.0035, lm('kabel'), 6));
-    rb.chassis.group.add(mast);
+    c.robot.chassis.group.add(mast);
     const top = new THREE.Object3D(); top.position.set(0, 0.016 + H, 0); mast.add(top);
-    dev.mountOn('rover', { parent: top, pitch: (this.opts.rover.tilt || 0) * DEG });
-    this.cur = { kind: 'rover', robot: rb, reg, top, groups: [] };
+    c.mast = mast; c.top = top; c.H = H;
+  }
+  fitRover(c, dev) {
+    const k = dev.kind, cls = dev.spec.cls;
+    const H = k === 'tls' ? 1.0 : cls === 'line' ? 0.1 : k === 'depth' ? 0.42 : 0.78;
+    if (H !== c.H) this.buildMast(c, H);
+    dev.mountOn('rover', { parent: c.top, pitch: (this.opts.rover.tilt || 0) * DEG });
   }
 
   /* ---------- Roboterarm KX-5 L mit Sensorflansch neben dem Drehteller ---------- */
-  buildArm(dev) {
+  // Aufstellung einmal je Szene (für typische Objektscanner optimiert), Sensorflansch je Scanner
+  createArm() {
     const w = this.world, T = w.turntable;
     const obj = this.studioObject();
     const fp = obj ? footprint(obj.root) : { cx: 0, cy: 0.35, cz: 0, hx: 0.15, hz: 0.15, top: 0.6, bottom: 0.1 };
     const plate = T.plate.getWorldPosition(new THREE.Vector3());
     const R = Math.max(fp.hx, fp.hz, 0.08) * 1.15;
-    const rmin = dev.spec.phys.rangeMin || 0.3;
-    const s0 = Math.max(R + 1.15 * rmin, R + 0.3, 0.45);
+    const s0 = Math.max(R + 1.15 * 0.3, R + 0.3, 0.45);
     const cy = (fp.top + Math.max(fp.bottom, plate.y + 0.02)) / 2;
-    // Sensor auf der Werkzeugachse: Sensorsystem +Z = Flanschachse (Hand +Y); Lage aus dem Gehäusemodell
-    const mg = dev.model.group, par = mg.parent;
-    mg.removeFromParent(); mg.updateMatrixWorld(true);
-    const mb = new THREE.Box3().setFromObject(mg);
-    const sp = dev.model.sensor.getWorldPosition(new THREE.Vector3());
-    par.add(mg);
-    const off = new THREE.Vector3(-sp.x, 0.024 - mb.min.z, sp.y);
-    const Ys = off.y + sp.z;
-    const tipLen = 0.008 + Ys;
-    // Aufstellung (Abstand zum Drehteller, Podesthöhe) so wählen, dass möglichst alle Bahnen erreichbar sind
+    const tipLen = 0.11;
     let best = null;
     for (const podH of [0, 0.15, 0.3, 0.45, 0.6]) {
       for (let Db = 0.72; Db <= 1.9; Db += 0.04) {
@@ -262,6 +294,23 @@ export class Mounts {
     const arm = createRobot(w.sim, { type: 'arm', name: 'KX-5', laenge: 'lang', werkzeug: 'flansch', module: [], funk: 'keins', akku: 'netz', antrieb: { achsen: 'harmonic', hand: 'harmonic' }, lack: '#e4e5e1', akzent: '#35d0ff' }, { x: base.x, y: podH, z: base.z, yaw: Math.PI });
     for (const p of arm.parts.values()) p.group.userData.lidarBody = true;
     const reg = w.register(arm.root, { name: 'Roboterarm KX-5 L', kind: 'roboter', target: false, movable: false });
+    arm.tipLen = tipLen;
+    return { kind: 'arm', robot: arm, reg, groups, base, plate, fp, obj, roll: 0, fl: null, L: { Db, podH, cy, s0, tipLen, L1: arm.L1, L2: arm.L2 }, pos: () => base.clone() };
+  }
+  fitArm(c, dev) {
+    const arm = c.robot;
+    // Sensor auf der Werkzeugachse: Sensorsystem +Z = Flanschachse (Hand +Y); Lage aus dem Gehäusemodell
+    const mg = dev.model.group, par = mg.parent;
+    mg.removeFromParent(); mg.updateMatrixWorld(true);
+    const mb = new THREE.Box3().setFromObject(mg);
+    const sp = dev.model.sensor.getWorldPosition(new THREE.Vector3());
+    par.add(mg);
+    const off = new THREE.Vector3(-sp.x, 0.024 - mb.min.z, sp.y);
+    const Ys = off.y + sp.z;
+    const R = Math.max(c.fp.hx, c.fp.hz, 0.08) * 1.15;
+    c.L.tipLen = 0.008 + Ys;
+    c.L.s0 = Math.max(R + 1.15 * (dev.spec.phys.rangeMin || 0.3), R + 0.3, 0.45);
+    if (c.fl) c.fl.removeFromParent();
     const fl = new THREE.Group(); fl.position.y = 0.008;
     const alu = lm('alu_blech');
     fl.add(mesh(G.cyl(0.034, 0.034, 0.012, 32), alu, 0, 0.006, 0));
@@ -270,15 +319,16 @@ export class Mounts {
     fl.add(mesh(G.box(Math.max(0.05, mb.max.x - mb.min.x), Math.max(0.02, yTop - 0.012), 0.006), alu, (mb.min.x + mb.max.x) / 2 - sp.x, 0.012 + (yTop - 0.012) / 2, plateZ));
     fl.add(mesh(G.box(0.05, 0.012, Math.abs(plateZ) + 0.02), alu, 0, 0.018, plateZ / 2));
     arm.handPart.group.add(fl);
-    arm.tipLen = tipLen;
+    c.fl = fl;
+    arm.tipLen = c.L.tipLen;
     dev.mountOn('arm', { parent: fl, offset: [off.x, off.y, off.z], pitch: -Math.PI / 2 });
-    const roll = dev.spec.cls === 'line' || dev.spec.cls === 'spin' || dev.spec.cls === 'slam' ? 90 : 0;
-    this.cur = { kind: 'arm', robot: arm, reg, groups, base, plate, fp, roll, obj, L: { Db, podH, cy, s0, tipLen, L1: arm.L1, L2: arm.L2 } };
-    // Grundstellung: Sensor blickt aus der ersten erreichbaren Bahn auf das Objekt
+    c.roll = dev.spec.cls === 'line' || dev.spec.cls === 'spin' || dev.spec.cls === 'slam' ? 90 : 0;
+    this.cur = c;
+    // Grundstellung: Sensor blickt aus der mittleren erreichbaren Bahn auf das Objekt
     const r0 = this.armRings(3)[1] || this.armRings(3)[0];
     if (r0) {
-      for (const [n, v] of Object.entries(r0.q)) { const sv = arm.servos.get(n); if (sv) sv.setDeg(v / DEG, 1); }
-      const sv = arm.servos.get('handdrehung'); if (sv) sv.setDeg(roll, 1);
+      for (const [n, v] of Object.entries(r0.q)) { const sv = arm.servos.get(n); if (sv) sv.setDeg(v / DEG, 0.5); }
+      const sv = arm.servos.get('handdrehung'); if (sv) sv.setDeg(c.roll, 0.5);
     }
   }
 
@@ -319,15 +369,23 @@ export class Mounts {
   }
 
   /* ---------- Drohne ---------- */
-  buildDrone(dev, at) {
+  createDrone(x, z, yaw = 0) {
     const w = this.world;
     const D = buildDrone();
-    D.group.position.set(at.x, 0, at.z);
+    D.group.position.set(x, 0, z);
     w.content.add(D.group);
+    // Landeplatz (Markierung am Boden)
+    const pad = new THREE.Group(); pad.position.set(x, 0.004, z);
+    pad.add(mesh(G.cyl(0.75, 0.75, 0.006, 40), lmTint('kunststoff_grau', '#3b4046'), 0, 0, 0));
+    pad.add(mesh(G.torus(0.62, 0.025, 6, 48), lm('markierung_gelb'), 0, 0.004, 0, Math.PI / 2, 0, 0));
+    pad.add(mesh(G.box(0.08, 0.008, 0.5), lm('markierung'), -0.14, 0.004, 0)); pad.add(mesh(G.box(0.08, 0.008, 0.5), lm('markierung'), 0.14, 0.004, 0)); pad.add(mesh(G.box(0.28, 0.008, 0.08), lm('markierung'), 0, 0.004, 0));
+    w.content.add(pad);
+    w.register(pad, { name: 'Landeplatz', kind: 'markierung', target: false, movable: false, static: true });
     const reg = w.register(D.group, { name: 'Drohne X8-L', kind: 'drohne', target: false, movable: false });
-    dev.mountOn('drohne', { parent: D.mountPt, pitch: Math.PI / 2 });
-    this.cur = { kind: 'drohne', drone: D, reg, groups: [D.group], st: { p: new THREE.Vector3(at.x, 0, at.z), v: new THREE.Vector3(), yaw: 0, a: new THREE.Vector3(), t: 0 } };
+    const st = { p: new THREE.Vector3(x, 0, z), v: new THREE.Vector3(), yaw, a: new THREE.Vector3(), t: 0 };
+    return { kind: 'drohne', drone: D, reg, groups: [], st, pos: () => st.p.clone().setY(0) };
   }
+  fitDrone(c, dev) { dev.mountOn('drohne', { parent: c.drone.mountPt, pitch: Math.PI / 2 }); }
 
   /* ---------- Handgeführt ---------- */
   buildHand(dev, at) {
@@ -342,7 +400,7 @@ export class Mounts {
     const grip = new THREE.Object3D(); grip.position.set(-0.2, 1.2, 0.6); pr.add(grip);
     dev.mountOn('hand', { parent: grip });
     if (dev.kind === 'phone') dev.holder.rotation.z = -Math.PI / 2; // Telefon im Querformat
-    this.cur = { kind: 'hand', person: pr, grip, reg, groups: [pr], st: { s: 0, t: 0 } };
+    this.cur = { kind: 'hand', npc: true, person: pr, grip, reg, groups: [pr], st: { s: 0, t: 0 } };
   }
 
   /* ---------- Ziele ---------- */
@@ -439,7 +497,8 @@ export class Mounts {
   start() {
     const a = this.app, d = a.dev, c = this.cur;
     if (this.job) { this.stopJob('Autoscan abgebrochen'); return; }
-    if (!d || !c) { toast('Erst eine Plattform wählen (Halterung).', 'warn'); return; }
+    if (!d || !c) { toast('Erst den Scanner an einer Plattform montieren.', 'warn'); return; }
+    if (c.player) { toast('Du führst den Scanner selbst: R startet die Aufnahme, dann losgehen.', 'warn'); return; }
     if (a.fpc.recording) a.fpc.toggleRecord();
     const target = c.kind === 'arm' ? this.studioObject() : this.defaultTarget();
     if (!target) { toast('Kein Zielobjekt in der Szene.', 'warn'); return; }
@@ -818,8 +877,8 @@ export class Mounts {
 
   /* ---------- je Bild ---------- */
   update(dt) {
-    const c = this.cur, j = this.job;
-    if (c && c.kind === 'drohne') this.updateDrone(dt);
+    const j = this.job;
+    for (const c of Object.values(this.park)) if (c.kind === 'drohne') this.updateDrone(c, dt);
     if (!j) return;
     if (j.gen && dt > 0 && !j.genDone) {
       try { if (j.gen.next(dt).done) j.genDone = true; } catch (e) { console.error(e); this.stopJob('Autoscan gestoppt: ' + (e.message || e)); return; }
@@ -827,8 +886,8 @@ export class Mounts {
     if (j.poll) j.poll();
   }
 
-  updateDrone(dt) {
-    const c = this.cur, st = c.st, D = c.drone;
+  updateDrone(c, dt) {
+    const st = c.st, D = c.drone;
     st.t += dt;
     const flying = st.p.y > 0.02;
     // Neigung aus Beschleunigung und Luftwiderstand, Böen als Überlagerung mehrerer Frequenzen

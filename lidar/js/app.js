@@ -14,6 +14,8 @@ import { Proc } from './cloud/proc.js';
 import { FieldPC } from './device/fieldpc.js';
 import { Mounts } from './robots/mounts.js';
 import { PhoneApp } from './device/phone.js';
+import { Player } from './player/player.js';
+import { TripodItem, EquipmentStation } from './player/items.js';
 import { TopBar } from './ui/topbar.js';
 import { Home } from './ui/home.js';
 import { h, toast } from './ui/dom.js';
@@ -26,11 +28,14 @@ export class App {
     this.clock = { t: 0, speed: 1, paused: false, factor: 1 };
     this.devices = [];
     this.dev = null;
+    this.tripods = [];
+    this.station = null;
     this.view = { beams: false, cloudInScene: true, sceneMode: 'flat', scenePoint: 2 };
   }
 
   async init() {
     const canvas = document.getElementById('gl');
+    document.body.classList.add('player');
     this.views = new Views(canvas);
     this.world = new World(this, this.R);
     this.world.setEnvMap(this.views.r);
@@ -40,6 +45,7 @@ export class App {
     this.proc = new Proc();
     this.edl = new EDLPass();
     this.mounts = new Mounts(this);
+    this.player = new Player(this);
     this.buildUI();
     this.setupViews();
     this.setupPhoneView();
@@ -47,9 +53,7 @@ export class App {
     this.report('HALLE WIRD AUFGEBAUT …');
     await this.loadScene('halle');
     const d = this.addDevice('vlp16');
-    d.mountOn('stativ');
-    const st = SCENES.halle.start.scanner;
-    d.setPosition(st[0], st[2], 0);
+    d.mountOn('stativ', { tripod: this.tripods[0] });
     await this.rebuildLidar();
     this.select(d);
     this.last = performance.now();
@@ -78,6 +82,13 @@ export class App {
     this.sceneEl.appendChild(this.phone.el);
     this.home = new Home(this);
     ui.appendChild(this.home.el);
+    this.player.mount(this.sceneEl);
+    this.player.bindScene(this.sceneHit);
+    // Feldrechner in der Hand: abgedunkelte Welt rund um das Tablet, Schaltfläche zum Senken
+    this.tabShade = h('div#tabshade');
+    const close = h('button#tabclose.btn.small', { html: icon('close') + '<span>Feldrechner senken (Tab)</span>' });
+    close.addEventListener('click', () => this.player.toggleTablet(false));
+    ui.append(this.tabShade, close);
     this.buildTools();
     this.hud = h('div.hud.mono');
     this.statusEl.appendChild(this.hud);
@@ -91,25 +102,21 @@ export class App {
       T.appendChild(b);
       return b;
     };
-    this.tool = 'move';
-    const set = (b, t) => { this.tool = t; for (const x of T.querySelectorAll('.tsel')) x.classList.toggle('on', x === b); };
-    tool('move', 'Scanner verschieben (ziehen)', (b) => set(b, 'move'), true).classList.add('tsel');
-    tool('target', 'Objekt auswählen', (b) => set(b, 'select')).classList.add('tsel');
-    T.appendChild(h('hr'));
-    tool('beam', 'Laserstrahlen anzeigen', (b) => { this.view.beams = !this.view.beams; b.classList.toggle('on', this.view.beams); });
-    tool('layers', 'Punktwolke in der Szene', (b) => { this.view.cloudInScene = !this.view.cloudInScene; b.classList.toggle('on', this.view.cloudInScene); }, true);
-    tool('eye', 'Blick vom Scanner', () => this.lookFromScanner());
-    tool('reset', 'Ansicht zurücksetzen', () => this.resetCamera());
+    this.tool = 'none';
+    // Einblendungen wie eine AR-Brille: Laserstrahlen und Live-Punkte in der Welt
+    tool('beam', 'Laserstrahlen einblenden', (b) => { this.view.beams = !this.view.beams; b.classList.toggle('on', this.view.beams); });
+    tool('layers', 'Live-Punkte in der Welt einblenden', (b) => { this.view.cloudInScene = !this.view.cloudInScene; b.classList.toggle('on', this.view.cloudInScene); }, true);
+    tool('eye', 'Schulterblick / Ich-Sicht (V)', () => this.player.key('V'));
   }
 
   setupViews() {
     // 3D-Szene
     this.sceneCam = new THREE.PerspectiveCamera(48, 1, 0.05, 600);
     this.sceneCam.layers.enable(0); this.sceneCam.layers.enable(CLOUD_LAYER);
-    this.orbit = new OrbitCam(this.sceneCam, this.sceneHit);
-    this.orbit.maxDist = 120; this.orbit.minDist = 0.6;
-    this.orbit.interceptor = (e, info) => this.sceneGrab(e, info);
-    this.orbit.onTap = (info) => this.sceneTap(info);
+    // keine fliegende Kamera: die Szenenkamera folgt der Spielfigur
+    this.orbit = new OrbitCam(this.sceneCam, h('div'));
+    this.orbit.enabled = false;
+    this.sceneCam.layers.enable(5);
     this.views.add({
       name: 'scene', el: this.sceneEl, camera: this.sceneCam, enabled: true,
       render: (r, rect, dpr) => {
@@ -117,6 +124,14 @@ export class App {
         for (const c of this.allClouds()) c.group.visible = this.view.cloudInScene && (c.isLive || c.visibleInScene);
         r.clear(true, true, true);
         r.render(this.world.scene, this.sceneCam);
+        // Feldrechner vor dir: dort bleibt die Leinwand durchsichtig (das Tablet liegt darunter)
+        if (this.player.tabletOpen) {
+          const t = this.fpc.el.getBoundingClientRect(), H = this.views.H;
+          r.setScissor(t.left, H - t.top - t.height, t.width, t.height);
+          r.setClearColor(0x000000, 0);
+          r.clear(true, true, false);
+          r.setScissor(rect.x, H - rect.y - rect.h, rect.w, rect.h);
+        }
       },
     });
     // Bildschirm des Feldrechners
@@ -191,10 +206,19 @@ export class App {
     this.world.def = def;
     this.sceneId = id;
     this.engine.setEnv(this.world.setWeather(def.weather || 'klar'));
-    for (const d of this.devices) { d.regObj = null; if (d.kind === 'phone') continue; d.mountOn('stativ'); d.setPosition(def.start.scanner[0], def.start.scanner[2], def.start.scanner[3] || 0); }
+    // Welt zum Anfassen: Stativ am Startpunkt, Geräteausgabe mit Feldrechner, geparkte Roboter, die Spielfigur
+    const S = def.start;
+    this.tripods = [];
+    const tr = new TripodItem(this);
+    tr.place(S.scanner[0], S.scanner[2], S.scanner[3] || 0);
+    this.tripods.push(tr);
+    this.station = new EquipmentStation(this, ...(S.station || [S.scanner[0] + 2, S.scanner[2] + 2, 0]));
+    if (this.player.hasTablet) this.station.takeTablet();
+    this.mounts.populate(def);
+    const pp = S.player || [S.scanner[0] - 1.5, S.scanner[2] - 2, 0.6];
+    this.player.spawn(pp[0], pp[1], pp[2] || 0);
+    for (const d of this.devices) { d.regObj = null; if (d.kind === 'phone') continue; d.mountOn('stativ', { tripod: tr }); }
     const c = def.start.cam;
-    this.orbit.lookAt(new THREE.Vector3(...c.target), c.dist, c.yaw, c.pitch);
-    this.orbit.jump();
     this.vorbit.lookAt(new THREE.Vector3(...c.target), c.dist * 0.8, c.yaw, Math.min(1.2, c.pitch + 0.25));
     this.vorbit.jump();
     if (this.top) this.top.render();
@@ -216,26 +240,24 @@ export class App {
     return d;
   }
 
+  // Neues Gerät aus der Geräteausgabe: der bisherige Scanner geht in seinen Koffer zurück, der neue liegt in deiner Hand
   async replaceDevice(specId) {
-    const old = this.dev;
-    const pos = old ? old.root.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3();
-    const ry = old && old.mountKind === 'stativ' ? old.root.rotation.y : 0;
-    const wasRunning = old && old.state === 'stream';
-    const keep = old ? old.mountKind : 'stativ';
+    const old = this.dev, P = this.player;
     if (this.fpc.recording) this.fpc.toggleRecord();
     if (old) {
-      if (keep !== 'stativ') this.mounts.detach();
+      if (old.state === 'tls') this.fpc.stationScan();
+      if (this.mounts.cur) this.mounts.detach();
       old.dispose(); this.devices.splice(this.devices.indexOf(old), 1);
       if (old.regObj) this.world.objects.splice(this.world.objects.indexOf(old.regObj), 1);
+      for (const t of this.tripods) if (t.device === old) t.device = null;
     }
+    if (P.hand && P.hand.type === 'tripod') P.placeTripod();
+    if (P.hand && P.hand.type === 'device') P.hand = null;
     const d = this.addDevice(specId);
-    // Plattform behalten, wenn der neue Scanner darauf passt; Smartphone immer in der Hand
-    const kind = d.kind === 'phone' ? 'hand' : keep !== 'stativ' && this.mounts.allowed(keep, d) ? keep : 'stativ';
-    if (kind !== 'stativ') { d.root.position.set(pos.x, 0, pos.z); await this.mounts.attach(kind, d); }
-    else { d.mountOn('stativ'); d.setPosition(pos.x, pos.z, ry); await this.rebuildLidar(); }
+    P.takeDevice(d);
+    await this.rebuildLidar();
     this.select(d);
-    if (wasRunning && d.kind !== 'tls') d.start();
-    toast(`${d.spec.maker} ${d.spec.model} montiert`);
+    toast(`${d.spec.maker} ${d.spec.model} in der Hand – zum Stativ, zu einer Plattform oder selbst messen`);
     return d;
   }
 
@@ -249,6 +271,7 @@ export class App {
   toggleStream() {
     const d = this.dev;
     if (!d) return;
+    if (d.mountKind === 'getragen') { toast(`${d.spec.model} misst nicht aus der Hand – auf ein Stativ oder eine Plattform setzen`, 'warn'); return; }
     if (d.kind === 'tls') { this.fpc.stationScan(); return; }
     if (d.state === 'stream') d.stop(); else d.start();
     this.top.render();
@@ -320,12 +343,20 @@ export class App {
     C.t += dt;
     C.factor += ((dtr > 0 ? dt / dtr : 0) - C.factor) * Math.min(1, dtr * 3);
     this.mounts.update(dt);
+    // Figur läuft in Echtzeit; nur wenn sie selbst misst (Handgerät an), im Takt der Messung
+    const handheld = this.dev && this.mounts.cur && this.mounts.cur.player && this.dev.state === 'stream' && !C.paused;
+    this.player.update(handheld ? dt : dtr, dtr);
     this.world.update(dt, C.t);
     this.lw.sync();
     for (const d of this.devices) { d.tick(dt, C.t); d.measure(); }
     if (this.fpc.recording) this.fpc.recording.loc.update(C.t);
     this.phone.frame(dt);
-    this.orbit.update(dtr);
+    if (this.player.tabletOpen) {
+      const t = this.fpc.el.getBoundingClientRect(), st = this.tabShade.style;
+      st.left = t.left + 'px'; st.top = t.top + 'px'; st.width = t.width + 'px'; st.height = t.height + 'px';
+    }
+    if ((this.topT = (this.topT || 0) + dtr) > 0.5) { this.topT = 0; this.top.render(); }
+    this.player.updateCamera(this.sceneCam, dtr);
     this.vorbit.update(dtr);
     this.fpc.frame(dtr);
     this.updateHud();
@@ -347,9 +378,8 @@ export class App {
     if (this.fpc.recording) this.fpc.toggleRecord();
     this.project.clear();
     await this.loadScene(id);
-    const st = SCENES[id].start.scanner;
-    if (this.dev && this.dev.kind === 'phone') { this.dev.root.position.set(st[0], 0, st[2]); await this.mounts.attach('hand', this.dev); }
-    else await this.rebuildLidar();
+    if (this.dev && this.dev.kind === 'phone') this.player.takeDevice(this.dev);
+    await this.rebuildLidar();
     for (const d of this.devices) d.live.clear();
     this.fpc.render();
     toast(`${SCENES[id].name} geladen · ${this.lidarInfo.tris.toLocaleString('de-DE')} Dreiecke für den Scan-Kern`);
@@ -362,11 +392,20 @@ export class App {
     return this.mounts.allowed(kind, d);
   }
   mountWhyNot(kind) { return this.dev && kind !== 'stativ' ? this.mounts.whyNot(kind, this.dev) : null; }
+  // Halterung direkt setzen (Schnellstarts): aufs freie Stativ, in die Hand oder an eine geparkte Plattform
   async setMount(kind) {
-    const d = this.dev;
+    const d = this.dev, P = this.player;
     if (!d || d.mountKind === kind) return;
     if (this.fpc.recording) this.fpc.toggleRecord();
-    if (kind === 'stativ') { const on = d.state === 'stream'; this.mounts.toTripod(d); await this.rebuildLidar(); if (on) d.start(); }
+    if (P.hand && P.hand.type === 'device' && P.hand.dev === d) P.hand = null;
+    if (kind === 'stativ') {
+      const on = d.state === 'stream';
+      if (this.mounts.cur) this.mounts.detach();
+      const tr = this.tripods.find((t) => !t.device && !t.carried) || this.tripods[0];
+      d.mountOn('stativ', { tripod: tr });
+      await this.rebuildLidar();
+      if (on) d.start();
+    } else if (kind === 'hand') P.takeDevice(d);
     else await this.mounts.attach(kind, d);
     this.top.render();
     this.fpc.render();
@@ -387,8 +426,6 @@ export class App {
     window.addEventListener('keydown', (e) => {
       if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
       if (e.code === 'Space') { e.preventDefault(); this.toggleStream(); }
-      else if (e.key === 'r' || e.key === 'R') this.fpc.toggleRecord();
-      else if (e.key === 'f' || e.key === 'F') this.fpc.fit();
     });
   }
 }

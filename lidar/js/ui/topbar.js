@@ -30,7 +30,11 @@ export class TopBar {
     this.clock = h('div.clock');
     const help = h('button.btn.icon.ghost', { html: icon('help'), title: 'Kurzanleitung' });
     help.addEventListener('click', () => app.home.help());
-    this.el.append(brand, this.scene, this.scanner, this.mount, this.env, h('div.grow'), this.go, this.rec, this.pause, this.speed, this.clock, help);
+    // Scanner, Halterung, Start und Aufnahme stecken jetzt in der Welt (Geräteausgabe, Stativ, Plattformen) und im Feldrechner
+    this.tab = h('button.btn', { title: 'Feldrechner vor dich halten (Tab)' });
+    this.tab.addEventListener('click', () => app.player.toggleTablet());
+    this.status = h('div.tstatus');
+    this.el.append(brand, this.scene, this.env, this.status, h('div.grow'), this.tab, this.pause, this.speed, this.clock, help);
     setInterval(() => { this.clock.textContent = 'T+' + app.clock.t.toFixed(1) + ' s'; }, 200);
   }
 
@@ -50,6 +54,13 @@ export class TopBar {
     const w = WEATHER.find((x) => x[0] === a.world.weather.preset);
     this.setPick(this.env, (a.world.lighting === 'night' ? 'Nacht · ' : '') + (w ? w[1] : 'Klar'));
     if (d) {
+      const st = d.state === 'stream' ? '<span class="led acc"></span> misst' : d.state === 'tls' ? '<span class="led acc"></span> Stationsscan' : '<span class="led"></span> bereit';
+      const where = { stativ: 'auf dem Stativ', hand: 'in der Hand', getragen: 'getragen', boden: 'am Boden', rover: 'auf dem AMR-1', arm: 'am KX-5', drohne: 'an der Drohne' }[d.mountKind] || '';
+      this.status.innerHTML = `<b>${d.spec.maker} ${d.spec.model}</b> <em>${where}</em> ${st}${a.fpc.recording ? ' · <span class="recc">● Aufnahme</span>' : ''}`;
+      const P = a.player;
+      this.tab.innerHTML = icon('device') + `<span>${P && P.tabletOpen ? 'Feldrechner senken' : 'Feldrechner'}</span>`;
+      this.tab.classList.toggle('on', !!(P && P.tabletOpen));
+      this.tab.disabled = !(P && P.hasTablet);
       const tls = d.kind === 'tls';
       const busy = d.state === 'stream' || d.state === 'tls';
       this.go.className = 'btn go ' + (busy ? '' : 'primary');

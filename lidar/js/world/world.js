@@ -114,7 +114,7 @@ export class World {
     root.userData.objId = id;
     if (!info.static) root.userData.lidarBody = true;
     if (info.blasKey) root.userData.blasKey = info.blasKey;
-    const o = { id, name: info.name || root.name || 'Objekt ' + id, kind: info.kind || 'objekt', root, movable: info.movable !== false && !info.static, target: info.target !== false, solid: !!info.solid, info: info.info || '', ref: info.ref || null };
+    const o = { id, name: info.name || root.name || 'Objekt ' + id, kind: info.kind || 'objekt', root, movable: info.movable !== false && !info.static, static: !!info.static, target: info.target !== false, solid: !!info.solid, info: info.info || '', ref: info.ref || null };
     root.name = o.name;
     this.objects.push(o);
     if (info.solid) this.addCollider(root);

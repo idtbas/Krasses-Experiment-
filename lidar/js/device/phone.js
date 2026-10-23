@@ -100,6 +100,8 @@ export class PhoneApp {
     if (this.session) { this.app.mounts.stopJob(null); this.finish(); return; }
     this.result = null;
     this.res.classList.add('hidden');
+    // du hältst das Handy selbst: Aufnahme beginnt sofort, gehen und schwenken übernimmst du
+    if (this.app.mounts.cur && this.app.mounts.cur.player) { this.begin(null); return; }
     this.app.mounts.opts.hand.phoneMode = this.opts.mode;
     this.app.mounts.start();
   }
@@ -299,7 +301,7 @@ export class PhoneApp {
       if (S.speed > 0.75 || S.rot > 1.3) hint = 'Langsamer bewegen';
       else if (!center || center > this.opts.range) hint = 'Näher herangehen';
       else if (center < 0.3) hint = 'Etwas mehr Abstand';
-    } else if (!this.result && !this.busy) hint = this.opts.mode === 'objekt' ? 'Auslöser: Rundgang um das Objekt' : 'Auslöser: Raum rundum erfassen';
+    } else if (!this.result && !this.busy) hint = this.app.mounts.cur && this.app.mounts.cur.player ? 'Auslöser oder R: Aufnahme starten, dann langsam gehen' : this.opts.mode === 'objekt' ? 'Auslöser: Rundgang um das Objekt' : 'Auslöser: Raum rundum erfassen';
     this.hint.textContent = hint;
     this.hint.classList.toggle('hidden', !hint);
   }
