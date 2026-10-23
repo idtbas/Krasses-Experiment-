@@ -10,7 +10,7 @@ import { writeOBJ, writeSTL, writeMeshPLY, download } from '../../cloud/export.j
 
 const safe = (s) => s.replace(/[^\wäöüÄÖÜß\-]+/g, '_');
 
-function opts(f) {
+export function opts(f) {
   return f.mopts || (f.mopts = { mode: 'objekt', src: 'sichtbar', detail: 'auto', smooth: 4, look: 'orig', wire: false, clean: true, ground: false, area: 'alles', furniture: true, ceiling: false, points: false, spin: false });
 }
 function scansFor(f) {
@@ -145,6 +145,8 @@ function collect(scans, max, rgbMode) {
   }
   return { pos: pos.subarray(0, k * 3), rgb: rgb.subarray(0, k * 3), oi: oi.subarray(0, k), origins, n: k, total: n, hasRGB };
 }
+
+export async function buildModel(f) { return build(f); }
 
 async function build(f) {
   const a = f.app, O = opts(f);

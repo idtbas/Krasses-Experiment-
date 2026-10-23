@@ -11,6 +11,7 @@ export const QUICK = [
   { id: 'cheap', icon: 'scanner', title: '100 € gegen 4.000 €', text: 'RPLIDAR A1 (Triangulation) im Vergleich zum Hokuyo UTM-30LX: Rauschen, Reichweite und Kanten in einer Ebene.', meta: ['Werkhalle', '2D'], scene: 'halle', scanner: 'rpa1', mount: 'stativ', start: true },
   { id: 'robot', icon: 'robot', title: 'Roboter scannt allein', text: 'Fahrroboter AMR-1 mit Ouster OS0-128 auf dem Mast umrundet den Gabelstapler. LiDAR-SLAM bestimmt die Bahn – oder schalte auf Rad-Odometrie und sieh die Drift.', meta: ['Werkhalle', 'Autoscan', 'SLAM'], scene: 'halle', scanner: 'os0_128', mount: 'rover', auto: true },
   { id: 'turntable', icon: 'arm', title: 'Roboterarm + Drehteller', text: 'Ein KX-5 führt eine RealSense L515 in drei Höhen um die Büste, der Drehteller dreht je Bahn 360°. Ergebnis in Objektkoordinaten – bereit zum Vernetzen.', meta: ['Messraum', 'Autoscan', 'Objekt'], scene: 'messraum', scanner: 'l515', mount: 'arm', auto: true },
+  { id: 'room', icon: 'cube', title: 'Raum wie mit Polycam', text: 'Stationsscan der Wohnung mit dem Leica RTC360, danach rechnet der Feldrechner daraus ein Raummodell: Wände, Tür, Fenster, Möbel als Netz und ein Grundriss mit Maßen – als SVG, OBJ oder JSON zu exportieren.', meta: ['Wohnung', 'TLS', '3D-Modell'], scene: 'wohnung', flow: 'roomModel' },
   { id: 'phone', icon: 'phone', title: 'Smartphone gegen Profi', text: 'Erst ein Stationsscan mit dem Leica RTC360, dann nimmst du das iPhone und scannst denselben Raum selbst (576 Punkte, Tiefenfusion, Netz). Am Ende zeigt der Vergleich die Abweichung.', meta: ['Wohnung', 'Smartphone', 'Vergleich'], scene: 'wohnung', flow: 'phoneVsPro' },
   { id: 'drone', icon: 'drone', title: 'Drohnenflug über das Haus', text: 'Livox Avia unter einer Drohne im Rasterflug. Die Rosette tastet Dach, Fassaden und Bäume ab – mit RTK-Bahn oder GNSS ohne Korrektur.', meta: ['Außengelände', 'Autoscan', 'Luft'], scene: 'aussen', scanner: 'avia', mount: 'drohne', auto: true },
   { id: 'hand', icon: 'hand', title: 'Handscanner-Rundgang', text: 'Leica BLK2GO in deiner Hand: R startet die Aufnahme, dann läufst du selbst um den Stapler. LiDAR-SLAM rechnet deine Bahn – und du verdeckst selbst einen Teil der Sicht.', meta: ['Werkhalle', 'SLAM', 'Handgeführt'], scene: 'halle', scanner: 'blk2go', mount: 'hand', start: true, hint: '<b>R</b> startet die Aufnahme – dann langsam um den Gabelstapler gehen und erneut <b>R</b>.' },
@@ -66,7 +67,28 @@ export class Home {
     if (q.auto) { a.fpc.setTab('live'); a.mounts.start(); }
     if (q.hint) hintFor(q.hint);
     if (q.flow === 'phoneVsPro') await this.phoneVsPro();
+    if (q.flow === 'roomModel') await this.roomModel(hintFor);
     if (q.tls) { a.fpc.setTab('scans'); hintFor(`<b>Tipp:</b> Zum Stativ gehen und <b>F</b> drücken – der Stationsscan läuft. Danach mit <b>G</b> das Stativ samt Scanner tragen, mit <b>E</b> neu aufstellen und erneut scannen.`); }
+  }
+
+  // Ablauf „Raum wie mit Polycam“: Stationsscan, dann Raummodell im Feldrechner
+  async roomModel(hintFor) {
+    const a = this.app, f = a.fpc;
+    a.project.clear();
+    await a.replaceDevice('rtc360');
+    await a.setMount('stativ');
+    a.lw.sync();
+    a.setHint('<b>1/2</b> Stationsscan mit dem Leica RTC360 …');
+    await f.stationScan();
+    if (!a.project.scans.some((s) => s.kind === 'station')) { a.setHint(null); return; }
+    a.setHint('<b>2/2</b> Raummodell: Boden, Decke, Wände, Türen und Fenster …');
+    if (!a.player.tabletOpen) a.player.toggleTablet(true);
+    f.setTab('model');
+    const { buildModel, opts } = await import('../device/tabs/model.js');
+    Object.assign(opts(f), { mode: 'raum', src: 'sichtbar', furniture: true, look: 'orig' });
+    f.render();
+    await buildModel(f);
+    hintFor('Fertig – im Feldrechner drehen und zoomen, unten der Grundriss. <b>Objekt</b> rechnet stattdessen ein glattes Netz.', 10000);
   }
 
   // Ablauf „Smartphone gegen Profi“: Referenz-Stationsscan, dann iPhone-Raumscan, dann Scan-zu-Scan-Vergleich
