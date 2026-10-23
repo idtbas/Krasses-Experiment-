@@ -218,7 +218,7 @@ export class FieldPC {
       const hit = d.stats.srate > 0 ? Math.min(100, (rate / d.stats.srate) * 100) : 0;
       const p = d.pattern;
       const freq = d.kind === 'tls' ? `${d.set.resolution} mm @ 10 m` : d.kind === 'depth' ? `${d.set.hz} Bilder/s` : p.hz ? `${p.hz} Hz` : '';
-      setHTML(this.ovTL, `<div class="row" style="gap:6px;color:#dbe2e9">${st} · ${freq}${this.recording ? ' · <span style="color:#ff6b5e">● AUFNAHME</span>' : ''}</div><div>${Math.round(rate).toLocaleString('de-DE')} Pkt/s · Treffer ${hit.toFixed(0)} % · ${(rate * d.stats.bytes * 8 / 1e6).toFixed(1)} Mbit/s</div>`);
+      setHTML(this.ovTL, `<div class="row" style="gap:6px;color:#dbe2e9">${st} · ${freq}${this.recording ? ' · <span style="color:#ff6b5e">● AUFNAHME</span>' : ''}</div><div>${Math.round(rate).toLocaleString('de-DE')} Punkte/s · Treffer ${hit.toFixed(0)} % · ${(rate * d.stats.bytes * 8 / 1e6).toFixed(1).replace('.', ',')} Mbit/s</div>`);
     }
     // leere Ansicht erklären statt schwarz zu bleiben
     const visScans = a.project.scans.some((x) => x.visible && x.points);
