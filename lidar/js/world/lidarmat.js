@@ -1,6 +1,7 @@
 // Materialbibliothek: sichtbares Aussehen (Three.js) und LiDAR-Eigenschaften im Nahinfrarot gehören zusammen.
 // Reflektivität r bei 905 nm (r1550 bei 1550 nm), Glanzkeule (spec, specWidth in rad), Transmission (Glas),
-// Spiegelgrad, Retro-Verstärkung, Oberflächenschwankung (var/varScale) und Rauheit (m).
+// Spiegelgrad, Retro-Verstärkung, Oberflächenschwankung (var/varScale), Rauheit (m) und Mehrweganteil glänzender
+// Flächen (mirror: Anteil, der spiegelnd weiterläuft – Geisterpunkte unter Epoxidboden oder neben schwarzem Lack).
 // Klassen nach ASPRS-LAS: 1 unklassifiziert, 2 Boden, 3 niedrige / 5 hohe Vegetation, 6 Gebäude, 7 Rauschen, 9 Wasser.
 import * as THREE from 'three';
 
@@ -8,7 +9,7 @@ const LIB = {
   // Böden und Außenflächen
   beton: { color: '#8b8e91', rough: 0.9, l: { r: 0.28, r1550: 0.3, var: 0.25, varScale: 0.45, cls: 2 } },
   beton_hell: { color: '#a6a8a8', rough: 0.88, l: { r: 0.38, r1550: 0.4, var: 0.18, varScale: 0.5, cls: 6 } },
-  epoxid: { color: '#9aa0a3', rough: 0.35, l: { r: 0.42, spec: 0.6, specWidth: 0.05, var: 0.06, varScale: 0.8, cls: 2 } },
+  epoxid: { color: '#9aa0a3', rough: 0.35, l: { r: 0.42, spec: 0.6, specWidth: 0.05, var: 0.06, varScale: 0.8, mirror: 0.12, cls: 2 } },
   asphalt: { color: '#3c3e41', rough: 0.95, l: { r: 0.09, r1550: 0.1, var: 0.3, varScale: 0.25, rough: 0.003, cls: 2 } },
   markierung: { color: '#e9e8e1', rough: 0.7, l: { r: 0.85, var: 0.12, varScale: 0.1, cls: 2 } },
   markierung_gelb: { color: '#e3b200', rough: 0.7, l: { r: 0.68, var: 0.1, varScale: 0.1, cls: 2 } },
@@ -26,11 +27,11 @@ const LIB = {
   putz_grau: { color: '#a9a8a3', rough: 0.95, l: { r: 0.45, var: 0.06, varScale: 0.5, cls: 6 } },
   ziegel: { color: '#9a5038', rough: 0.95, l: { r: 0.38, var: 0.25, varScale: 0.09, cls: 6 } },
   gipskarton: { color: '#ebe9e4', rough: 0.95, l: { r: 0.8, cls: 6 } },
-  fliese: { color: '#d8d5cd', rough: 0.25, l: { r: 0.68, spec: 0.7, specWidth: 0.04, cls: 6 } },
+  fliese: { color: '#d8d5cd', rough: 0.25, l: { r: 0.68, spec: 0.7, specWidth: 0.04, mirror: 0.1, cls: 6 } },
   holz_hell: { color: '#c7a67b', rough: 0.7, l: { r: 0.55, var: 0.12, varScale: 0.08, cls: 1 } },
   holz_dunkel: { color: '#5e4229', rough: 0.6, l: { r: 0.3, var: 0.12, varScale: 0.08, cls: 1 } },
   holz_palette: { color: '#b49468', rough: 0.95, l: { r: 0.5, var: 0.2, varScale: 0.05, rough: 0.002, cls: 1 } },
-  parkett: { color: '#a97d52', rough: 0.4, l: { r: 0.48, spec: 0.4, specWidth: 0.05, var: 0.1, varScale: 0.1, cls: 1 } },
+  parkett: { color: '#a97d52', rough: 0.4, l: { r: 0.48, spec: 0.4, specWidth: 0.05, var: 0.1, varScale: 0.1, mirror: 0.05, cls: 1 } },
   teppich: { color: '#6b5f51', rough: 1, l: { r: 0.3, rough: 0.003, cls: 1 } },
   textil: { color: '#6d7075', rough: 1, l: { r: 0.36, rough: 0.002, cls: 1 } },
   textil_dunkel: { color: '#2b2d31', rough: 1, l: { r: 0.08, rough: 0.002, cls: 1 } },
@@ -43,11 +44,11 @@ const LIB = {
   alu_blech: { color: '#d4d7da', rough: 0.22, metal: 1, l: { r: 0.4, spec: 2.0, specWidth: 0.03, cls: 1 } },
   chrom: { color: '#e4e6e8', rough: 0.04, metal: 1, l: { kind: 'mirror', r: 0.02, trans: 0.75, cls: 1 } },
   spiegel: { color: '#eef0f2', rough: 0.01, metal: 1, l: { kind: 'mirror', r: 0.01, trans: 0.92, cls: 1 } },
-  lack_rot: { color: '#a8201d', rough: 0.25, l: { r: 0.55, spec: 0.8, specWidth: 0.035, cls: 1 } },
-  lack_weiss: { color: '#e8e9ea', rough: 0.22, l: { r: 0.75, spec: 0.8, specWidth: 0.035, cls: 1 } },
-  lack_schwarz: { color: '#141516', rough: 0.18, l: { r: 0.06, spec: 1.4, specWidth: 0.03, cls: 1 } },
-  lack_blau: { color: '#1f4f8f', rough: 0.28, l: { r: 0.3, spec: 0.8, specWidth: 0.035, cls: 1 } },
-  lack_silber: { color: '#a9adb1', rough: 0.3, metal: 0.6, l: { r: 0.42, spec: 0.9, specWidth: 0.04, cls: 1 } },
+  lack_rot: { color: '#a8201d', rough: 0.25, l: { r: 0.55, spec: 0.8, specWidth: 0.035, mirror: 0.15, cls: 1 } },
+  lack_weiss: { color: '#e8e9ea', rough: 0.22, l: { r: 0.75, spec: 0.8, specWidth: 0.035, mirror: 0.15, cls: 1 } },
+  lack_schwarz: { color: '#141516', rough: 0.18, l: { r: 0.06, spec: 1.4, specWidth: 0.03, mirror: 0.32, cls: 1 } },
+  lack_blau: { color: '#1f4f8f', rough: 0.28, l: { r: 0.3, spec: 0.8, specWidth: 0.035, mirror: 0.18, cls: 1 } },
+  lack_silber: { color: '#a9adb1', rough: 0.3, metal: 0.6, l: { r: 0.42, spec: 0.9, specWidth: 0.04, mirror: 0.2, cls: 1 } },
   lack_gelb: { color: '#e6b000', rough: 0.4, l: { r: 0.65, spec: 0.4, specWidth: 0.05, cls: 1 } },
   lack_orange: { color: '#e05d18', rough: 0.4, l: { r: 0.6, spec: 0.4, specWidth: 0.05, cls: 1 } },
   ral7035: { color: '#c5c7c4', rough: 0.5, l: { r: 0.6, spec: 0.3, specWidth: 0.06, cls: 1 } },

@@ -38,12 +38,37 @@ function poseAt(A, B, u, out) {
 }
 
 function makeSensor(id, spec, set) {
+  const prev = sensors.get(id) ? sensors.get(id).beam : null;
   const pattern = makePattern(spec, set);
   const beam = new BeamSim(scene, mats, spec, set);
   beam.setEnv(env);
   const s = { id, spec, set, pattern, beam, sink: new PointSink(1 << 15), pose: { x: 0, y: 0, z: 0, R: beam.R } };
+  // Einzelgerät: wahre Strahlrichtung weicht je Kanal von der gemeldeten ab (Elevation, Azimut), dazu Entfernungs-
+  // Offset und Intensitätsverstärkung je Kanal. Das Gerät meldet die Nennrichtung – genau so entstehen echte Fehler.
+  const C = set.calib;
+  if (C && C.dEl && C.dEl.length) {
+    s.calib = { n: C.dEl.length, dEl: Float64Array.from(C.dEl), dAz: Float64Array.from(C.dAz), cE: new Float64Array(C.dEl.length), sE: new Float64Array(C.dEl.length), cA: Float64Array.from(C.dAz, Math.cos), sA: Float64Array.from(C.dAz, Math.sin) };
+    beam.calR = Float64Array.from(C.dR); beam.calG = Float64Array.from(C.gain);
+  }
+  if (prev && prev.dyn) beam.dyn = prev.dyn;
   sensors.set(id, s);
   return s;
+}
+
+// wahre Richtung eines Kanals: Elevation um dEl anheben, um die Hochachse um dAz drehen
+const TRUE_DIR = new Float64Array(3);
+function trueDir(C, ring, x, y, z, out) {
+  const k = ring % C.n;
+  const de = C.dEl[k];
+  if (de !== 0) {
+    const hl = Math.sqrt(x * x + z * z), e = Math.atan2(y, hl) + de, ce = Math.cos(e);
+    const f = hl > 1e-9 ? ce / hl : 0;
+    x *= f; z *= f; y = Math.sin(e);
+    if (hl <= 1e-9) x = ce;
+  }
+  const c = C.cA[k], sn = C.sA[k];
+  out[0] = x * c + z * sn; out[1] = y; out[2] = -x * sn + z * c;
+  return out;
 }
 
 // Schüsse eines Fensters rechnen
@@ -54,9 +79,13 @@ function runWindow(s, t0, t1, A, B) {
   if (fixed) poseAt(A, B, 0, pose);
   let shots = 0;
   const R = pose.R;
+  const C = s.calib;
+  const tl = TRUE_DIR;
   s.pattern.shots(t0, t1, (t, lx, ly, lz, ring, col) => {
     if (!fixed) poseAt(A, B, (t - t0) / span, pose);
-    const dx = R[0] * lx + R[1] * ly + R[2] * lz, dy = R[3] * lx + R[4] * ly + R[5] * lz, dz = R[6] * lx + R[7] * ly + R[8] * lz;
+    let ax = lx, ay = ly, az = lz;
+    if (C) { trueDir(C, ring, lx, ly, lz, tl); ax = tl[0]; ay = tl[1]; az = tl[2]; }
+    const dx = R[0] * ax + R[1] * ay + R[2] * az, dy = R[3] * ax + R[4] * ay + R[5] * az, dz = R[6] * ax + R[7] * ay + R[8] * az;
     beam.shoot(t, pose.x, pose.y, pose.z, dx, dy, dz, lx, ly, lz, ring, col, sink);
     shots++;
   });
@@ -68,8 +97,11 @@ function runTls(s, c0, c1, P) {
   poseAt(P, P, 0, pose);
   const R = pose.R;
   let shots = 0;
+  const C = s.calib, tl = TRUE_DIR;
   s.pattern.columns(c0, c1, (t, lx, ly, lz, ring, col) => {
-    const dx = R[0] * lx + R[1] * ly + R[2] * lz, dy = R[3] * lx + R[4] * ly + R[5] * lz, dz = R[6] * lx + R[7] * ly + R[8] * lz;
+    let ax = lx, ay = ly, az = lz;
+    if (C) { trueDir(C, ring, lx, ly, lz, tl); ax = tl[0]; ay = tl[1]; az = tl[2]; }
+    const dx = R[0] * ax + R[1] * ay + R[2] * az, dy = R[3] * ax + R[4] * ay + R[5] * az, dz = R[6] * ax + R[7] * ay + R[8] * az;
     beam.shoot(t, pose.x, pose.y, pose.z, dx, dy, dz, lx, ly, lz, ring, col, sink);
     shots++;
   });
@@ -110,6 +142,7 @@ self.onmessage = (ev) => {
         break;
       }
       case 'drop': sensors.delete(m.id); break;
+      case 'sstate': { const s = sensors.get(m.id); if (s) s.beam.dyn = { ...(s.beam.dyn || {}), ...m.st }; break; }
       case 'scan': {
         const s = sensors.get(m.id);
         if (!s) return;

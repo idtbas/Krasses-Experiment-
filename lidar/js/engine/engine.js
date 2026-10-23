@@ -55,6 +55,8 @@ export class ScanEngine {
   setEnv(env) { this.broadcast({ type: 'env', env }); }
   addSensor(id, spec, set) { this.broadcast({ type: 'sensor', id, spec, set }); }
   dropSensor(id) { this.broadcast({ type: 'drop', id }); }
+  // laufender Gerätezustand (Temperaturdrift der Entfernung)
+  sensorState(id, st) { this.broadcast({ type: 'sstate', id, st }); }
 
   get busy() { return this.pendingParts; }
 

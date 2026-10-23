@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { buildScannerModel, buildTripod } from './models3d.js';
 import { makePattern } from './patterns.js';
 import { PointCloud } from '../cloud/cloud.js';
+import { Unit, compactData } from './unit.js';
 
 let SEQ = 0;
 
@@ -51,6 +52,10 @@ export class ScannerDevice {
     this.spec = spec;
     this.kind = deviceKind(spec);
     this.set = defaultSettings(spec);
+    // das Einzelgerät: Seriennummer, Kalibrier-Restfehler je Kanal, Wärme, Hochlauf, Netzwerk
+    this.unit = new Unit(spec);
+    this.set.calib = this.unit.calib;
+    this.set.link = this.unit.link.mbit;
     this.root = new THREE.Group();
     this.root.name = spec.model;
     this.holder = new THREE.Group();
@@ -80,7 +85,7 @@ export class ScannerDevice {
     const p = this.pattern;
     this.rows = p.rows || 0; this.cols = p.cols || 0;
     if (this.kind === 'stream' && this.rows && this.cols && this.rows * this.cols < 600000) {
-      this.rimg = { r: new Float32Array(this.rows * this.cols), i: new Uint8Array(this.rows * this.cols), dirty: true };
+      this.rimg = { r: new Float32Array(this.rows * this.cols), i: new Uint8Array(this.rows * this.cols), a: new Uint8Array(this.rows * this.cols), dirty: true };
     } else this.rimg = null;
     // Live-Puffer: eine Umdrehung bzw. Nachleuchtdauer
     const per = Math.max(p.period || 0.1, this.set.persistence || 0);
@@ -90,6 +95,20 @@ export class ScannerDevice {
     this.live.isLive = true;
     if (this.app.world) this.app.world.clouds.add(this.live.group);
   }
+
+  // Kalibrierzustand des Einzelgeräts: 'ideal' | 'werk' | 'dejustiert'
+  setCalib(mode) {
+    this.set.calib = this.unit.setCalib(mode);
+    this.app.engine.addSensor(this.id, this.spec, this.set);
+  }
+  // Netzwerkanschluss (Mbit/s) – z. B. ein Gigabit-Sensor am 100-Mbit-Port
+  setLink(mbit) {
+    this.unit.link = { ...this.unit.link, mbit, name: mbit >= 1000 ? 'ETH 1000M' : mbit >= 100 ? 'ETH 100M' : this.unit.link.name };
+    this.set.link = mbit;
+    this.unit.pkt.win = [];
+  }
+  // nominale Datenrate des Sensors (bit/s), unabhängig vom Verlust
+  get bitRate() { return (this.pattern.rate || 0) * this.stats.bytes * 8; }
 
   // Einstellungen ändern (Drehzahl, Spalten, Echos, Sichtfeld, Auflösung …)
   configure(patch) {
@@ -143,6 +162,8 @@ export class ScannerDevice {
     this.recordPose(this.t);
   }
   stop() { this.state = 'idle'; this.pending = 0; }
+  // wartet, bis der Sensor misst (nach Booten/Anlauf)
+  whenReady() { return this.unit.ready ? Promise.resolve() : new Promise((r) => (this.waiters = this.waiters || []).push(r)); }
 
   // bis zu diesem Zeitpunkt liegen alle Messungen vor (ältestes noch offenes Fenster)
   get doneUntil() {
@@ -154,7 +175,14 @@ export class ScannerDevice {
   // pro Bild: Zeit fortschreiben und Fenster an die Engine geben
   tick(dt, simT) {
     this.animate(dt);
+    const U = this.unit;
+    U.update(dt, this.state === 'stream' || this.state === 'tls', this.app.world);
+    // Temperaturdrift der Entfernung an die Worker (nur bei spürbarer Änderung)
+    if (Math.abs(U.bias - (this._sentBias ?? 1)) > 0.0002) { this._sentBias = U.bias; this.app.engine.sensorState(this.id, { bias: U.bias }); }
+    if (this.waiters && U.ready) { for (const f of this.waiters) f(); this.waiters = null; }
     if (this.state !== 'stream') return;
+    // während Booten und Motoranlauf kommen keine Daten
+    if (!U.ready) { this.t = simT; this.recordPose(simT); return; }
     this.recordPose(simT);
     this.pending = Math.max(0, simT - this.t);
     const eng = this.app.engine;
@@ -200,6 +228,8 @@ export class ScannerDevice {
 
   ingest(data, shots) {
     if (!data || !data.n) { this.stats.shots += shots || 0; return; }
+    if (this.kind === 'stream') data = this.network(data);
+    if (!data.n) { this.stats.shots += shots || 0; return; }
     this.live.add(data);
     this.stats.pts += data.n;
     this.stats.shots += shots || 0;
@@ -212,10 +242,36 @@ export class ScannerDevice {
         if (id < 0 || id >= R.r.length) continue;
         R.r[id] = Math.hypot(data.ls[k * 3], data.ls[k * 3 + 1], data.ls[k * 3 + 2]);
         R.i[id] = data.i[k];
+        if (data.amb) R.a[id] = data.amb[k];
       }
       R.dirty = true;
     }
     for (const f of this.onPoints) f(data, this);
+  }
+
+  // UDP-Pakete: Messungen kommen in Paketen (z. B. Velodyne 384, Ouster 16 Spalten). Übersteigt die Datenrate den
+  // Anschluss, gehen ganze Pakete verloren – in der Wolke fehlen dann Sektoren, nicht einzelne Punkte.
+  network(d) {
+    const U = this.unit, L = U.link;
+    const drop = U.dropFraction(this.bitRate);
+    const per = Math.max(1, L.pkt);
+    const cols = this.cols || 0;
+    const keep = new Uint8Array(d.n);
+    let sent = 0, lost = 0, last = -1, ok = 1;
+    for (let k = 0; k < d.n; k++) {
+      // Paketnummer: Umdrehung + Spaltenblock (rotierend) oder fortlaufend
+      const id = cols ? Math.floor(d.t[k] * (this.pattern.hz || 10)) * 100003 + Math.floor(d.col[k] / (L.pktCols || 12)) : Math.floor((this.stats.pts + k) / per);
+      if (id !== last) {
+        last = id;
+        // 32-Bit-Mischfunktion (ganzzahlig, gleichverteilt auch für große Paketnummern)
+        let x = Math.imul((id % 2147483629) ^ U.seed, 0x9e3779b1); x ^= x >>> 16; x = Math.imul(x, 0x85ebca6b); x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35); x ^= x >>> 16; x >>>= 0;
+        ok = (x / 4294967296) >= drop ? 1 : 0;
+        sent++; if (!ok) lost++;
+      }
+      keep[k] = ok;
+    }
+    U.countPackets(this.t, sent, lost);
+    return lost ? compactData(d, keep) : d;
   }
 
   // Punktrate glätten (für Anzeige)

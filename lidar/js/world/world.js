@@ -206,7 +206,9 @@ export class World {
   lidarEnv() {
     const L = this.light || { ambient: 0.5, sunI: 0.6 };
     const d = this.sunDir || new THREE.Vector3(0.3, 0.8, 0.5);
-    return { ...this.weather, sunDir: [d.x, d.y, d.z], ambient: L.ambient, sunI: L.sunI * (this.weather.sun > 0 ? 0.4 + 0.6 * this.weather.sun : 0.6) };
+    // Nässe nur im Freien (unter dem Hallendach bleibt der Boden trocken)
+    const wet = this.lighting === 'outdoor' ? Math.min(1, (this.weather.rain || 0) / 8) : 0;
+    return { ...this.weather, wet, sunDir: [d.x, d.y, d.z], ambient: L.ambient, sunI: L.sunI * (this.weather.sun > 0 ? 0.4 + 0.6 * this.weather.sun : 0.6) };
   }
 
   setRain(rate) {

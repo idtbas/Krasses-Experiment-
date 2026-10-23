@@ -14,7 +14,7 @@ export const KIND = { DIFFUSE: 0, GLASS: 1, MIRROR: 2, RETRO: 3, ABSORB: 4 };
 // Materialtabelle (Float32Array, MAT_STRIDE Werte je Material)
 //  0 Art   1 ρ@905   2 ρ@1550   3 Glanz   4 Glanzbreite (rad)   5 Transmission/Spiegelgrad
 //  6 Retro-Verstärkung   7 Variation   8 Variationsmaßstab (m)   9–11 Farbe linear   12 Klasse (LAS)
-//  13 Rauheit (m)   14 frei   15 frei
+//  13 Rauheit (m)   14 Spiegelanteil glänzender Flächen (Mehrweg)   15 frei
 export function packMaterials(list) {
   const out = new Float32Array(Math.max(1, list.length) * MAT_STRIDE);
   list.forEach((m, i) => {
@@ -32,6 +32,7 @@ export function packMaterials(list) {
     out[o + 9] = c[0]; out[o + 10] = c[1]; out[o + 11] = c[2];
     out[o + 12] = m.cls ?? 1;
     out[o + 13] = m.rough ?? 0;
+    out[o + 14] = m.mirror ?? 0;
   });
   return out;
 }
@@ -162,6 +163,8 @@ export class BeamSim {
     // Extinktion: Sichtweite V → α = 3,912 / V (Koschmieder), Regen nach Rate (mm/h)
     this.alpha = (e.fogVis > 0 ? 3.912 / e.fogVis : 0) + (e.rain > 0 ? 0.0006 * Math.pow(e.rain, 0.6) : 0) + (e.dust || 0) * 0.02;
     this.sunK = 1 / Math.sqrt(1 + 0.8 * (e.sun || 0) * this.sunSens);
+    // Nässe: bei Regen werden waagrechte Flächen dunkler und spiegelnd (Pfützen, nasser Asphalt)
+    this.wet = e.wet ?? Math.min(1, (e.rain || 0) / 8);
   }
 
   /* -------- Verfolgung eines Teilstrahls -------- */
@@ -202,7 +205,23 @@ export class BeamSim {
       }
       const rough = M[mo + 13];
       if (kind === 0) { // diffus
+        let mk = M[mo + 14];
+        if (this.wet > 0 && (hit.ny > 0.75 || hit.ny < -0.75)) {
+          // Wasserfilm: weniger Rückstreuung, dafür spiegelnder Anteil (zum Horizont hin mehr, Fresnel)
+          rho *= 1 - 0.5 * this.wet;
+          mk = Math.max(mk, this.wet * (0.12 + 0.5 * Math.pow(1 - cos, 4)));
+        }
         this.addEcho(path, g * (rho * cos + lobe), hit.mat, hit.obj, cos, hit.nx, hit.ny, hit.nz, flag, rough);
+        // Mehrweg: glänzende Böden (Epoxid, Fliesen, Lack) lenken einen Teil weiter – schwache Geister unter dem Boden
+        if (mk > 0 && bounce < 2 && g * mk > 0.004) {
+          g *= mk;
+          flag |= 8;
+          const dn = dx * hit.nx + dy * hit.ny + dz * hit.nz;
+          dx -= 2 * dn * hit.nx; dy -= 2 * dn * hit.ny; dz -= 2 * dn * hit.nz;
+          const sn = dn > 0 ? -1 : 1;
+          ox = px + hit.nx * 2e-4 * sn; oy = py + hit.ny * 2e-4 * sn; oz = pz + hit.nz * 2e-4 * sn;
+          continue;
+        }
         return;
       }
       if (kind === 3) { // Retroreflektor: Rückstrahlung fast unabhängig vom Winkel
@@ -340,7 +359,9 @@ export class BeamSim {
       let rho = this.cE[c];
       if (this.alpha > 0) rho *= Math.exp(-2 * this.alpha * r);
       this.cA[c] = rho;
-      const q = rho * r10sq * this.sunK * this.sunK / (0.1 * r * r);
+      let q = rho * r10sq * this.sunK * this.sunK / (0.1 * r * r);
+      // Nahbereich: Sende- und Empfangskeule überlappen erst ab etwa der doppelten Mindestentfernung vollständig
+      if (r < this.rMin * 2) { const ov = (r - this.rMin) / this.rMin; q *= ov * ov * (3 - 2 * ov); }
       this.cQ[c] = q;
       if (q <= 0) continue;
       const P = q > 50 ? 1 : 1 / (1 + Math.pow(q, -3));
@@ -388,14 +409,14 @@ export class BeamSim {
       const foot = r * this.ah * tanT * 0.35;
       sig = Math.sqrt(sig * sig + foot * foot + this.cRough[c] * this.cRough[c]);
       // Range-Walk: schwache Pulse wirken weiter, gesättigte näher
-      let bias = this.biasConst;
+      let bias = this.biasConst + (this.calR ? this.calR[ring % this.calR.length] : 0) + (this.dyn ? this.dyn.bias || 0 : 0);
       if (q > this.satQ) bias -= this.satBias;
       else bias += this.walk * Math.max(0, 1 - Math.log10(Math.max(q, 1)) / 2);
       r += bias + rng.gauss() * sig;
       if (this.quant > 0) r = Math.round(r / this.quant) * this.quant;
       if (r < this.rMin) continue;
       // Reflektivität (kalibriert, Velodyne-Skala: 0–100 diffus, 101–255 Retro)
-      let rhoHat = this.cA[c] * (1 + rng.gauss() * 0.04);
+      let rhoHat = this.cA[c] * (1 + rng.gauss() * 0.04) * (this.calG ? this.calG[ring % this.calG.length] : 1);
       let inten;
       if (rhoHat <= 1) inten = Math.max(0, Math.min(100, Math.round(rhoHat * 100)));
       else inten = Math.min(255, 101 + Math.round(Math.log10(rhoHat) * 60));
@@ -426,12 +447,22 @@ export class BeamSim {
           cr = M[mo + 9] * L; cg = M[mo + 10] * L; cb = M[mo + 11] * L;
         }
       }
+      // Umgebungslicht (passives NIR-Bild, wie der Ambient-Kanal von Ouster): Albedo × Tageslicht/Raumlicht, verrauscht
+      let amb = 0;
+      if (mat >= 0) {
+        const mo = mat * MAT_STRIDE, sd = this.env.sunDir;
+        const lam = Math.max(0, this.cNx[c] * sd[0] + this.cNy[c] * sd[1] + this.cNz[c] * sd[2]);
+        const rho0 = this.l1550 ? M[mo + 2] : M[mo + 1];
+        const E = (this.env.ambient ?? 0.45) * (this.env.sun > 0 ? 0.9 : 0.35) + (this.env.sunI ?? 0.75) * (this.env.sun || 0) * lam * 1.6;
+        amb = rho0 * E;
+      }
+      amb = Math.max(0, amb + rng.gauss() * 0.012 + 0.01);
       const flags = this.cF[c];
       const Rm = this.R;
       const px = lx * r, py = ly * r, pz = lz * r;
       sink.push(t, px, py, pz,
         ox + Rm[0] * px + Rm[1] * py + Rm[2] * pz, oy + Rm[3] * px + Rm[4] * py + Rm[5] * pz, oz + Rm[6] * px + Rm[7] * py + Rm[8] * pz,
-        inten, ring, col, i + 1, ns, this.cO[c], cls, cr, cg, cb, flags);
+        inten, ring, col, i + 1, ns, this.cO[c], cls, cr, cg, cb, flags, amb);
       out++;
       // Blooming um gesättigte Retroreflektoren: Streulicht erzeugt Phantompunkte in Nachbarrichtungen
       if ((flags & 2) && q > this.satQ && this.bloom > 0) {
@@ -485,17 +516,18 @@ export class PointSink {
     this.rgb = new Uint8Array(cap * 3);
     this.f = new Uint8Array(cap);
     this.t = new Float64Array(cap);
+    this.amb = new Uint8Array(cap);
   }
   grow() {
     const old = this;
-    const o = { ls: this.ls, w: this.w, i: this.i, ring: this.ring, col: this.col, ret: this.ret, obj: this.obj, cls: this.cls, rgb: this.rgb, f: this.f, t: this.t, n: this.n };
+    const o = { ls: this.ls, w: this.w, i: this.i, ring: this.ring, col: this.col, ret: this.ret, obj: this.obj, cls: this.cls, rgb: this.rgb, f: this.f, t: this.t, amb: this.amb, n: this.n };
     this.alloc(this.cap * 2);
     this.n = o.n;
     this.ls.set(o.ls); this.w.set(o.w); this.i.set(o.i); this.ring.set(o.ring); this.col.set(o.col); this.ret.set(o.ret);
-    this.obj.set(o.obj); this.cls.set(o.cls); this.rgb.set(o.rgb); this.f.set(o.f); this.t.set(o.t);
+    this.obj.set(o.obj); this.cls.set(o.cls); this.rgb.set(o.rgb); this.f.set(o.f); this.t.set(o.t); this.amb.set(o.amb);
     return old;
   }
-  push(t, lx, ly, lz, wx, wy, wz, inten, ring, col, retNo, nRet, obj, cls, r, g, b, flags) {
+  push(t, lx, ly, lz, wx, wy, wz, inten, ring, col, retNo, nRet, obj, cls, r, g, b, flags, amb = 0) {
     if (this.n >= this.cap) this.grow();
     const k = this.n++, k3 = k * 3;
     this.ls[k3] = lx; this.ls[k3 + 1] = ly; this.ls[k3 + 2] = lz;
@@ -505,6 +537,7 @@ export class PointSink {
     this.obj[k] = obj; this.cls[k] = cls;
     if (r || g || b) { this.rgb[k3] = srgb8(r); this.rgb[k3 + 1] = srgb8(g); this.rgb[k3 + 2] = srgb8(b); }
     this.f[k] = flags; this.t[k] = t;
+    this.amb[k] = amb >= 1 ? 255 : (Math.sqrt(amb) * 255) | 0; // wurzelskaliert wie ein 8-Bit-Kamerabild
   }
   // kompakte Kopie zum Übertragen
   take() {
@@ -512,10 +545,10 @@ export class PointSink {
     const out = {
       n,
       ls: this.ls.slice(0, n * 3), w: this.w.slice(0, n * 3), i: this.i.slice(0, n), ring: this.ring.slice(0, n), col: this.col.slice(0, n),
-      ret: this.ret.slice(0, n), obj: this.obj.slice(0, n), cls: this.cls.slice(0, n), rgb: this.rgb.slice(0, n * 3), f: this.f.slice(0, n), t: this.t.slice(0, n),
+      ret: this.ret.slice(0, n), obj: this.obj.slice(0, n), cls: this.cls.slice(0, n), rgb: this.rgb.slice(0, n * 3), f: this.f.slice(0, n), t: this.t.slice(0, n), amb: this.amb.slice(0, n),
     };
     this.n = 0;
     return out;
   }
-  static transferables(o) { return [o.ls.buffer, o.w.buffer, o.i.buffer, o.ring.buffer, o.col.buffer, o.ret.buffer, o.obj.buffer, o.cls.buffer, o.rgb.buffer, o.f.buffer, o.t.buffer]; }
+  static transferables(o) { return [o.ls.buffer, o.w.buffer, o.i.buffer, o.ring.buffer, o.col.buffer, o.ret.buffer, o.obj.buffer, o.cls.buffer, o.rgb.buffer, o.f.buffer, o.t.buffer, o.amb.buffer]; }
 }

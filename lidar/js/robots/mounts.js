@@ -894,6 +894,15 @@ export class Mounts {
     const j = this.job;
     for (const c of Object.values(this.park)) if (c.kind === 'drohne') this.updateDrone(c, dt);
     if (!j) return;
+    // Sensor bootet oder Motor läuft an: Plattform wartet (ohne Daten loszufahren wäre sinnlos)
+    const d = this.app.dev;
+    if (d && d.unit && d.state === 'stream' && !d.unit.ready) {
+      if (this.cur && this.cur.kind === 'rover' && this.cur.robot) this.cur.robot.setWheels(0, 0);
+      j.waitSensor = true;
+      if (j.poll) j.poll();
+      return;
+    }
+    j.waitSensor = false;
     if (j.gen && dt > 0 && !j.genDone) {
       try { if (j.gen.next(dt).done) j.genDone = true; } catch (e) { console.error(e); this.stopJob('Autoscan gestoppt: ' + (e.message || e)); return; }
     }
