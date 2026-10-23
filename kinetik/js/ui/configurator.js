@@ -87,7 +87,7 @@ export class Configurator {
     });
 
     // Werkzeug
-    const tools = Object.fromEntries(Object.entries(TOOLS).filter(([, v]) => v.robots.includes(c.type)));
+    const tools = Object.fromEntries(Object.entries(TOOLS).filter(([, v]) => v.robots.includes(c.type) && !v.hidden));
     this.section('werkzeug', c.type === 'rover' ? 'Aufbau' : 'Werkzeug', 'wrench', TOOLS[c.werkzeug].name, (body) => {
       this.choice(body, null, tools, c.werkzeug, (k) => this.change({ werkzeug: k }), (o) => ({ model: o.model, desc: o.desc, price: o.price * (c.type === 'humanoid' ? 2 : 1), specs: [o.force ? ['Greifkraft', `${fmtNum(o.force, 0)} N`] : null, ['Masse', `${fmtNum(o.mass, 2)} kg`]].filter(Boolean) }));
     });

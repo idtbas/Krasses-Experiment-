@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { h, seg, toast, fmtInt, select } from '../../ui/dom.js';
 import { icon } from '../../ui/icons.js';
 import { derivedScan } from '../../cloud/project.js';
-import { MESH_LAYER } from '../../cloud/cloud.js';
+import { meshScan, addMeshToProject } from '../../cloud/meshing.js';
 import { pickPoint } from './measure.js';
 
 function current(f) {
@@ -132,56 +132,18 @@ export async function tap(f, info) {
   publish(f, s, derivedScan(s, g, r.mask, s.name + ' · Objekt'), `Objekt isoliert: ${fmtInt(r.count)} zusammenhängende Punkte`);
 }
 
-// Ursprung (Scannerposition) je Punkt für die TSDF-Integration
-function originsFor(scans) {
-  const parts = [], origins = [];
-  for (const s of scans) {
-    const g = s.cloud.gather();
-    const oi = new Uint16Array(g.n);
-    if (s.traj && s.traj.length) {
-      // mobile Aufnahme: Trajektorie (t, x, y, z) – nächster Zeitpunkt
-      const base = origins.length / 3;
-      for (const q of s.traj) origins.push(q[1], q[2], q[3]);
-      let j = 0;
-      const order = Array.from({ length: g.n }, (_, k) => k).sort((x, y) => g.t[x] - g.t[y]);
-      for (const k of order) { while (j < s.traj.length - 1 && s.traj[j + 1][0] <= g.t[k]) j++; oi[k] = base + j; }
-    } else {
-      let root = s;
-      while (root.parent && !root.local && !root.traj) root = root.parent;
-      const o = new THREE.Vector3().setFromMatrixPosition(root.pose || new THREE.Matrix4());
-      if (!root.local && root.origin) o.copy(root.origin);
-      oi.fill(origins.length / 3);
-      origins.push(o.x, o.y, o.z);
-    }
-    parts.push({ g, oi });
-  }
-  return { parts, origins: new Float32Array(origins) };
-}
-
 async function mesh(f, s) {
   const a = f.app;
   const voxel = f.eopts.mesh;
-  const { parts, origins } = originsFor([s]);
-  const g = parts[0].g;
-  if (g.n > 3e6) { toast('Für das Vernetzen bitte erst ausdünnen oder zuschneiden (höchstens 3 Mio. Punkte).', 'warn'); return; }
+  if (s.points > 3e6) { toast('Für das Vernetzen bitte erst ausdünnen oder zuschneiden (höchstens 3 Mio. Punkte).', 'warn'); return; }
   msg(f, `Vernetzen (Voxel ${voxel * 100} cm) …`);
   const t0 = performance.now();
-  const r = await a.proc.run('mesh', { pos: g.pos.slice(), rgb: g.rgb.slice(), origins, oIndex: parts[0].oi, voxel, trunc: voxel * 3, box: null });
-  if (!r.index.length) { msg(f, 'Kein Netz entstanden – zu wenige Punkte?'); return; }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(r.pos, 3));
-  const hasRGB = r.rgb.some((v) => v > 0);
-  if (hasRGB) { const c = new Float32Array(r.rgb.length); for (let i = 0; i < c.length; i++) c[i] = Math.pow(r.rgb[i] / 255, 2.2); geo.setAttribute('color', new THREE.BufferAttribute(c, 3)); }
-  geo.setIndex(new THREE.BufferAttribute(r.index, 1));
-  geo.computeVertexNormals();
-  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: hasRGB ? '#ffffff' : '#b8c4d0', vertexColors: hasRGB, roughness: 0.8, metalness: 0, side: THREE.DoubleSide, flatShading: false }));
-  m.layers.set(MESH_LAYER);
-  a.world.clouds.add(m);
-  a.project.meshes = a.project.meshes || [];
-  const item = { name: `Netz · ${s.name}`, mesh: m, data: { pos: r.pos, rgb: r.rgb, index: r.index }, voxel, scan: s };
-  a.project.meshes.push(item);
+  const res = await meshScan(a, s, voxel);
+  if (!res) { msg(f, 'Kein Netz entstanden – zu wenige Punkte?'); return; }
+  addMeshToProject(a, s, res, voxel);
   s.visible = false;
-  msg(f, `Netz: ${fmtInt(r.index.length / 3)} Dreiecke in ${fmtInt(performance.now() - t0)} ms`);
-  toast(`Netz erstellt: ${fmtInt(r.index.length / 3)} Dreiecke`, 'ok');
+  const n = res.r.index.length / 3;
+  msg(f, `Netz: ${fmtInt(n)} Dreiecke in ${fmtInt(performance.now() - t0)} ms`);
+  toast(`Netz erstellt: ${fmtInt(n)} Dreiecke`, 'ok');
   f.render();
 }

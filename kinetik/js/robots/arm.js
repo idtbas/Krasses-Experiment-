@@ -119,6 +119,7 @@ export class Arm extends Robot {
     this.add(hand, boltCircle(0.025, 4, 0.003, 0.002, Mat.anodized()), 0, 0.008, 0);
     this.handPart = hand;
     this.buildTool(hand);
+    if (this.tipLen == null) this.tipLen = 0.012; // Sensorflansch ohne Greifer
 
     // Module
     if (this.config.module.some((m) => MAST_MODULES.includes(m))) {

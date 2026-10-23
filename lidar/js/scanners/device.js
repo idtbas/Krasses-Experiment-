@@ -63,6 +63,7 @@ export class ScannerDevice {
     this.t = 0;                // Sensorzeit (s)
     this.pending = 0;          // noch zu rechnende Zeit
     this.inflight = 0;
+    this.open = new Set();     // Startzeiten noch laufender Fenster
     this.poses = [];           // Verlauf [t, pose7]
     this.stats = { pts: 0, shots: 0, rate: 0, srate: 0, bytes: bytesPerPoint(spec), lastN: 0, frames: 0 };
     this.live = null;
@@ -137,10 +138,18 @@ export class ScannerDevice {
     this.t = this.app.clock.t;
     this.pending = 0;
     this.poses = [];
+    this.open.clear();
     this.stats.win = [];
     this.recordPose(this.t);
   }
   stop() { this.state = 'idle'; this.pending = 0; }
+
+  // bis zu diesem Zeitpunkt liegen alle Messungen vor (ältestes noch offenes Fenster)
+  get doneUntil() {
+    let m = this.t;
+    for (const t of this.open) if (t < m) m = t;
+    return m;
+  }
 
   // pro Bild: Zeit fortschreiben und Fenster an die Engine geben
   tick(dt, simT) {
@@ -150,13 +159,13 @@ export class ScannerDevice {
     this.pending = Math.max(0, simT - this.t);
     const eng = this.app.engine;
     const maxIn = eng.n * 2;
-    const win = this.kind === 'depth' ? 1 / this.set.hz : Math.min(0.05, Math.max(0.01, this.pattern.period / 2));
+    const win = this.kind === 'depth' ? 1 / this.set.hz : this.kind === 'phone' ? this.pattern.period : Math.min(0.05, Math.max(0.01, this.pattern.period / 2));
     let guard = 0;
     while (this.pending >= win * 0.999 && this.inflight < maxIn && guard++ < 8) {
       const t0 = this.t, t1 = t0 + win;
       this.t = t1;
       this.pending -= win;
-      if (this.kind === 'depth') this.requestDepth(t0);
+      if (this.kind === 'depth' || this.kind === 'phone') this.requestDepth(t0);
       else this.requestWindow(t0, t1);
     }
   }
@@ -165,20 +174,28 @@ export class ScannerDevice {
     const A = this.poseAt(t0), B = this.poseAt(t1);
     const est = (this.pattern.rate || 1e5) * (t1 - t0);
     this.inflight++;
+    this.open.add(t0);
     this.app.engine.scan(this.id, t0, t1, A, B, est).then((parts) => {
       this.inflight--;
       for (const m of parts) this.ingest(m.data, m.shots);
-    }).catch((e) => { this.inflight--; console.error(e); });
+      this.open.delete(t0);
+    }).catch((e) => { this.inflight--; this.open.delete(t0); console.error(e); });
   }
 
   requestDepth(t) {
     const P = this.poseAt(t);
     this.inflight++;
-    this.app.engine.depth(this.id, t, P, { decimate: this.set.decimate || 4 }).then((m) => {
+    this.open.add(t);
+    const opts = this.kind === 'phone' ? { w: 256, h: 192 } : { decimate: this.set.decimate || 4 };
+    this.app.engine.depth(this.id, t, P, opts).then((m) => {
       this.inflight--;
       this.lastDepth = m;
+      m.t = t; m.P = P;
       if (m.data) this.ingest(m.data, m.w * m.h);
-    }).catch((e) => { this.inflight--; console.error(e); });
+      if (m.dots) this.ingest(m.dots, 576); // Rohdaten des dToF-Sensors
+      if (this.onDepth) this.onDepth(m, this);
+      this.open.delete(t);
+    }).catch((e) => { this.inflight--; this.open.delete(t); console.error(e); });
   }
 
   ingest(data, shots) {

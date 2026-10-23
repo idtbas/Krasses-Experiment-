@@ -97,12 +97,15 @@ export class World {
 
   clear() {
     this.sim.clear();
+    this.physicsEnv();
     for (const c of [...this.content.children]) c.removeFromParent();
     for (const c of [...this.helpers.children]) c.removeFromParent();
     this.objects = [];
     this.nextId = 1;
     this.animated = [];
     this.def = null;
+    this.bounds = null;
+    this.turntable = null;
   }
 
   // Objekt registrieren: eigene ID, eigene Instanz im Scan-Kern (außer static: true)
@@ -116,6 +119,27 @@ export class World {
     this.objects.push(o);
     if (info.solid) this.addCollider(root);
     return o;
+  }
+
+  // Physik passend zu ECHO: großer Boden statt der KINETIK-Halle, Begrenzung je Szene (setBounds)
+  physicsEnv() {
+    const ph = this.sim.physics, R = ph.R, w = ph.world, g = ph.ground;
+    const old = [];
+    for (let i = 0; i < g.numColliders(); i++) old.push(g.collider(i));
+    for (const c of old) { ph.info.delete(c.handle); w.removeCollider(c, false); }
+    const env = ph.groupsEnv;
+    const floor = w.createCollider(R.ColliderDesc.cuboid(200, 0.5, 200).setTranslation(0, -0.5, 0).setFriction(0.85).setCollisionGroups(env), g);
+    ph.info.set(floor.handle, { kind: 'floor', color: 'weiß' });
+  }
+  setBounds(b) {
+    if (!b) return;
+    const ph = this.sim.physics, R = ph.R, w = ph.world, g = ph.ground, env = ph.groupsEnv;
+    const [x0, x1, z0, z1] = b, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, hx = (x1 - x0) / 2, hz = (z1 - z0) / 2;
+    for (const [sx, sy, px, pz] of [[hx, 0.2, cx, z0 - 0.2], [hx, 0.2, cx, z1 + 0.2], [0.2, hz, x0 - 0.2, cz], [0.2, hz, x1 + 0.2, cz]]) {
+      const c = w.createCollider(R.ColliderDesc.cuboid(sx, 1.5, sy).setTranslation(px, 1.5, pz).setCollisionGroups(env), g);
+      ph.info.set(c.handle, { kind: 'wand', color: 'grau' });
+    }
+    this.bounds = b;
   }
 
   objectById(id) { return this.objects.find((o) => o.id === id) || null; }

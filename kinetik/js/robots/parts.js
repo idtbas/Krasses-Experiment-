@@ -64,6 +64,8 @@ export const TOOLS = {
   lackier: { name: 'Lackierpistole', model: 'SP-1 HVLP', desc: 'Beschichtet Werkstücke unter der Düse in einer wählbaren Farbe. Greift nicht.', mass: 0.4, price: 1350, gtype: 'lackier', robots: ['arm'] },
   frontgreifer: { name: 'Frontgreifer', model: 'FG-2', desc: 'Zangengreifer an der Front für Behälter und Werkstücke bis 1 kg.', force: 16.8, mass: 0.4, price: 640, gtype: 'zange', robots: ['rover'] },
   keins: { name: 'Ohne Werkzeug', model: '–', desc: 'Leichter und günstiger.', mass: 0, price: 0, gtype: null, robots: ['rover'] },
+  // nur für ECHO (LiDAR-Studio): Adapterplatte für Sensoren, im Konfigurator ausgeblendet
+  flansch: { name: 'Sensorflansch', model: 'SF-1', desc: 'Adapterplatte für Scanner und Kameras.', mass: 0.15, price: 120, gtype: 'flansch', robots: ['arm'], hidden: true },
 };
 
 /* ---------------- Module (Sensorik und Signalgeber) ---------------- */

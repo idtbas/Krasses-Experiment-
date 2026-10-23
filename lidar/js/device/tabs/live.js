@@ -1,6 +1,7 @@
 // Live: Datenstrom, Darstellung, Kennzahlen
 import { h, seg, toggle, slider, field, stat, fmtInt } from '../../ui/dom.js';
 import { icon } from '../../ui/icons.js';
+import * as platform from './platform.js';
 
 export function render(f, P) {
   const a = f.app, d = f.dev;
@@ -18,6 +19,8 @@ export function render(f, P) {
   row.appendChild(h('div.grow'));
   row.appendChild(toggle('Live-Punkte', f.showLive, (v) => { f.showLive = v; }));
   P.appendChild(row);
+  f._plat = null;
+  if (d.mountKind !== 'stativ') platform.render(f, P);
   if (tls && d.state === 'tls') {
     const bar = h('div.progress', h('i'));
     f._tlsBar = bar.firstChild;
@@ -40,6 +43,7 @@ export function tick(f) {
   const d = f.dev;
   if (!d || !f._stats) return;
   if (f._tlsBar) f._tlsBar.style.width = Math.round((f.tlsProgress || 0) * 100) + '%';
+  platform.tick(f);
   const s = d.stats;
   const hit = s.srate > 0 ? (s.rate / s.srate) * 100 : 0;
   const env = f.app.world.weather;

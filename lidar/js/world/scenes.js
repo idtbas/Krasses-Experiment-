@@ -117,7 +117,7 @@ function buildHalle(world) {
 
   // ---------- Einrichtung ----------
   place(world, P.rack(3), -6.2, 0, -6.6, 0, { name: 'Hochregal', kind: 'regal', solid: true, blasKey: 'rack3' });
-  place(world, P.forklift(), -3.4, 0, -3.2, Math.PI * 0.9, { name: 'Gabelstapler', kind: 'fahrzeug', solid: true });
+  place(world, P.forklift(), -3.4, 0, -1.9, Math.PI * 0.9, { name: 'Gabelstapler', kind: 'fahrzeug', solid: true });
   for (const [x, z, s] of [[1.2, -6.6, 11], [2.6, -6.6, 12], [1.2, -5.2, 13]]) place(world, P.palletLoad(3, s), x, 0, z, 0, { name: 'Palette mit Kartons', kind: 'palette', solid: true });
   place(world, P.pallet(), 4.0, 0, -6.6, 0, { name: 'Leere Europalette', kind: 'palette', blasKey: 'pallet' });
   place(world, P.pallet(), 4.0, 0.144, -6.6, 0.03, { name: 'Leere Europalette', kind: 'palette', blasKey: 'pallet' });
@@ -136,7 +136,7 @@ function buildHalle(world) {
   place(world, P.convexMirror(0.3, 2.4), 2.0, 0, 1.85, -Math.PI * 0.75, { name: 'Verkehrsspiegel (konvex)', kind: 'spiegel' });
   place(world, P.person('arbeit', 0.15), 1.2, 0, 3.3, -0.6, { name: 'Person mit Warnweste', kind: 'person' });
   place(world, P.checkerTarget(), 3.4, 0, 0.9, -Math.PI / 2 + 0.3, { name: 'Schachbrett-Zielmarke', kind: 'prüfmittel' });
-  for (const [x, z] of [[2.8, 2.6], [-2.4, 2.9], [-0.6, -2.7]]) place(world, P.sphereTarget(1.1), x, 0, z, 0, { name: 'Referenzkugel Ø 145 mm', kind: 'prüfmittel', blasKey: 'sphere' });
+  for (const [x, z] of [[2.8, 2.6], [-2.4, 2.9], [0.4, -3.6]]) place(world, P.sphereTarget(1.1), x, 0, z, 0, { name: 'Referenzkugel Ø 145 mm', kind: 'prüfmittel', blasKey: 'sphere' });
   place(world, P.reflectanceBoard(), 8.2, 0, 0.4, -Math.PI / 2, { name: 'Reflektivitätstafel 5/10/50/90 %', kind: 'prüfmittel' });
   // Glasscheibe (Trennwand Meisterbüro) und Spiegel – typische LiDAR-Fallen
   const office = new THREE.Group();
@@ -150,7 +150,7 @@ function buildHalle(world) {
   office.add(mesh(G.box(0.5, 0.95, 0.5), lm('textil_dunkel'), -0.4, 0.47, 0.85));
   office.add(mesh(G.box(0.55, 0.35, 0.04), lm('bildschirm'), -0.4, 0.98, 0.0));
   bake(office);
-  place(world, office, -6.2, 0, 2.4, 0, { name: 'Meisterbüro mit Glaswand', kind: 'gebäude', static: true });
+  place(world, office, -6.2, 0, 2.4, 0, { name: 'Meisterbüro mit Glaswand', kind: 'gebäude', static: true, solid: true });
   const mir = new THREE.Group();
   mir.add(mesh(G.box(1.2, 1.8, 0.02), lm('spiegel'), 0, 1.3, 0.01));
   mir.add(mesh(G.box(1.26, 1.86, 0.03), lm('alu_blech'), 0, 1.3, -0.01));
@@ -210,7 +210,7 @@ function buildAussen(world) {
   c.add(env);
   world.register(env, { name: 'Straße und Gelände', kind: 'gelände', static: true, target: false });
   // Wohnhaus (Front zur Straße), Garten, Zaun
-  place(world, O.house(12, 8, 2), 0, 0.1, 14.2, Math.PI, { name: 'Wohnhaus', kind: 'gebäude', static: true });
+  place(world, O.house(12, 8, 2), 0, 0.1, 14.2, Math.PI, { name: 'Wohnhaus', kind: 'gebäude', static: true, solid: true });
   place(world, O.picketFence(14), 0, 0.12, 6.45, 0, { name: 'Gartenzaun', kind: 'zaun', static: true });
   place(world, O.tree(8.5, 2), -9, 0.1, 9, 0, { name: 'Laubbaum', kind: 'vegetation', static: true });
   place(world, O.tree(6.5, 7, { autumn: true, leaves: 12000 }), 12, 0.1, -9.5, 0, { name: 'Laubbaum (Herbst)', kind: 'vegetation', static: true });
@@ -366,7 +366,7 @@ export const SCENES = {
   halle: {
     id: 'halle', name: 'Werkhalle', sub: 'Industrie · 24 × 16 × 7,5 m', lighting: 'indoor', bg: '#1b1f24',
     desc: 'Stahlbau, Wellblech, Regale, Rohrbrücke, Stapler, Glaswand und Spiegel – plus Prüfmittel.',
-    build: buildHalle,
+    build: buildHalle, bounds: [-11.75, 11.75, -7.7, 7.7],
     start: { scanner: [0, 0, 0.2], cam: { target: [-1, 1.0, 0], dist: 9.5, yaw: 1.4, pitch: 0.5 } },
   },
   aussen: {
@@ -378,7 +378,7 @@ export const SCENES = {
   wohnung: {
     id: 'wohnung', name: 'Wohnung', sub: 'Innenraum · 6,4 × 4,8 m', lighting: 'indoor', bg: '#20242a',
     desc: 'Möbel, Bücherregal, Glastisch, Fernseher (schwarzer Hochglanz), Spiegelschrank – ideal für den Smartphone-Vergleich.',
-    build: buildWohnung,
+    build: buildWohnung, bounds: [-3.15, 3.15, -2.35, 2.35],
     start: { scanner: [0.6, 0, 0.3], cam: { target: [0, 0.8, 0], dist: 7.5, yaw: Math.PI + 0.55, pitch: 0.72 } },
   },
   pruef: {
@@ -390,7 +390,7 @@ export const SCENES = {
   messraum: {
     id: 'messraum', name: 'Messraum', sub: 'Drehteller · Objekte', lighting: 'indoor', bg: '#23272c',
     desc: 'Objekt auf dem Drehteller: Büste, Motorblock, Vase, Skulptur, Prüfkörper. Mit Roboterarm und Fahrroboter scannbar.',
-    build: buildMessraum,
+    build: buildMessraum, bounds: [-4.45, 4.45, -3.45, 3.45],
     start: { scanner: [0, 0, 1.6, Math.PI], cam: { target: [0, 1.0, 0], dist: 5.2, yaw: 0.6, pitch: 0.35 } },
   },
 };

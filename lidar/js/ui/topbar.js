@@ -70,7 +70,9 @@ export class TopBar {
     const a = this.app, d = a.dev;
     const items = [{ head: 'Halterung für ' + (d ? d.spec.model : 'Scanner') }];
     for (const [k, label, sub, ic] of MOUNTS) {
-      if (!a.mountAllowed || a.mountAllowed(k)) items.push({ label, sub, icon: ic, on: d && d.mountKind === k, run: () => a.setMount(k) });
+      const why = a.mountWhyNot(k);
+      if (k === 'stativ' && !a.mountAllowed(k)) continue;
+      items.push({ label, sub: why ? '✕ ' + why : sub, icon: ic, on: d && d.mountKind === k, disabled: !!why, run: () => { if (!why) a.setMount(k); } });
     }
     popover(this.mount, items, { width: 300 });
   }

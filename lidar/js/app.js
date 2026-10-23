@@ -12,6 +12,7 @@ import { ScannerDevice } from './scanners/device.js';
 import { Project } from './cloud/project.js';
 import { Proc } from './cloud/proc.js';
 import { FieldPC } from './device/fieldpc.js';
+import { Mounts } from './robots/mounts.js';
 import { TopBar } from './ui/topbar.js';
 import { Home } from './ui/home.js';
 import { h, toast } from './ui/dom.js';
@@ -37,6 +38,7 @@ export class App {
     this.project = new Project(this);
     this.proc = new Proc();
     this.edl = new EDLPass();
+    this.mounts = new Mounts(this);
     this.buildUI();
     this.setupViews();
     this.keys();
@@ -168,10 +170,12 @@ export class App {
   /* ---------------- Szene & Geräte ---------------- */
   async loadScene(id) {
     const def = SCENES[id];
+    if (this.mounts) this.mounts.reset();
     for (const d of this.devices) { d.stop(); d.unmount(); }
     this.world.clear();
     this.world.setLighting(def.lighting, { bg: def.bg, ...(def.light || {}) });
     def.build(this.world, { object: this.studioObject });
+    this.world.setBounds(def.bounds);
     this.world.def = def;
     this.sceneId = id;
     this.engine.setEnv(this.world.setWeather(def.weather || 'klar'));
@@ -295,9 +299,11 @@ export class App {
     else if (lag > 0.1) dt *= 0.5;
     C.t += dt;
     C.factor += ((dtr > 0 ? dt / dtr : 0) - C.factor) * Math.min(1, dtr * 3);
+    this.mounts.update(dt);
     this.world.update(dt, C.t);
     this.lw.sync();
     for (const d of this.devices) { d.tick(dt, C.t); d.measure(); }
+    if (this.fpc.recording) this.fpc.recording.loc.update(C.t);
     this.orbit.update(dtr);
     this.vorbit.update(dtr);
     this.fpc.frame(dtr);
@@ -330,12 +336,17 @@ export class App {
     const d = this.dev;
     if (!d) return false;
     if (kind === 'stativ') return d.kind !== 'phone';
-    return !!(this.mounts && this.mounts.allowed(kind, d));
+    return this.mounts.allowed(kind, d);
   }
+  mountWhyNot(kind) { return this.dev && kind !== 'stativ' ? this.mounts.whyNot(kind, this.dev) : null; }
   async setMount(kind) {
-    if (kind === 'stativ') { this.dev.mountOn('stativ'); await this.rebuildLidar(); this.top.render(); return; }
-    if (this.mounts) await this.mounts.attach(kind, this.dev);
+    const d = this.dev;
+    if (!d || d.mountKind === kind) return;
+    if (this.fpc.recording) this.fpc.toggleRecord();
+    if (kind === 'stativ') { const on = d.state === 'stream'; this.mounts.toTripod(d); await this.rebuildLidar(); if (on) d.start(); }
+    else await this.mounts.attach(kind, d);
     this.top.render();
+    this.fpc.render();
   }
 
   setWeather(k) {

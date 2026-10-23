@@ -37,7 +37,7 @@ export function popover(anchor, items, opts = {}) {
   const pop = h('div.pop');
   for (const it of items) {
     if (it.head) { pop.appendChild(h('div.hd.cap', it.head)); continue; }
-    const o = h('div.opt' + (it.on ? '.on' : ''), { html: (it.icon ? icon(it.icon) : '') + `<div><div>${it.label}</div>${it.sub ? `<small>${it.sub}</small>` : ''}</div>` });
+    const o = h('div.opt' + (it.on ? '.on' : '') + (it.disabled ? '.off' : ''), { html: (it.icon ? icon(it.icon) : '') + `<div><div>${it.label}</div>${it.sub ? `<small>${it.sub}</small>` : ''}</div>` });
     o.addEventListener('click', () => { closePop(); it.run && it.run(); });
     pop.appendChild(o);
   }

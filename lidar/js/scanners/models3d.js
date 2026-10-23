@@ -304,7 +304,8 @@ function phone(b) {
   for (const [x, y] of [[-0.009, 0.009], [-0.009, -0.009], [0.009, 0]]) bump.add(mesh(Geo.cyl(0.0068, 0.0068, 0.0035, 24), M.lens(), x, y, 0.003).rotateX(Math.PI / 2));
   bump.add(mesh(Geo.cyl(0.0028, 0.0028, 0.003, 16), M.window(), 0.009, 0.0105, 0.003).rotateX(Math.PI / 2));
   bump.add(mesh(Geo.cyl(0.002, 0.002, 0.003, 12), Mat.glow('#fff4d6', 0.6), 0.009, -0.0105, 0.003).rotateX(Math.PI / 2));
-  return { g, sensorY: h * 0.86 + 0.0105, sensorX: -w * 0.22 + 0.009, sensorZ: d / 2 + 0.004, rotor: null, height: h };
+  // Bildsensor und Tiefenbild liegen längs der Telefonlängsachse (Querformat = Breitbild)
+  return { g, sensorY: h * 0.86 + 0.0105, sensorX: -w * 0.22 + 0.009, sensorZ: d / 2 + 0.004, sensorRoll: Math.PI / 2, rotor: null, height: h };
 }
 
 function l515(b) {
@@ -335,7 +336,7 @@ export function buildScannerModel(spec) {
   const sensor = new THREE.Object3D();
   sensor.name = 'Optisches Zentrum';
   if (m.headRotor) { sensor.position.set(0, 0.04, 0); m.headRotor.add(sensor); }
-  else { sensor.position.set(m.sensorX || 0, m.sensorY, m.sensorZ || 0); m.g.add(sensor); }
+  else { sensor.position.set(m.sensorX || 0, m.sensorY, m.sensorZ || 0); if (m.sensorRoll) sensor.rotation.z = m.sensorRoll; m.g.add(sensor); }
   m.g.userData.noLidar = true;
   m.g.name = spec.model;
   return { group: m.g, sensor, rotor: m.rotor, rotorSpins: !!m.rotorSpins, mirror: m.mirror || null, mirrorAxis: m.mirrorAxis || 'x', headRotor: m.headRotor || null, height: m.height };

@@ -6,6 +6,7 @@ import { icon } from '../ui/icons.js';
 import { COLOR_MODES } from '../cloud/cloud.js';
 import { Scan } from '../cloud/project.js';
 import { makePattern } from '../scanners/patterns.js';
+import { Localizer } from '../cloud/localizer.js';
 import * as live from './tabs/live.js';
 import * as scans from './tabs/scans.js';
 import * as align from './tabs/align.js';
@@ -225,32 +226,31 @@ export class FieldPC {
   }
 
   /* ---------- Aufnahme (mobile Scanner) ---------- */
-  toggleRecord() {
+  // Aufnahme eines bewegten (oder festen) Scanners; die Positionsbestimmung kommt von der Halterung
+  toggleRecord(o = {}) {
     const d = this.dev, a = this.app;
-    if (!d || d.kind === 'tls') return;
+    if (!d || d.kind === 'tls') return null;
     if (this.recording) {
       const r = this.recording;
-      d.onPoints.splice(d.onPoints.indexOf(r.fn), 1);
+      const info = r.loc.finish();
       r.scan.stats.duration = a.clock.t - r.t0;
       r.scan.cloud.recomputeBox();
       this.recording = null;
-      toast(`${r.scan.name}: ${r.scan.points.toLocaleString('de-DE')} Punkte in ${r.scan.stats.duration.toFixed(1)} s aufgenommen`, 'ok');
-    } else {
-      if (d.state !== 'stream') d.start();
-      const scan = new Scan({ kind: 'mobile', spec: d.spec, set: d.set, name: `Aufnahme ${d.spec.model}`, origin: new THREE.Vector3(...d.pose().slice(0, 3)) });
-      a.project.add(scan);
-      scan.traj = [];
-      if (d.spec.pcap) scan.raw = [];
-      const fn = (data) => {
-        scan.cloud.add(data);
-        if (data.n) { const p = d.poseAt(data.t[0]); scan.traj.push([data.t[0], p[0], p[1], p[2]]); }
-        if (scan.raw && scan.raw.length < 4000) scan.raw.push({ n: data.n, ls: data.ls, ring: data.ring, t: data.t, i: data.i, ret: data.ret });
-      };
-      d.onPoints.push(fn);
-      this.recording = { scan, fn, t0: a.clock.t };
+      const drift = info.mode !== 'ideal' && !info.turntable ? ` · Bahnabweichung am Ende ${(info.endErr * 100).toFixed(info.endErr < 0.1 ? 1 : 0)} cm` : '';
+      toast(`${r.scan.name}: ${r.scan.points.toLocaleString('de-DE')} Punkte in ${r.scan.stats.duration.toFixed(1)} s${drift}`, 'ok');
+      a.top.render();
+      this.render();
+      return r.scan;
     }
+    if (d.state !== 'stream') d.start();
+    const pos = a.mounts ? a.mounts.recordOptions(d, o) : { mode: 'ideal', drift: 'fixed', deskew: true };
+    const scan = new Scan({ kind: 'mobile', spec: d.spec, set: d.set, name: o.name || `Aufnahme ${d.spec.model}`, origin: new THREE.Vector3(...d.pose().slice(0, 3)) });
+    a.project.add(scan);
+    const loc = new Localizer(a, d, scan, pos);
+    this.recording = { scan, loc, t0: a.clock.t };
     a.top.render();
     this.render();
+    return scan;
   }
 
   /* ---------- Stationsscan (TLS) ---------- */
