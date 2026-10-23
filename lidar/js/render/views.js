@@ -42,7 +42,7 @@ export class EDLPass {
       uniforms: {
         tColor: { value: null }, tDepth: { value: null }, texel: { value: new THREE.Vector2() },
         near: { value: 0.05 }, far: { value: 500 }, strength: { value: 1.0 }, radius: { value: 1.4 },
-        bgTop: { value: new THREE.Color('#1a2230') }, bgBottom: { value: new THREE.Color('#07090c') }, enabled: { value: 1 },
+        bgTop: { value: new THREE.Color('#14202e') }, bgBottom: { value: new THREE.Color('#030405') }, enabled: { value: 1 },
       },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
       fragmentShader: EDL_FS, depthTest: false, depthWrite: false,
@@ -86,7 +86,7 @@ export class EDLPass {
 export class Views {
   constructor(canvas) {
     this.canvas = canvas;
-    const r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', alpha: false });
+    const r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', alpha: true, premultipliedAlpha: true });
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     r.setPixelRatio(this.dpr);
     r.outputColorSpace = THREE.SRGBColorSpace;
@@ -118,7 +118,7 @@ export class Views {
     const r = this.r;
     r.setScissorTest(false);
     r.setViewport(0, 0, this.W, this.H);
-    r.setClearColor(0x05070a, 1);
+    r.setClearColor(0x000000, 0);
     r.clear(true, true, true);
     for (const v of this.list) {
       if (!v.enabled || !v.el || !v.el.isConnected) continue;

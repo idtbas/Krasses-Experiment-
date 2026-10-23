@@ -130,7 +130,7 @@ export class BeamSim {
     this.r10 = p.r10;
     this.rMax = p.rangeMax;
     this.rMin = p.rangeMin;
-    this.sigma0 = p.sigma;
+    this.sigma0 = p.sigma / Math.sqrt(Math.max(1, opt.quality || 1)); // Mehrfachmessung (TLS „Qualität“) mittelt das Rauschen
     this.sigmaR = p.sigmaR || 0;       // zusätzlicher Anteil proportional zur Entfernung
     this.sigmaR2 = p.sigmaR2 || 0;     // quadratischer Anteil (Triangulation, iToF)
     this.sep = p.echoSep ?? 0.6;
