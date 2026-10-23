@@ -140,6 +140,7 @@ export function tree(height = 8, seed = 1, opts = {}) {
     im.setMatrixAt(i, m4);
   }
   im.castShadow = true; im.receiveShadow = true;
+  bake(g); // Stamm und alle Äste: ein Zeichenaufruf statt Dutzender
   g.add(im);
   return g;
 }

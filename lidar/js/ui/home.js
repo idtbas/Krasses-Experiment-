@@ -55,15 +55,18 @@ export class Home {
     if (!q) return;
     const a = this.app;
     this.hide();
+    // Hinweise eines vorigen Schnellstarts nicht mitnehmen
+    clearTimeout(this.hintTimer); a.setHint(null);
+    const hintFor = (html, ms = 12000) => { a.setHint(html); this.hintTimer = setTimeout(() => a.setHint(null), ms); };
     if (q.scene && q.scene !== a.sceneId) await a.switchScene(q.scene);
     if (q.scanner && (!a.dev || a.dev.spec.id !== q.scanner)) await a.replaceDevice(q.scanner);
     if (q.mount && a.dev.mountKind !== q.mount) await a.setMount(q.mount);
     if (!a.player.hasTablet) a.player.takeTablet();
     if (q.start && a.dev.state !== 'stream') a.toggleStream();
     if (q.auto) { a.fpc.setTab('live'); a.mounts.start(); }
-    if (q.hint) { a.setHint(q.hint); setTimeout(() => a.setHint(null), 12000); }
+    if (q.hint) hintFor(q.hint);
     if (q.flow === 'phoneVsPro') await this.phoneVsPro();
-    if (q.tls) { a.fpc.setTab('scans'); a.setHint(`<b>Tipp:</b> Zum Stativ gehen und <b>F</b> drücken – der Stationsscan läuft. Danach mit <b>G</b> das Stativ samt Scanner tragen, mit <b>E</b> neu aufstellen und erneut scannen.`); setTimeout(() => a.setHint(null), 12000); }
+    if (q.tls) { a.fpc.setTab('scans'); hintFor(`<b>Tipp:</b> Zum Stativ gehen und <b>F</b> drücken – der Stationsscan läuft. Danach mit <b>G</b> das Stativ samt Scanner tragen, mit <b>E</b> neu aufstellen und erneut scannen.`); }
   }
 
   // Ablauf „Smartphone gegen Profi“: Referenz-Stationsscan, dann iPhone-Raumscan, dann Scan-zu-Scan-Vergleich
@@ -103,7 +106,7 @@ export class Home {
     const body = h('div', { html: `
       <p><b>Du bist die Figur.</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> oder Pfeiltasten zum Gehen, <kbd>Shift</kbd> schneller. In die Szene klicken fängt die Maus – dann umsehen, <kbd>Esc</kbd> gibt sie frei. Mausrad: Abstand der Kamera, <kbd>V</kbd>: Schulterblick oder Ich-Sicht. Am iPad: links ziehen zum Gehen, rechts wischen zum Umsehen, Tasten unten rechts.</p>
       <p><b>Aktionen</b> stehen unten in der Mitte, sobald du vor etwas stehst: <kbd>E</kbd> nehmen, aufsetzen, montieren · <kbd>F</kbd> einschalten, Stationsscan, Autoscan, Drehteller · <kbd>R</kbd> Aufnahme · <kbd>G</kbd> ablegen oder das Stativ samt Scanner tragen · <kbd>Q</kbd> markiert das Objekt in der Bildmitte (Ziel für den Autoscan, Sollgeometrie im Vergleich).</p>
-      <p><b>Geräteausgabe</b> (Tisch mit Koffern): <kbd>E</kbd> öffnet den Katalog mit 44 Scannern – der gewählte liegt danach in deiner Hand. Dort liegt auch der <b>Feldrechner</b>: <kbd>F</kbd> nimmt ihn mit, <kbd>Tab</kbd> hält ihn vor dich. Darin: Live-Daten und Abstandsbild, Scans, Ausrichten, Bearbeiten, Messen, Soll-Ist-Vergleich, Export.</p>
+      <p><b>Geräteausgabe</b> (Tisch mit Koffern): <kbd>E</kbd> öffnet den Katalog mit 44 Scannern – der gewählte liegt danach in deiner Hand. Dort liegt auch der <b>Feldrechner</b>: <kbd>F</kbd> nimmt ihn mit, <kbd>Tab</kbd> hält ihn vor dich. Darin: Live-Daten und Abstandsbild, Scans, Ausrichten, Bearbeiten, <b>3D-Modell</b> (glattes Netz oder Raum mit Grundriss, wie Polycam), Messen, Soll-Ist-Vergleich, Export.</p>
       <p><b>Plattformen</b>: Fahrroboter AMR-1, Roboterarm KX-5 am Drehteller (Messraum) und Drohne stehen geparkt herum. Mit dem Scanner in der Hand davor <kbd>E</kbd> – montiert. <kbd>F</kbd> startet den Autoscan um das markierte Objekt. Leichte Scanner (bis 2 kg, z. B. BLK2GO, ZEB, iPhone) misst du auch selbst aus der Hand: einschalten, <kbd>R</kbd>, losgehen – LiDAR-SLAM rechnet deine Bahn.</p>
       <p><b>Realismus</b>: Jeder Schuss wird mit mehreren Teilstrahlen über die Strahldivergenz verfolgt. Echos unterhalb der Pulsauflösung verschmelzen (Mischpixel), Glas lässt durch, Spiegel erzeugen Geisterpunkte, Retroreflektoren übersteuern. Auch du selbst bist für den Laser sichtbar und wirfst Scanschatten.</p>` });
     modal('Kurzanleitung', body, [{ label: 'Verstanden', primary: true }], { width: 'min(640px, 100%)' });

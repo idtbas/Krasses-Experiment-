@@ -340,7 +340,8 @@ export class Player {
 
   refreshPrompt(force) {
     const t = this.target, A = this.acts;
-    const sig = (t ? t.name : '') + '|' + A.map((x) => x.key + x.label).join('|');
+    const hd0 = this.hand;
+    const sig = (t ? t.name : '') + '|' + A.map((x) => x.key + x.label).join('|') + '|' + this.hasTablet + this.tabletOpen + (hd0 ? hd0.type + (hd0.dev ? hd0.dev.spec.id : hd0.tripod && hd0.tripod.device ? hd0.tripod.device.spec.id : '') : '');
     if (sig === this.sig && !force) return;
     this.sig = sig;
     this.prompt.classList.toggle('hidden', !t && !A.length);

@@ -10,6 +10,9 @@ import * as T from './props_test.js';
 import { fbm } from './geo.js';
 
 function place(world, obj, x, y, z, ry = 0, info = {}) {
+  // Teile gleichen Materials zusammenfassen (bewegliche Glieder mit eigenem Körper bleiben getrennt):
+  // ein Regal mit Ladung wird so zu wenigen Zeichenaufrufen statt Hunderten
+  bake(obj);
   obj.position.set(x, y, z);
   obj.rotation.y = ry;
   world.content.add(obj);
@@ -133,8 +136,8 @@ function buildHalle(world) {
   for (let k = 0; k < 4; k++) place(world, P.gasCylinder(['#7a7f86', '#3a6ea5', '#2e8b57', '#8d8d8d'][k]), 11.3, 0, -4.8 + k * 0.3, 0, { name: 'Gasflasche', kind: 'behälter' });
   place(world, P.ladder(3.2), -11.55, 0, -3.0, Math.PI / 2, { name: 'Leiter', kind: 'werkzeug' });
   place(world, P.extinguisher(), -6.0, 0.5, -7.62, 0, { name: 'Feuerlöscher', kind: 'sicherheit' });
-  place(world, P.convexMirror(0.3, 2.4), 2.0, 0, 1.85, -Math.PI * 0.75, { name: 'Verkehrsspiegel (konvex)', kind: 'spiegel' });
-  place(world, P.person('arbeit', 0.15), -1.5, 0, -3.5, -0.88, { name: 'Person mit Warnweste', kind: 'person' });
+  place(world, P.convexMirror(0.3, 2.4), 5.9, 0, 0.9, -Math.PI * 0.6, { name: 'Verkehrsspiegel (konvex)', kind: 'spiegel' });
+  place(world, P.person('arbeit', 0.15), 3.7, 0, 2.9, 0.95, { name: 'Person mit Warnweste', kind: 'person' });
   place(world, P.checkerTarget(), 3.4, 0, 0.9, -Math.PI / 2 + 0.3, { name: 'Schachbrett-Zielmarke', kind: 'prüfmittel' });
   for (const [x, z] of [[2.8, 2.6], [-2.4, 2.9], [0.4, -3.6]]) place(world, P.sphereTarget(1.1), x, 0, z, 0, { name: 'Referenzkugel Ø 145 mm', kind: 'prüfmittel', blasKey: 'sphere' });
   place(world, P.reflectanceBoard(), 8.2, 0, 0.4, -Math.PI / 2, { name: 'Reflektivitätstafel 5/10/50/90 %', kind: 'prüfmittel' });

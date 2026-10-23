@@ -13,10 +13,12 @@ function makeThumbs(app) {
   const r = app.views.r;
   const W = 440, H = 236;
   const rt = new THREE.WebGLRenderTarget(W, H, { samples: 4 });
+  rt.texture.colorSpace = THREE.SRGBColorSpace; // sonst landen lineare Werte im Bild – viel zu dunkel
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight('#e8eef5', '#3a3f45', 1.6));
   const key = new THREE.DirectionalLight('#ffffff', 2.4); key.position.set(2, 3, 4); scene.add(key);
-  const rim = new THREE.DirectionalLight('#9fdcff', 1.4); rim.position.set(-3, 2, -3); scene.add(rim);
+  const rim = new THREE.DirectionalLight('#9fdcff', 2.0); rim.position.set(-3, 2, -3); scene.add(rim);
+  const fill = new THREE.DirectionalLight('#ffe9d6', 0.8); fill.position.set(-3, 1, 3); scene.add(fill);
   scene.environment = app.world.envTex;
   scene.environmentIntensity = 0.8;
   const cam = new THREE.PerspectiveCamera(28, W / H, 0.01, 10);

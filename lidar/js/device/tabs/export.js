@@ -33,9 +33,10 @@ export function render(f, P) {
     b.addEventListener('click', () => exportPoints(f, list));
     P.appendChild(b);
   }
-  const meshes = a.project.meshes || [];
+  // Netze aus „Bearbeiten → Vernetzen“ und Objektmodelle aus dem Modell-Tab (Räume dort mit Grundriss exportieren)
+  const meshes = [...(a.project.meshes || []), ...(a.project.models || []).filter((m) => m.data && !m.room).map((m) => ({ name: m.name, data: m.data }))];
   P.appendChild(h('h4', 'Netze'));
-  if (!meshes.length) P.appendChild(h('div.empty', 'Kein Netz vorhanden (Bearbeiten → Netz erstellen).'));
+  if (!meshes.length) P.appendChild(h('div.empty', 'Kein Netz vorhanden – im Tab „Modell“ ein 3D-Modell erstellen.'));
   else {
     P.appendChild(h('div.field', h('label', 'Format'), seg(MFORMATS, X.mfmt, (v) => { X.mfmt = v; })));
     for (const m of meshes) {
