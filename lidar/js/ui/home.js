@@ -9,6 +9,11 @@ export const QUICK = [
   { id: 'tls', icon: 'tripod', title: 'Vermessen mit dem Laserscanner', text: 'Leica RTC360 auf dem Stativ: Millimetergenauer Rundum-Scan mit Kamerafarben. Danach umstellen, zweite Station, ausrichten.', meta: ['Werkhalle', 'TLS'], scene: 'halle', scanner: 'rtc360', mount: 'stativ', tls: true },
   { id: 'livox', icon: 'target', title: 'Nicht wiederholendes Muster', text: 'Livox Mid-70: Zwei Prismen zeichnen eine Rosette, die das Sichtfeld mit der Zeit immer dichter füllt.', meta: ['Werkhalle', 'Festkörper'], scene: 'halle', scanner: 'mid70', mount: 'stativ', start: true },
   { id: 'cheap', icon: 'scanner', title: '100 € gegen 4.000 €', text: 'RPLIDAR A1 (Triangulation) im Vergleich zum Hokuyo UTM-30LX: Rauschen, Reichweite und Kanten in einer Ebene.', meta: ['Werkhalle', '2D'], scene: 'halle', scanner: 'rpa1', mount: 'stativ', start: true },
+  { id: 'robot', icon: 'robot', title: 'Roboter scannt allein', text: 'Fahrroboter AMR-1 mit Ouster OS0-128 auf dem Mast umrundet den Gabelstapler. LiDAR-SLAM bestimmt die Bahn – oder schalte auf Rad-Odometrie und sieh die Drift.', meta: ['Werkhalle', 'Autoscan', 'SLAM'], scene: 'halle', scanner: 'os0_128', mount: 'rover', auto: true },
+  { id: 'turntable', icon: 'arm', title: 'Roboterarm + Drehteller', text: 'Ein KX-5 führt eine RealSense L515 in drei Höhen um die Büste, der Drehteller dreht je Bahn 360°. Ergebnis in Objektkoordinaten – bereit zum Vernetzen.', meta: ['Messraum', 'Autoscan', 'Objekt'], scene: 'messraum', scanner: 'l515', mount: 'arm', auto: true },
+  { id: 'phone', icon: 'phone', title: 'Smartphone gegen Profi', text: 'Erst ein Stationsscan mit dem Leica RTC360, dann derselbe Raum mit dem iPhone-LiDAR (576 Punkte, Tiefenfusion, Netz). Am Ende zeigt der Vergleich die Abweichung.', meta: ['Wohnung', 'Smartphone', 'Vergleich'], scene: 'wohnung', flow: 'phoneVsPro' },
+  { id: 'drone', icon: 'drone', title: 'Drohnenflug über das Haus', text: 'Livox Avia unter einer Drohne im Rasterflug. Die Rosette tastet Dach, Fassaden und Bäume ab – mit RTK-Bahn oder GNSS ohne Korrektur.', meta: ['Außengelände', 'Autoscan', 'Luft'], scene: 'aussen', scanner: 'avia', mount: 'drohne', auto: true },
+  { id: 'hand', icon: 'hand', title: 'Handscanner-Rundgang', text: 'Leica BLK2GO in der Hand: Rundgang um den Stapler mit natürlichem Gang. Der Bediener verdeckt dabei selbst einen Teil der Sicht – wie in echt.', meta: ['Werkhalle', 'SLAM', 'Handgeführt'], scene: 'halle', scanner: 'blk2go', mount: 'hand', auto: true },
 ];
 
 export class Home {
@@ -50,7 +55,43 @@ export class Home {
     if (q.scanner && (!a.dev || a.dev.spec.id !== q.scanner)) await a.replaceDevice(q.scanner);
     if (q.mount && a.dev.mountKind !== q.mount) await a.setMount(q.mount);
     if (q.start && a.dev.state !== 'stream') a.toggleStream();
+    if (q.auto) { a.fpc.setTab('live'); a.mounts.start(); }
+    if (q.flow === 'phoneVsPro') await this.phoneVsPro();
     if (q.tls) { a.fpc.setTab('scans'); a.setHint(`<b>Tipp:</b> „Stationsscan“ oben rechts starten. Danach das Stativ verschieben und erneut scannen.`); setTimeout(() => a.setHint(null), 9000); }
+  }
+
+  // Ablauf „Smartphone gegen Profi“: Referenz-Stationsscan, dann iPhone-Raumscan, dann Scan-zu-Scan-Vergleich
+  async phoneVsPro() {
+    const a = this.app, f = a.fpc;
+    const st = SCENES[a.sceneId].start.scanner;
+    a.project.clear();
+    await a.replaceDevice('rtc360');
+    a.dev.setPosition(st[0], st[2], 0);
+    a.lw.sync();
+    a.setHint('<b>1/3</b> Referenz: Stationsscan mit dem Leica RTC360 …');
+    await f.stationScan();
+    const ref = a.project.scans.find((s) => s.kind === 'station');
+    if (!ref) { a.setHint(null); return; }
+    a.setHint('<b>2/3</b> Jetzt dasselbe mit dem iPhone: die Person dreht sich und erfasst den Raum …');
+    await a.replaceDevice('iphone');
+    a.phone.opts.mode = 'raum'; a.mounts.opts.hand.phoneMode = 'raum'; a.phone.renderSide();
+    a.phone.toggle();
+    const t0 = performance.now();
+    while (!a.phone.result && performance.now() - t0 < 20 * 60e3) {
+      if (!a.mounts.job && !a.phone.session && !a.phone.busy && !a.phone.result) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    const R = a.phone.result;
+    if (!R) { a.setHint(null); return; }
+    a.setHint('<b>3/3</b> Vergleich iPhone → RTC360 (Abstand je Punkt zur Referenzwolke) …');
+    R.scan.visible = true;
+    f.selScan = R.scan;
+    f.cmp = { ref: 'scan', other: ref, range: 0.05 };
+    f.opts.dRange = [-0.05, 0.05];
+    f.setTab('compare');
+    const { run } = await import('../device/tabs/compare.js');
+    await run(f);
+    setTimeout(() => a.setHint(null), 8000);
   }
 
   help() {

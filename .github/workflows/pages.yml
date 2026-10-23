@@ -1,6 +1,7 @@
 # Baut KYTHERA · MANDAT bei jeder Änderung neu und veröffentlicht die Einzeldatei auf dem Branch gh-pages,
 # den GitHub Pages unter https://idtbas.github.io/Krasses-Experiment-/ ausliefert (Version 1 unter /v1/).
-# Das Robotik-Labor KINETIK wird unverändert als Ordner unter /kinetik/ mitveröffentlicht.
+# Das Robotik-Labor KINETIK wird unverändert als Ordner unter /kinetik/ mitveröffentlicht, das LiDAR-Studio
+# ECHO unter /lidar/ (es nutzt Three.js, Rapier und die Roboter aus /kinetik/).
 name: GitHub Pages
 
 on:
@@ -32,6 +33,8 @@ jobs:
           cp v1/index.html _site/v1/index.html
           mkdir -p _site/kinetik
           cp -r kinetik/index.html kinetik/manifest.webmanifest kinetik/icon-*.png kinetik/css kinetik/js kinetik/vendor _site/kinetik/
+          mkdir -p _site/lidar
+          cp -r lidar/index.html lidar/css lidar/js _site/lidar/
           touch _site/.nojekyll
 
       - name: Auf gh-pages veröffentlichen
@@ -43,5 +46,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -q -m "KYTHERA und KINETIK veröffentlichen (Stand ${GITHUB_SHA::7})"
+          git commit -q -m "KYTHERA, KINETIK und ECHO veröffentlichen (Stand ${GITHUB_SHA::7})"
           git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages

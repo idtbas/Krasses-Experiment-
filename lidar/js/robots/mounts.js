@@ -366,8 +366,8 @@ export class Mounts {
     return { mode: kind === 'arm' ? 'ideal' : this.opts.pos, drift: P.drift, deskew: this.opts.deskew, voxel: this.app.sceneId === 'aussen' || this.app.sceneId === 'pruef' ? 0.35 : 0.2, ...o };
   }
 
-  // Kollisionsprüfung einer Bahn gegen andere Objekte und die Szenengrenzen
-  pathBlocked(path, radius, ignore) {
+  // Kollisionsprüfung: Hindernisse (Hüllquader anderer Objekte) und Szenengrenzen; liefert eine Prüffunktion je Punkt
+  obstacles(radius, ignore) {
     const w = this.world, b = w.bounds;
     const boxes = [];
     for (const o of w.objects) {
@@ -378,15 +378,20 @@ export class Mounts {
       if (bx.max.y < 0.06 || bx.min.y > 1.6) continue;
       boxes.push([bx, o]);
     }
-    for (let k = 0; k < path.P.length; k += 2) {
-      const p = path.P[k];
-      if (b && (p.x < b[0] + radius || p.x > b[1] - radius || p.y < b[2] + radius || p.y > b[3] - radius)) return { what: 'Raumgrenze', p };
-      for (const [bx, o] of boxes) if (p.x > bx.min.x - radius && p.x < bx.max.x + radius && p.y > bx.min.z - radius && p.y < bx.max.z + radius) return { what: o.name, p };
-    }
+    return (p) => {
+      if (b && (p.x < b[0] + radius || p.x > b[1] - radius || p.y < b[2] + radius || p.y > b[3] - radius)) return 'Raumgrenze';
+      for (const [bx, o] of boxes) if (p.x > bx.min.x - radius && p.x < bx.max.x + radius && p.y > bx.min.z - radius && p.y < bx.max.z + radius) return o.name;
+      return null;
+    };
+  }
+  pathBlocked(path, radius, ignore) {
+    const hit = this.obstacles(radius, ignore);
+    for (let k = 0; k < path.P.length; k += 2) { const w = hit(path.P[k]); if (w) return { what: w, p: path.P[k] }; }
     return null;
   }
-  // freie Bahn um das Ziel: Wunschabstand, sonst schrittweise weiter bzw. näher
-  findPath(target, want, radius) {
+  // freie Bahn um das Ziel: Wunschabstand, sonst schrittweise weiter bzw. näher. Mit arc: ist keine Runde frei,
+  // reicht auch der längste freie Bogen (mindestens ein Viertel des Umfangs) – zu Fuß geht man dann hin und zurück.
+  findPath(target, want, radius, arc = false) {
     const fp = footprint(target.root);
     const tries = [want];
     for (let k = 1; k <= 10; k++) { tries.push(want + k * 0.25); if (want - k * 0.15 >= 0.5) tries.push(want - k * 0.15); }
@@ -396,6 +401,24 @@ export class Mounts {
       const bl = this.pathBlocked(path, radius, target);
       if (!bl) return { path, R, fp };
       last = bl;
+    }
+    if (arc) {
+      let best = null;
+      for (const R of tries.slice().sort((x, y) => Math.abs(x - want) - Math.abs(y - want))) {
+        const path = orbitPath(fp, R), hit = this.obstacles(radius, target), N = path.P.length;
+        const free = path.P.map((p) => !hit(p));
+        if (free.every(Boolean)) return { path, R, fp };
+        // längster freier Lauf auf dem geschlossenen Ring
+        let run = 0, bestRun = 0, bestEnd = -1;
+        for (let k = 0; k < 2 * N; k++) { if (free[k % N]) { run++; if (run > bestRun && run <= N) { bestRun = run; bestEnd = k; } } else run = 0; }
+        if (bestRun >= N * 0.15 && (!best || bestRun / N > best.frac + 0.05)) {
+          const k0 = bestEnd - bestRun + 1;
+          const s0 = path.S[((k0 % N) + N) % N] + 0.15, s1 = s0 + (path.S[1] - path.S[0]) * (bestRun - 1) - 0.3;
+          best = { path, R, fp, arc: [s0, s1], frac: bestRun / N };
+        }
+        if (best && best.frac > 0.45) break;
+      }
+      if (best) return best;
     }
     return { error: `Keine freie Bahn um „${target.name}“ – Hindernis: ${last ? last.what : '?'}` };
   }
@@ -685,43 +708,65 @@ export class Mounts {
     }
     const fpT = footprint(job.target.root);
     const want = phone ? Math.max(0.8, 0.55 + (o.phoneDist || 0.9)) : Math.max(0.8, o.dist);
-    const fnd = this.findPath(job.target, want, 0.35);
+    const fnd = this.findPath(job.target, want, 0.28, true);
     if (fnd.error) { this.job = null; throw new Error(fnd.error); }
     const path = fnd.path;
     job.path = path;
-    let s = pathNearest(path, pr.position.x, pr.position.z);
-    const s0 = s, laps = phone ? Math.max(1.05, o.laps) : o.laps, sEnd = s0 + path.L * laps;
+    // Abschnitte: geschlossene Runde(n) oder freier Bogen hin und zurück
+    let legs;
+    if (fnd.arc) legs = [[fnd.arc[0], fnd.arc[1]], [fnd.arc[1], fnd.arc[0]]];
+    else { const s0 = pathNearest(path, pr.position.x, pr.position.z); legs = [[s0, s0 + path.L * (phone ? Math.max(1.05, o.laps) : o.laps)]]; }
+    if (fnd.arc) toast(`Rundum nicht frei – Bogen über ${Math.round(fnd.frac * 100)} % des Umfangs, hin und zurück`, 'warn');
+    const total = legs.reduce((a2, l) => a2 + Math.abs(l[1] - l[0]), 0);
     const speed = phone ? Math.min(o.speed, 0.6) : o.speed;
     const ctr = new THREE.Vector3(fpT.cx, (fpT.top + Math.max(0, fpT.bottom)) / 2, fpT.cz);
     job.gen = (function* () {
       job.phase = 'Gang zum Startpunkt';
-      const p0 = pathAt(path, s0);
+      const p0 = pathAt(path, legs[0][0]);
       for (;;) {
         const dt = yield;
         const dx = p0.x - pr.position.x, dz = p0.y - pr.position.z, dd = Math.hypot(dx, dz);
         if (dd < 0.05) break;
         const step = Math.min(dd, speed * dt);
         pr.position.x += dx / dd * step; pr.position.z += dz / dd * step;
-        pr.rotation.y = Math.atan2(dx, dz);
+        pr.rotation.y += clamp(wrap(Math.atan2(dx, dz) - pr.rotation.y), -2 * dt, 2 * dt);
         if (phone) c.aim = ctr;
         self.gait(dt, true);
       }
       self.beginRecording(job);
-      job.phase = 'Rundgang';
-      let v = 0;
-      while (s < sEnd) {
-        const dt = yield;
-        v = Math.min(speed, v + 0.8 * dt);
-        s += v * dt;
-        const p = pathAt(path, s), q = pathAt(path, s + 0.35);
-        pr.position.set(p.x, 0, p.y);
-        const want = Math.atan2(q.x - p.x, q.y - p.y);
-        pr.rotation.y += clamp(wrap(want - pr.rotation.y), -1.5 * dt, 1.5 * dt);
-        const u = (s - s0) / (sEnd - s0);
-        // Smartphone: auf das Objekt zielen, Hand wandert zwischen hoch und tief (Ober- und Unterseiten)
-        if (phone) c.aim = ctr.clone().setY(ctr.y + (fpT.top - fpT.bottom) * 0.25 * Math.sin(u * Math.PI * 4));
-        self.gait(dt, true, phone ? 0.22 * Math.sin(u * Math.PI * 4) : 0);
-        job.progress = clamp(u, 0, 1);
+      job.phase = fnd.arc ? 'Bogen (hin)' : 'Rundgang';
+      let done = 0;
+      for (let li = 0; li < legs.length; li++) {
+        const [a0, a1] = legs[li], dir = Math.sign(a1 - a0) || 1, len = Math.abs(a1 - a0);
+        if (li === 1) job.phase = 'Bogen (zurück)';
+        let s = a0, v = 0, turned = false;
+        // am Wendepunkt erst umdrehen (mit dem Smartphone: zum Objekt drehen)
+        while (!turned) {
+          const dt = yield;
+          const q = pathAt(path, s + 0.35 * dir), p = pathAt(path, s);
+          const err = wrap((phone ? Math.atan2(ctr.x - p.x, ctr.z - p.y) : Math.atan2(q.x - p.x, q.y - p.y)) - pr.rotation.y);
+          pr.rotation.y += clamp(err, -0.8 * dt, 0.8 * dt);
+          self.gait(dt, false);
+          if (phone) c.aim = ctr;
+          turned = Math.abs(err) < 0.1;
+        }
+        while ((s - a0) * dir < len) {
+          const dt = yield;
+          v = Math.min(speed, v + 0.8 * dt);
+          s += v * dt * dir;
+          const p = pathAt(path, s), q = pathAt(path, s + 0.35 * dir);
+          pr.position.set(p.x, 0, p.y);
+          // zu Fuß in Laufrichtung; mit dem Smartphone seitwärts gehen und dabei zum Objekt schauen
+          const face = phone ? Math.atan2(ctr.x - p.x, ctr.z - p.y) : Math.atan2(q.x - p.x, q.y - p.y);
+          pr.rotation.y += clamp(wrap(face - pr.rotation.y), -1.5 * dt, 1.5 * dt);
+          const u = (done + Math.abs(s - a0)) / total;
+          // Smartphone: auf das Objekt zielen, Hand wandert zwischen hoch und tief (Ober- und Unterseiten)
+          const lift = phone ? (fnd.arc ? (li === 0 ? 0.18 : -0.2) : 0.22 * Math.sin(u * Math.PI * 4)) : 0;
+          if (phone) c.aim = ctr.clone().setY(ctr.y + (fpT.top - fpT.bottom) * 0.25 * Math.sign(lift || 1) * Math.min(1, Math.abs(lift) / 0.18));
+          self.gait(dt, true, lift);
+          job.progress = clamp(u, 0, 1);
+        }
+        done += len;
       }
       for (let t = 0; t < 0.6;) { t += yield; self.gait(0, false); }
     })();

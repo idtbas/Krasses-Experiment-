@@ -142,12 +142,18 @@ function solve6(A, b) {
   return x;
 }
 
-// Punkt-zu-Ebene-Registrierung: src (Sensorsystem) gegen Karte, Start T (Matrix4, wird verfeinert)
+// Punkt-zu-Ebene-Registrierung: src (Sensorsystem) gegen Karte, Start T (Matrix4, wird verfeinert).
+// opts.prior: Standardabweichungen der Vorhersage [rx, ry, rz, tx, ty, tz] (Drehung um Weltachsen in rad, Weg in m)
+// – wie die IMU-/Odometrie-Stützung echter Systeme. Ohne sie rutscht die Lösung entlang schlecht bestimmter
+// Richtungen weg (nur senkrechte Wände im Blick: Höhe frei, langer Flur: Längsrichtung frei).
 export function alignToMap(map, src, T, opts = {}) {
   const n = src.length / 3, e = T.elements;
   const P = new Float64Array(3);
   let rms = 0, inl = 0;
   const iters = opts.iters || 12;
+  const wPt = 1 / ((opts.sigma || 0.03) ** 2);           // Gewicht je Punkt (Messrauschen + Kartenfehler)
+  const prior = opts.prior ? opts.prior.map((s) => 1 / (s * s)) : null;
+  const acc = [0, 0, 0, 0, 0, 0];                        // aufsummierte Korrektur gegenüber der Vorhersage
   for (let it = 0; it < iters; it++) {
     // Zuordnungsgrenze schrumpft: grob einfangen, fein nur noch echte Partnerflächen
     const gate = Math.max(0.07, [Math.max(0.5, map.v * 3), map.v * 2, map.v * 1.2, map.v * 0.8, map.v * 0.5][Math.min(4, it)] || 0.07);
@@ -169,11 +175,14 @@ export function alignToMap(map, src, T, opts = {}) {
     }
     if (inl < 40) return { ok: false, rms: 0, inl };
     for (let a = 0; a < 6; a++) for (let k = 0; k < a; k++) A[a][k] = A[k][a];
+    for (let a = 0; a < 6; a++) { b[a] *= wPt; for (let k = 0; k < 6; k++) A[a][k] *= wPt; }
+    if (prior) for (let a = 0; a < 6; a++) { A[a][a] += prior[a]; b[a] -= prior[a] * acc[a]; }
     const tr = (A[0][0] + A[1][1] + A[2][2] + A[3][3] + A[4][4] + A[5][5]) / 6;
-    for (let a = 0; a < 6; a++) A[a][a] += tr * 1e-4; // Dämpfung gegen entartete Geometrie (Flur, freie Fläche)
+    for (let a = 0; a < 6; a++) A[a][a] += tr * 1e-6;
     rms = Math.sqrt(se / inl);
     const x = solve6(A, b);
     if (!x) return { ok: false, rms, inl };
+    for (let a = 0; a < 6; a++) acc[a] += x[a];
     // kleine Drehung um den Sensorort, dann Verschiebung
     const ang = Math.hypot(x[0], x[1], x[2]);
     _q.identity();
@@ -186,7 +195,7 @@ export function alignToMap(map, src, T, opts = {}) {
     T.premultiply(_m2);
     if (ang < 2e-6 && Math.hypot(x[3], x[4], x[5]) < 2e-5) break;
   }
-  return { ok: true, rms, inl, overlap: inl / n };
+  return { ok: true, rms, inl, overlap: inl / n, corr: acc };
 }
 
 /* ---------------- Lokalisierung + Aufnahme ---------------- */
@@ -298,6 +307,18 @@ export class Localizer {
     st.t = t; st.p = p; st.yaw = yaw;
   }
 
+  // Vertrauen in die Vorhersage je Umdrehung: Neigung aus der IMU (Schwerkraft) sehr gut, Höhe beim Fahrzeug
+  // nahezu fest, Kurs und Weg je nach Quelle
+  prior() {
+    const P = this.period / 0.1;
+    switch (this.drift) {
+      case 'wheel': return [0.0015, 0.01 * P, 0.0015, 0.03 * P, 0.004, 0.03 * P];
+      case 'gnss': return [0.002, 0.01 * P, 0.002, 0.08 * P, 0.03 * P, 0.08 * P];
+      case 'vio': return [0.002, 0.005 * P, 0.002, 0.02 * P, 0.02 * P, 0.02 * P];
+      default: return [0.003, 0.02 * P, 0.003, 0.1 * P, 0.05 * P, 0.1 * P];
+    }
+  }
+
   estimateAt(t, M) {
     if (this.mode === 'ideal') return this.truth.at(t, M);
     this.odo.at(t, M);
@@ -309,12 +330,9 @@ export class Localizer {
     if (!data || !data.n) return;
     let tMin = Infinity, tMax = -Infinity;
     for (let k = 0; k < data.n; k++) { const t = data.t[k]; if (t < tMin) tMin = t; if (t > tMax) tMax = t; }
-    this.batches.push({ b: data, tMin, tMax });
+    // cons: bis zu diesem Zeitpunkt sind die Punkte des Pakets verarbeitet (verspätete Punkte landen in der nächsten Umdrehung)
+    this.batches.push({ b: data, tMin, tMax, cons: -Infinity });
     if (this.fStart == null) this.fStart = Math.floor(tMin / this.period) * this.period;
-    else if (tMin < this.fStart) {
-      // verspätetes Paket aus einer schon verarbeiteten Umdrehung: nur im Referenzmodus sinnvoll einzuordnen
-      this.batches[this.batches.length - 1].late = true;
-    }
     const raw = this.scan.raw;
     if (raw && raw.length < 4000) raw.push({ n: data.n, ls: data.ls, ring: data.ring, t: data.t, i: data.i, ret: data.ret });
   }
@@ -328,18 +346,18 @@ export class Localizer {
       if (all && !this.batches.length) break;
       this.processFrame(f0, f1);
       this.fStart = f1;
-      this.batches = this.batches.filter((x) => x.tMax >= f1 && !x.late);
+      this.batches = this.batches.filter((x) => x.tMax >= f1);
     }
   }
 
   processFrame(f0, f1) {
     const parts = [];
     for (const x of this.batches) {
-      if (x.late) { parts.push({ x, idx: null }); continue; }
-      if (x.tMax < f0 || x.tMin >= f1) continue;
+      if (x.tMin >= f1 || x.tMax < x.cons) continue;
       const idx = [];
       const T = x.b.t;
-      for (let k = 0; k < x.b.n; k++) if (T[k] >= f0 && T[k] < f1) idx.push(k);
+      for (let k = 0; k < x.b.n; k++) if (T[k] >= x.cons && T[k] < f1) idx.push(k);
+      x.cons = f1;
       if (idx.length) parts.push({ x, idx });
     }
     if (!parts.length) return;
@@ -363,7 +381,7 @@ export class Localizer {
     };
     // Punkte je Teil: Weltkoordinaten nach der gewählten Positionsbestimmung
     let total = 0;
-    for (const p of parts) total += p.idx ? p.idx.length : p.x.b.n;
+    for (const p of parts) total += p.idx.length;
     const out = new Float32Array(total * 3);
     let o = 0;
     const useW = this.mode === 'ideal' && this.deskew;
@@ -371,17 +389,16 @@ export class Localizer {
     let invRef = null;
     if (slam) invRef = new THREE.Matrix4().copy(ref).invert().elements;
     for (const p of parts) {
-      const b = p.x.b, ls = b.ls, idx = p.idx || Array.from({ length: b.n }, (_, k) => k);
+      const b = p.x.b, ls = b.ls, idx = p.idx;
       p.o = o;
       for (const k of idx) {
-        if (useW || p.x.late) { out[o++] = b.w[k * 3]; out[o++] = b.w[k * 3 + 1]; out[o++] = b.w[k * 3 + 2]; continue; }
+        if (useW) { out[o++] = b.w[k * 3]; out[o++] = b.w[k * 3 + 1]; out[o++] = b.w[k * 3 + 2]; continue; }
         poseInto(b.t[k]);
         const x = ls[k * 3], y = ls[k * 3 + 1], z = ls[k * 3 + 2];
         let X = M[0] * x + M[4] * y + M[8] * z + M[12], Y = M[1] * x + M[5] * y + M[9] * z + M[13], Z = M[2] * x + M[6] * y + M[10] * z + M[14];
         if (slam) { const e = invRef; const a = e[0] * X + e[4] * Y + e[8] * Z + e[12], bb = e[1] * X + e[5] * Y + e[9] * Z + e[13], c = e[2] * X + e[6] * Y + e[10] * Z + e[14]; X = a; Y = bb; Z = c; }
         out[o++] = X; out[o++] = Y; out[o++] = Z;
       }
-      p.idx = idx;
     }
     // SLAM: Umdrehung (im Sensorsystem zum Referenzzeitpunkt) gegen die Karte registrieren
     if (slam) {
@@ -395,7 +412,9 @@ export class Localizer {
           if (r2 < 0.36 || r2 > 3600) continue;
           sel.push(x, y, z);
         }
-        const res = alignToMap(this.map, new Float32Array(sel), T, { iters: 10 });
+        const T0 = this.onAlign ? T.clone() : null;
+        const res = alignToMap(this.map, new Float32Array(sel), T, { iters: 10, prior: this.prior() });
+        if (this.onAlign) this.onAlign({ T0, T: T.clone(), res, tRef, n: sel.length / 3 });
         this.stats.rms = res.rms; this.stats.inl = res.inl;
         if (!res.ok || res.rms > 0.25) { this.stats.fails++; T.copy(ref).premultiply(this.C); }
         else this.C.copy(T).multiply(new THREE.Matrix4().copy(ref).invert());

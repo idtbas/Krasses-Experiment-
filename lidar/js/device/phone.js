@@ -72,7 +72,14 @@ export class PhoneApp {
     this.visible = on;
     this.el.classList.toggle('hidden', !on);
     if (this.view) this.view.enabled = on;
-    if (on) { d.onDepth = (m) => this.onDepth(m); if (d.state !== 'stream') d.start(); }
+    if (on) {
+      d.onDepth = (m) => this.onDepth(m);
+      if (d.state !== 'stream') d.start();
+      // Vorgabe je Szene: in der Wohnung den Raum erfassen, sonst ein Objekt umrunden
+      this.opts.mode = this.app.sceneId === 'wohnung' ? 'raum' : 'objekt';
+      this.app.mounts.opts.hand.phoneMode = this.opts.mode;
+      this.renderSide();
+    }
     this.app.sceneEl.classList.toggle('withphone', on);
   }
 
@@ -103,7 +110,8 @@ export class PhoneApp {
     if (!d) return;
     if (d.state !== 'stream') d.start();
     const n = a.project.scans.filter((s) => s.kind === 'phone').length + 1;
-    const scan = new Scan({ kind: 'phone', spec: d.spec, set: d.set, name: `iPhone-Scan ${String(n).padStart(2, '0')}${job && job.target ? ' · ' + job.target.name : ''}`, origin: new THREE.Vector3(...d.pose().slice(0, 3)), limit: 6e6 });
+    const what = this.opts.mode === 'raum' ? 'Raum' : job && job.target ? job.target.name : '';
+    const scan = new Scan({ kind: 'phone', spec: d.spec, set: d.set, name: `iPhone-Scan ${String(n).padStart(2, '0')}${what ? ' · ' + what : ''}`, origin: new THREE.Vector3(...d.pose().slice(0, 3)), limit: 6e6 });
     a.project.add(scan);
     const loc = new Localizer(a, d, scan, { mode: 'odo', drift: 'vio', listen: false, seed: 4711 + n });
     this.session = { scan, loc, t0: a.clock.t, frames: 0, used: 0, lastMesh: a.clock.t, meshBusy: false, job, speed: 0, rot: 0, lastP: null, hints: '' };
@@ -162,7 +170,7 @@ export class PhoneApp {
     let tris = 0;
     try {
       const res = await meshScan(a, S.scan, voxel, { maxPoints: 2.5e6 });
-      if (res) { addMeshToProject(a, S.scan, res, voxel, `Netz · ${S.scan.name}`); tris = res.r.index.length / 3; }
+      if (res) { addMeshToProject(a, S.scan, res, voxel, `Netz · ${S.scan.name}`); tris = res.r.index.length / 3; S.scan.visible = false; }
     } catch (e) { console.error(e); }
     this.busy = false;
     this.result = { scan: S.scan, tris, ms: performance.now() - t0, drift: info.endErr, dist: info.dist, dur: S.scan.stats.duration };
@@ -181,7 +189,7 @@ export class PhoneApp {
     const close = h('button.pbtn.small', { html: icon('close') });
     close.addEventListener('click', () => this.res.classList.add('hidden'));
     const show = h('button.pbtn.wide', { html: '<b>Im Feldrechner zeigen</b>' });
-    show.addEventListener('click', () => { this.app.fpc.setTab('scans'); this.app.fpc.fit(); });
+    show.addEventListener('click', () => { const f = this.app.fpc; f.opts.mode = 'rgb'; f.showLive = false; f.setTab('scans'); f.fit(); });
     this.res.append(h('div.ptitle', 'Scan fertig'), h('div.mono', `${fmtInt(R.scan.points)} Punkte · ${fmtInt(R.tris)} Dreiecke`),
       h('div.mono.muted', `${fmtNum(R.dur, 0)} s · ${fmtNum(R.dist, 1)} m Weg · Drift ${fmtNum(R.drift * 100, 1)} cm`), show, close);
   }
@@ -226,6 +234,7 @@ export class PhoneApp {
         S.rot += (q.angleTo(S.lastP.q) / dt - S.rot) * Math.min(1, dt * 3);
       }
       S.lastP = { p, q };
+      this.motion = { v: S.speed, w: S.rot };
     }
     this.syncCamera();
     this.drawOverlay();
@@ -270,7 +279,12 @@ export class PhoneApp {
         g.beginPath(); g.arc(u, v, rad, 0, Math.PI * 2); g.fill();
       }
     }
-    if (m && m.depth) { const id = (m.h >> 1) * m.w + (m.w >> 1); center = m.depth[id]; }
+    if (m && m.depth) {
+      // Median der Bildmitte (gültige Tiefen)
+      const L = [];
+      for (let j = (m.h >> 1) - 16; j < (m.h >> 1) + 16; j += 2) for (let i = (m.w >> 1) - 20; i < (m.w >> 1) + 20; i += 2) { const z = m.depth[j * m.w + i]; if (z) L.push(z); }
+      if (L.length > 20) { L.sort((x, y) => x - y); center = L[L.length >> 1]; }
+    }
     // Fadenkreuz
     g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = dpr;
     g.beginPath(); g.moveTo(W / 2 - 10 * dpr, H / 2); g.lineTo(W / 2 + 10 * dpr, H / 2); g.moveTo(W / 2, H / 2 - 10 * dpr); g.lineTo(W / 2, H / 2 + 10 * dpr); g.stroke();

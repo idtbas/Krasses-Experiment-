@@ -13,6 +13,7 @@ import { Project } from './cloud/project.js';
 import { Proc } from './cloud/proc.js';
 import { FieldPC } from './device/fieldpc.js';
 import { Mounts } from './robots/mounts.js';
+import { PhoneApp } from './device/phone.js';
 import { TopBar } from './ui/topbar.js';
 import { Home } from './ui/home.js';
 import { h, toast } from './ui/dom.js';
@@ -41,6 +42,7 @@ export class App {
     this.mounts = new Mounts(this);
     this.buildUI();
     this.setupViews();
+    this.setupPhoneView();
     this.keys();
     this.report('HALLE WIRD AUFGEBAUT …');
     await this.loadScene('halle');
@@ -72,6 +74,8 @@ export class App {
     ui.appendChild(this.dock);
     this.fpc = new FieldPC(this);
     this.dock.appendChild(this.fpc.el);
+    this.phone = new PhoneApp(this);
+    this.sceneEl.appendChild(this.phone.el);
     this.home = new Home(this);
     ui.appendChild(this.home.el);
     this.buildTools();
@@ -136,6 +140,14 @@ export class App {
     });
   }
 
+  setupPhoneView() {
+    // Kamerabild der Handy-App: Welt ohne Punktwolken, dazu das AR-Vorschaunetz (eigene Ebene)
+    this.phone.view = this.views.add({
+      name: 'phone', el: this.phone.camEl, camera: this.phone.cam, enabled: false,
+      render: (r) => { r.clear(true, true, true); r.render(this.world.scene, this.phone.cam); },
+    });
+  }
+
   allClouds() {
     const L = [];
     for (const d of this.devices) if (d.live) L.push(d.live);
@@ -179,7 +191,7 @@ export class App {
     this.world.def = def;
     this.sceneId = id;
     this.engine.setEnv(this.world.setWeather(def.weather || 'klar'));
-    for (const d of this.devices) { d.regObj = null; d.mountOn('stativ'); d.setPosition(def.start.scanner[0], def.start.scanner[2], def.start.scanner[3] || 0); }
+    for (const d of this.devices) { d.regObj = null; if (d.kind === 'phone') continue; d.mountOn('stativ'); d.setPosition(def.start.scanner[0], def.start.scanner[2], def.start.scanner[3] || 0); }
     const c = def.start.cam;
     this.orbit.lookAt(new THREE.Vector3(...c.target), c.dist, c.yaw, c.pitch);
     this.orbit.jump();
@@ -206,14 +218,21 @@ export class App {
 
   async replaceDevice(specId) {
     const old = this.dev;
-    const pos = old ? old.root.position.clone() : new THREE.Vector3();
-    const ry = old ? old.root.rotation.y : 0;
+    const pos = old ? old.root.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3();
+    const ry = old && old.mountKind === 'stativ' ? old.root.rotation.y : 0;
     const wasRunning = old && old.state === 'stream';
-    if (old) { old.dispose(); this.devices.splice(this.devices.indexOf(old), 1); if (old.regObj) this.world.objects.splice(this.world.objects.indexOf(old.regObj), 1); }
+    const keep = old ? old.mountKind : 'stativ';
+    if (this.fpc.recording) this.fpc.toggleRecord();
+    if (old) {
+      if (keep !== 'stativ') this.mounts.detach();
+      old.dispose(); this.devices.splice(this.devices.indexOf(old), 1);
+      if (old.regObj) this.world.objects.splice(this.world.objects.indexOf(old.regObj), 1);
+    }
     const d = this.addDevice(specId);
-    d.mountOn('stativ');
-    d.setPosition(pos.x, pos.z, ry);
-    await this.rebuildLidar();
+    // Plattform behalten, wenn der neue Scanner darauf passt; Smartphone immer in der Hand
+    const kind = d.kind === 'phone' ? 'hand' : keep !== 'stativ' && this.mounts.allowed(keep, d) ? keep : 'stativ';
+    if (kind !== 'stativ') { d.root.position.set(pos.x, 0, pos.z); await this.mounts.attach(kind, d); }
+    else { d.mountOn('stativ'); d.setPosition(pos.x, pos.z, ry); await this.rebuildLidar(); }
     this.select(d);
     if (wasRunning && d.kind !== 'tls') d.start();
     toast(`${d.spec.maker} ${d.spec.model} montiert`);
@@ -223,6 +242,7 @@ export class App {
   select(d) {
     this.dev = d;
     this.fpc.setDevice(d);
+    this.phone.setDevice(d);
     this.top.render();
   }
 
@@ -304,6 +324,7 @@ export class App {
     this.lw.sync();
     for (const d of this.devices) { d.tick(dt, C.t); d.measure(); }
     if (this.fpc.recording) this.fpc.recording.loc.update(C.t);
+    this.phone.frame(dt);
     this.orbit.update(dtr);
     this.vorbit.update(dtr);
     this.fpc.frame(dtr);
@@ -326,7 +347,9 @@ export class App {
     if (this.fpc.recording) this.fpc.toggleRecord();
     this.project.clear();
     await this.loadScene(id);
-    await this.rebuildLidar();
+    const st = SCENES[id].start.scanner;
+    if (this.dev && this.dev.kind === 'phone') { this.dev.root.position.set(st[0], 0, st[2]); await this.mounts.attach('hand', this.dev); }
+    else await this.rebuildLidar();
     for (const d of this.devices) d.live.clear();
     this.fpc.render();
     toast(`${SCENES[id].name} geladen · ${this.lidarInfo.tris.toLocaleString('de-DE')} Dreiecke für den Scan-Kern`);

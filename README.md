@@ -65,3 +65,18 @@ Ein Labor zum Konfigurieren, Programmieren und Prüfen von Industrierobotern in 
 **Abläufe per KI erzeugen:** [`kinetik/KI-PROMPT.md`](kinetik/KI-PROMPT.md) enthält die komplette Sprach- und Befehlsreferenz als Prompt. In einen beliebigen KI-Chat kopieren, Aufgabe ergänzen, Code im Tab Skript einfügen.
 
 Technik: Vanilla-JavaScript-Module, Three.js und Rapier (Physik) liegen im Ordner `kinetik/vendor`. Lokal starten mit `python3 -m http.server` im Ordner `kinetik/`. Sprachtests: `node kinetik/tests/lang.test.mjs`.
+
+# ECHO · LiDAR-Studio
+
+**Online öffnen:** https://idtbas.github.io/Krasses-Experiment-/lidar/
+
+Ein LiDAR-Scan-Simulator für Einsteiger, der so realistisch wie möglich misst: 44 Scanner (rotierend, Festkörper, 2D, terrestrische Laserscanner, SLAM-Handgeräte, Tiefenkameras und das Smartphone-LiDAR), fünf Szenen (Werkhalle, Außengelände, Wohnung, Prüfstrecke, Messraum mit Drehteller) und ein Feldrechner „ECHO Field T10“ mit eigener Scan-Software.
+
+- **Messphysik:** echte Abtastmuster (Feuerfolgen, Rosetten, Raster, Spiegel-TLS), mehrere Teilstrahlen über die Strahldivergenz, Mischpixel und Mehrfachechos, Glas, Spiegel-Geisterpunkte, übersteuernde Retroreflektoren, Erkennung aus der Reichweite bei 10 % Reflektivität, Rauschen nach Datenblatt, Sonne, Nebel, Regen und Staub, 905 vs. 1550 nm.
+- **Halterungen mit Autoscan:** Stativ, Fahrroboter AMR-1 (umrundet ein Objekt allein, Laserscanner im Stop-and-Go), Roboterarm KX-5 mit Drehteller (Scan in Objektkoordinaten), Drohne (Raster oder Umrundung), handgeführter Rundgang.
+- **Positionsbestimmung wie in echt:** Referenzbahn, Koppelnavigation (Rad-Odometrie, GNSS ohne RTK, reine IMU) mit typischer Drift oder LiDAR-SLAM (Scan-zu-Karte, Punkt-zu-Ebene mit IMU-Stützung); Entzerrung (Deskew) zuschaltbar.
+- **Smartphone-LiDAR:** iPhone-Pro-Klasse mit 576 dToF-Punkten, fusioniertem 256 × 192-Tiefenbild, Handy-App mit Kamerabild, wachsendem AR-Netz und visuell-inertialer Pose; Schnellstart „Smartphone gegen Profi“ vergleicht mit einem RTC360-Stationsscan.
+- **Feldrechner:** Live-Ansicht mit Abstandsbild, Registrierung (ICP), Filter, Boden, Zuschneiden, Vernetzen (TSDF), Messen, Soll-Ist-Vergleich, Export als LAS, PLY, PCD, XYZ/CSV, OBJ/STL und Velodyne-PCAP.
+
+Technik: eigener Strahlverfolgungs-Kern (BVH mit Instanzen) in Web Workern, Three.js und Rapier aus `kinetik/vendor`, Roboter aus KINETIK. Lokal starten mit `python3 -m http.server` im Hauptordner, dann `http://localhost:8000/lidar/` öffnen. Tests: `for t in lidar/tests/*.test.mjs; do node $t; done`.
+

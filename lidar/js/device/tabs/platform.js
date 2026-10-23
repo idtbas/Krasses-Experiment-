@@ -41,13 +41,18 @@ export function render(f, P) {
     box.appendChild(field('Flughöhe', dis(slider(0, 60, 1, o.alt, (v) => (v ? `${v} m` : 'automatisch'), (v) => { o.alt = v; }))));
     box.appendChild(field('Tempo', dis(slider(0.5, 10, 0.5, o.speed, (v) => fmtNum(v, 1) + ' m/s', (v) => { o.speed = v; }))));
     box.appendChild(field('Überlappung', dis(slider(0.2, 0.8, 0.1, o.overlap, (v) => Math.round(v * 100) + ' %', (v) => { o.overlap = v; }))));
+  } else if (kind === 'hand' && d.kind === 'phone') {
+    box.appendChild(field('Modus', dis(seg([['objekt', 'Objekt umrunden'], ['raum', 'Raum rundum']], o.phoneMode, (v) => { o.phoneMode = v; a.phone.opts.mode = v; a.phone.renderSide(); }))));
+    box.appendChild(field('Abstand', dis(slider(0.4, 2.5, 0.1, o.phoneDist, (v) => fmtNum(v, 1) + ' m vom Objekt', (v) => { o.phoneDist = v; }))));
+    box.appendChild(field('Gehtempo', dis(slider(0.2, 0.6, 0.05, Math.min(0.6, o.speed), (v) => fmtNum(v, 2) + ' m/s', (v) => { o.speed = v; }))));
+    box.appendChild(h('div.hint.muted', 'Gesteuert wird in der Handy-App (Auslöser). Die Pose kommt wie bei ARKit aus Kamera und IMU (visuell-inertial) – mit etwa 1 % Drift der Wegstrecke.'));
   } else if (kind === 'hand') {
     box.appendChild(field('Abstand', dis(slider(0.8, 4, 0.1, o.dist, (v) => fmtNum(v, 1) + ' m', (v) => { o.dist = v; }))));
     box.appendChild(field('Gehtempo', dis(slider(0.3, 1.4, 0.1, o.speed, (v) => fmtNum(v, 1) + ' m/s', (v) => { o.speed = v; }))));
     box.appendChild(field('Runden', dis(seg([[1, '1'], [1.1, '1 + 10 %'], [2, '2']], o.laps, (v) => { o.laps = v; }))));
   }
   // Positionsbestimmung
-  if (kind !== 'arm' && d.kind !== 'tls') {
+  if (kind !== 'arm' && d.kind !== 'tls' && d.kind !== 'phone') {
     const rtk = kind === 'drohne' ? 'RTK-GNSS/INS' : 'Referenz';
     box.appendChild(field('Position', dis(seg([['ideal', rtk], ['odo', Pf.odoName], ['slam', 'LiDAR-SLAM']], M.opts.pos, (v) => { M.opts.pos = v; f.render(); }))));
     box.appendChild(field('Entzerrung', dis(toggle('Punkte mit Pose ihres Zeitstempels (Deskew)', M.opts.deskew, (v) => { M.opts.deskew = v; }))));

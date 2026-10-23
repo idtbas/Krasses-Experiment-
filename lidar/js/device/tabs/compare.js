@@ -40,7 +40,7 @@ export function render(f, P) {
   }
 }
 
-async function run(f) {
+export async function run(f) {
   const a = f.app, C = f.cmp, s = f.selScan;
   const say = (t) => { if (f._cmpMsg) f._cmpMsg.textContent = t; };
   const g = s.cloud.gather();

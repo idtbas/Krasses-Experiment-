@@ -60,35 +60,74 @@ for (const [rings, fov, tolP, tolA] of [[64, 45, 0.004, 0.05], [16, 30, 0.025, 0
   assert.ok(dA < tolA, `Kurs auf ${tolA}°`);
 }
 
-// 2) Driftmodelle: Referenz exakt, Rad-Odometrie wächst mit der Strecke (Quadrat 4 × 4 m, zwei Runden)
-{
-  const mk = (mode, drift) => {
-    const dev = { kind: 'stream', set: {}, pattern: { period: 0.1 }, spec: {}, onPoints: [], t: 0, P: [0, 1, 0, 0, 0, 0, 1], pose() { return this.P; } };
-    const scanObj = { cloud: { add() {} } };
-    return { dev, loc: new Localizer({}, dev, scanObj, { mode, drift, seed: 99 }) };
-  };
-  const runs = { ideal: mk('ideal', 'wheel'), odo: mk('odo', 'wheel') };
-  const corners = [[0, 0], [4, 0], [4, 4], [0, 4]];
-  let t = 0;
-  const errAt = {};
-  for (const [name, { dev, loc }] of Object.entries(runs)) {
-    t = 0;
-    const q = new THREE.Quaternion();
-    for (let lap = 0; lap < 2; lap++) for (let k = 0; k < 4; k++) {
-      const [ax, az] = corners[k], [bx, bz] = corners[(k + 1) % 4];
-      const yaw = Math.atan2(bx - ax, bz - az);
-      for (let s = 0; s <= 1; s += 0.01) {
-        t += 0.04;
-        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-        dev.P = [ax + (bx - ax) * s, 1, az + (bz - az) * s, q.x, q.y, q.z, q.w];
-        dev.t = t;
-        loc.update(t);
-      }
+// 2) Fahrt im Raum (Rechteck 6,5 × 5 m, an den Ecken drehen), VLP-16-artiger Sensor mit Zeitstempeln je Spalte:
+//    Referenz exakt, Rad-Odometrie driftet deutlich, LiDAR-SLAM mit Entzerrung hält den Fehler bei wenigen Zentimetern.
+function simulate(mode, deskew = true, drift = 'wheel', rings = 16, fov = 30, noise = 0.015, opts = {}) {
+  const dev = { kind: 'stream', set: {}, pattern: { period: 0.1 }, spec: {}, onPoints: [], t: 0, doneUntil: 0, P: [0, 1, 0, 0, 0, 0, 1], pose() { return this.P; } };
+  const scanObj = { cloud: { add() {} } };
+  const loc = new Localizer({}, dev, scanObj, { mode, drift, seed: 99, deskew });
+  const C = [[-3, -2.5], [3.5, -2.5], [3.5, 2.5], [-3, 2.5]];
+  // Bahn als Funktion der Zeit: gerade Stücke 0,5 m/s, an Ecken 1 s Drehung
+  const segs = [];
+  for (let k = 0; k < 4; k++) { const [ax, az] = C[k], [bx, bz] = C[(k + 1) % 4]; segs.push({ ax, az, bx, bz, yaw: Math.atan2(bx - ax, bz - az), T: Math.hypot(bx - ax, bz - az) / 0.5 }); }
+  const total = segs.reduce((a, s) => a + s.T + 1, 0);
+  const poseAt = (t) => {
+    t = t % total;
+    for (let k = 0; k < 4; k++) {
+      const s = segs[k], n = segs[(k + 1) % 4];
+      if (t < s.T) { const u = t / s.T; return [s.ax + (s.bx - s.ax) * u, 1.0, s.az + (s.bz - s.az) * u, s.yaw]; }
+      t -= s.T;
+      if (t < 1) { let dy = n.yaw - s.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); return [s.bx, 1.0, s.bz, s.yaw + dy * t]; }
+      t -= 1;
     }
-    errAt[name] = loc.stats.errP;
+    return [C[0][0], 1, C[0][1], segs[0].yaw];
+  };
+  const M = new THREE.Matrix4(), q = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), v = new THREE.Vector3(), V1 = new THREE.Vector3(1, 1, 1);
+  const set = (t) => { const [x, y, z, yaw] = poseAt(t); q.setFromAxisAngle(Y, yaw); dev.P = [x, y, z, q.x, q.y, q.z, q.w]; M.compose(v.set(x, y, z), q, V1); return M; };
+  const end = opts.end || total * 1.05;
+  let t = 0, nextFrame = 0.1;
+  while (t < end) {
+    t += 0.02;
+    set(t);
+    dev.t = t;
+    if (t >= nextFrame - 1e-9) {
+      const t0 = nextFrame - 0.1;
+      const ls = [], w = [], T = [];
+      for (let c = 0; c < 450; c++) {
+        const tc = t0 + 0.1 * c / 450;
+        const Mc = set(tc).clone();
+        const R = new THREE.Matrix4().extractRotation(Mc), o = new THREE.Vector3().setFromMatrixPosition(Mc);
+        for (let r = 0; r < rings; r++) {
+          const el = (-fov / 2 + r * fov / (rings - 1)) * Math.PI / 180, az = c * 0.8 * Math.PI / 180;
+          const dl = new THREE.Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az));
+          const dw = dl.clone().applyMatrix4(R);
+          const d = cast([o.x, o.y, o.z], [dw.x || 1e-9, dw.y || 1e-9, dw.z || 1e-9]);
+          if (!isFinite(d)) continue;
+          const dd = d + gauss() * noise;
+          ls.push(dl.x * dd, dl.y * dd, dl.z * dd);
+          const p = new THREE.Vector3(dl.x * dd, dl.y * dd, dl.z * dd).applyMatrix4(Mc);
+          w.push(p.x, p.y, p.z); T.push(tc);
+        }
+      }
+      set(t);
+      const n = T.length;
+      const b = { n, ls: new Float32Array(ls), w: new Float32Array(w), t: new Float32Array(T) };
+      for (const f of dev.onPoints) f(b);
+      dev.doneUntil = nextFrame;
+      nextFrame += 0.1;
+    }
+    loc.update(t);
   }
-  console.log(`Driftmodell nach ${runs.odo.loc.stats.dist.toFixed(0)} m: Referenz ${(errAt.ideal * 100).toFixed(2)} cm, Rad-Odometrie ${(errAt.odo * 100).toFixed(1)} cm`);
-  assert.ok(errAt.ideal < 1e-6, 'Referenz exakt');
-  assert.ok(errAt.odo > 0.03 && errAt.odo < 3, 'Odometrie driftet im typischen Rahmen');
+  return { errP: loc.stats.errP, errYaw: loc.stats.errYaw, fails: loc.stats.fails, dist: loc.stats.dist };
+}
+{
+  const end = 24;
+  const r = { ideal: simulate('ideal', true, 'wheel', 16, 30, 0.015, { end }), odo: simulate('odo', true, 'wheel', 16, 30, 0.015, { end }), slam: simulate('slam', true, 'wheel', 16, 30, 0.015, { end }) };
+  const f = (x) => `${(x.errP * 100).toFixed(1)} cm / ${x.errYaw.toFixed(2)}°`;
+  console.log(`Fahrt ${r.odo.dist.toFixed(1)} m: Referenz ${f(r.ideal)}, Rad-Odometrie ${f(r.odo)}, SLAM ${f(r.slam)}`);
+  assert.ok(r.ideal.errP < 1e-6, 'Referenz exakt');
+  assert.ok(r.odo.errP > 0.1, 'Odometrie driftet');
+  assert.ok(r.slam.errP < 0.06 && r.slam.errYaw < 0.5, 'SLAM hält die Bahn');
+  assert.ok(r.slam.errP < r.odo.errP / 4, 'SLAM deutlich besser als Odometrie');
 }
 console.log('localizer: alle Tests bestanden');
