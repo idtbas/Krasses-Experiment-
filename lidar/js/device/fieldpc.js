@@ -239,7 +239,13 @@ export class FieldPC {
       if (d.state !== 'stream') d.start();
       const scan = new Scan({ kind: 'mobile', spec: d.spec, set: d.set, name: `Aufnahme ${d.spec.model}`, origin: new THREE.Vector3(...d.pose().slice(0, 3)) });
       a.project.add(scan);
-      const fn = (data) => scan.cloud.add(data);
+      scan.traj = [];
+      if (d.spec.pcap) scan.raw = [];
+      const fn = (data) => {
+        scan.cloud.add(data);
+        if (data.n) { const p = d.poseAt(data.t[0]); scan.traj.push([data.t[0], p[0], p[1], p[2]]); }
+        if (scan.raw && scan.raw.length < 4000) scan.raw.push({ n: data.n, ls: data.ls, ring: data.ring, t: data.t, i: data.i, ret: data.ret });
+      };
       d.onPoints.push(fn);
       this.recording = { scan, fn, t0: a.clock.t };
     }

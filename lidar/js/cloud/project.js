@@ -61,3 +61,25 @@ export class Project {
   get total() { return this.scans.reduce((a, s) => a + s.points, 0); }
   changed() { for (const f of this.listeners) f(); }
 }
+
+// Aus gesammelten Punkten (PointCloud.gather) eine neue, abgeleitete Wolke bauen; mask optional (1 = behalten)
+export function derivedScan(src, g, mask, name, extra = {}) {
+  let n = 0;
+  for (let k = 0; k < g.n; k++) if (!mask || mask[k]) n++;
+  const b = { n, w: new Float32Array(n * 3), ls: null, rgb: new Uint8Array(n * 3), i: new Uint8Array(n), ret: new Uint8Array(n), cls: new Uint8Array(n), ring: new Uint16Array(n), f: new Uint8Array(n), t: new Float64Array(n), obj: new Uint16Array(n) };
+  let o = 0;
+  for (let k = 0; k < g.n; k++) {
+    if (mask && !mask[k]) continue;
+    b.w[o * 3] = g.pos[k * 3]; b.w[o * 3 + 1] = g.pos[k * 3 + 1]; b.w[o * 3 + 2] = g.pos[k * 3 + 2];
+    b.rgb[o * 3] = g.rgb[k * 3]; b.rgb[o * 3 + 1] = g.rgb[k * 3 + 1]; b.rgb[o * 3 + 2] = g.rgb[k * 3 + 2];
+    b.i[o] = g.i[k]; b.ret[o] = g.meta[k * 4]; b.cls[o] = extra.cls ? extra.cls(k, g.meta[k * 4 + 1]) : g.meta[k * 4 + 1]; b.ring[o] = g.meta[k * 4 + 2]; b.f[o] = g.meta[k * 4 + 3];
+    b.t[o] = g.t[k]; b.obj[o] = g.obj[k];
+    o++;
+  }
+  const s = new Scan({ kind: 'derived', spec: src ? src.spec : null, set: src ? src.set : {}, name, origin: src ? src.origin : null, limit: n + 10 });
+  s.cloud.add(b);
+  s.parent = src || null;
+  s.origins = src ? src.origins || null : null;
+  if (src) { s.stats.duration = src.stats.duration; s.traj = src.traj || null; s.registered = true; }
+  return s;
+}

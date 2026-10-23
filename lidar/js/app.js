@@ -6,10 +6,11 @@ import { World } from './world/world.js';
 import { SCENES } from './world/scenes.js';
 import { ScanEngine } from './engine/engine.js';
 import { LidarWorld } from './engine/lidarworld.js';
-import { CLOUD_LAYER } from './cloud/cloud.js';
+import { CLOUD_LAYER, MESH_LAYER } from './cloud/cloud.js';
 import { BY_ID } from './scanners/catalog.js';
 import { ScannerDevice } from './scanners/device.js';
 import { Project } from './cloud/project.js';
+import { Proc } from './cloud/proc.js';
 import { FieldPC } from './device/fieldpc.js';
 import { TopBar } from './ui/topbar.js';
 import { Home } from './ui/home.js';
@@ -34,6 +35,7 @@ export class App {
     this.engine = new ScanEngine();
     this.lw = new LidarWorld(this.engine);
     this.project = new Project(this);
+    this.proc = new Proc();
     this.edl = new EDLPass();
     this.buildUI();
     this.setupViews();
@@ -114,6 +116,7 @@ export class App {
     // Bildschirm des Feldrechners
     this.viewerCam = new THREE.PerspectiveCamera(55, 1, 0.03, 800);
     this.viewerCam.layers.set(CLOUD_LAYER);
+    this.viewerCam.layers.enable(MESH_LAYER);
     this.vorbit = new OrbitCam(this.viewerCam, this.fpc.viewHit);
     this.vorbit.maxDist = 300; this.vorbit.minDist = 0.2;
     this.vorbit.onTap = (info) => this.fpc.onViewerTap(info);
@@ -122,6 +125,8 @@ export class App {
       render: (r, rect, dpr) => {
         this.setCloudUniforms('viewer', rect, dpr, this.viewerCam);
         for (const c of this.allClouds()) c.group.visible = c.isLive ? this.fpc.showLive : c.visible !== false;
+        const hl = this.world.headlight;
+        hl.position.copy(this.viewerCam.position); hl.target.position.copy(this.vorbit.target); hl.target.updateMatrixWorld();
         this.edl.mat.uniforms.enabled.value = this.fpc.opts.edl ? 1 : 0;
         this.edl.mat.uniforms.strength.value = this.fpc.opts.edlStrength;
         this.edl.render(r, this.world.scene, this.viewerCam, rect, dpr);

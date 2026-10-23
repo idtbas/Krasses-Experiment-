@@ -415,3 +415,66 @@ function isIdentity(m) {
   for (let k = 0; k < 12; k++) if (Math.abs(m[k] - I[k]) > 1e-9) return false;
   return true;
 }
+
+/* ---------------- Nächster Punkt auf einem Dreiecksnetz (für Soll-Ist-Vergleiche) ---------------- */
+
+// Abstand Punkt–Dreieck (Ericson, Real-Time Collision Detection 5.1.5). Liefert Quadrat des Abstands, out = nächster Punkt.
+export function closestOnTri(px, py, pz, ax, ay, az, bx, by, bz, cx, cy, cz, out) {
+  const abx = bx - ax, aby = by - ay, abz = bz - az, acx = cx - ax, acy = cy - ay, acz = cz - az;
+  const apx = px - ax, apy = py - ay, apz = pz - az;
+  const d1 = abx * apx + aby * apy + abz * apz, d2 = acx * apx + acy * apy + acz * apz;
+  let qx, qy, qz;
+  if (d1 <= 0 && d2 <= 0) { qx = ax; qy = ay; qz = az; }
+  else {
+    const bpx = px - bx, bpy = py - by, bpz = pz - bz;
+    const d3 = abx * bpx + aby * bpy + abz * bpz, d4 = acx * bpx + acy * bpy + acz * bpz;
+    if (d3 >= 0 && d4 <= d3) { qx = bx; qy = by; qz = bz; }
+    else {
+      const vc = d1 * d4 - d3 * d2;
+      if (vc <= 0 && d1 >= 0 && d3 <= 0) { const v = d1 / (d1 - d3); qx = ax + abx * v; qy = ay + aby * v; qz = az + abz * v; }
+      else {
+        const cpx = px - cx, cpy = py - cy, cpz = pz - cz;
+        const d5 = abx * cpx + aby * cpy + abz * cpz, d6 = acx * cpx + acy * cpy + acz * cpz;
+        if (d6 >= 0 && d5 <= d6) { qx = cx; qy = cy; qz = cz; }
+        else {
+          const vb = d5 * d2 - d1 * d6;
+          if (vb <= 0 && d2 >= 0 && d6 <= 0) { const w = d2 / (d2 - d6); qx = ax + acx * w; qy = ay + acy * w; qz = az + acz * w; }
+          else {
+            const va = d3 * d6 - d5 * d4;
+            if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) { const w = (d4 - d3) / ((d4 - d3) + (d5 - d6)); qx = bx + (cx - bx) * w; qy = by + (cy - by) * w; qz = bz + (cz - bz) * w; }
+            else { const den = 1 / (va + vb + vc); const v = vb * den, w = vc * den; qx = ax + abx * v + acx * w; qy = ay + aby * v + acy * w; qz = az + abz * v + acz * w; }
+          }
+        }
+      }
+    }
+  }
+  out[0] = qx; out[1] = qy; out[2] = qz;
+  const dx = px - qx, dy = py - qy, dz = pz - qz;
+  return dx * dx + dy * dy + dz * dz;
+}
+
+const CSTACK = new Int32Array(128);
+const CQ = new Float64Array(3);
+// nächster Punkt einer TriBVH (Dreiecke als v0, e1, e2 gespeichert). Rückgabe: { d2, tri, q }
+export function closestPoint(b, px, py, pz, maxD2, res) {
+  const nf = b.nf, nu = b.nu, T = b.tri;
+  let best = maxD2, bestTri = -1, bx = 0, by = 0, bz = 0;
+  let sp = 0;
+  CSTACK[sp++] = 0;
+  while (sp > 0) {
+    const node = CSTACK[--sp], o = node * 8;
+    const dx = Math.max(nf[o] - px, 0, px - nf[o + 3]), dy = Math.max(nf[o + 1] - py, 0, py - nf[o + 4]), dz = Math.max(nf[o + 2] - pz, 0, pz - nf[o + 5]);
+    if (dx * dx + dy * dy + dz * dz > best) continue;
+    const cnt = nu[o + 7];
+    if (cnt > 0) {
+      const f = nu[o + 6];
+      for (let k = f; k < f + cnt; k++) {
+        const p = k * 9, ax = T[p], ay = T[p + 1], az = T[p + 2];
+        const d2 = closestOnTri(px, py, pz, ax, ay, az, ax + T[p + 3], ay + T[p + 4], az + T[p + 5], ax + T[p + 6], ay + T[p + 7], az + T[p + 8], CQ);
+        if (d2 < best) { best = d2; bestTri = k; bx = CQ[0]; by = CQ[1]; bz = CQ[2]; }
+      }
+    } else { CSTACK[sp++] = nu[o + 6]; CSTACK[sp++] = node + 1; }
+  }
+  res.d2 = best; res.tri = bestTri; res.qx = bx; res.qy = by; res.qz = bz;
+  return bestTri >= 0;
+}

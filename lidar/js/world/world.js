@@ -39,6 +39,12 @@ export class World {
     this.fill = new THREE.DirectionalLight('#c9d6e6', 0.4);
     this.fill.position.set(-6, 4, -5);
     s.add(this.fill);
+    // Netze im Viewer (Ebene 3): Kopflicht wie in Mesh-Viewern, unabhängig von der Hallenbeleuchtung
+    this.headlight = new THREE.DirectionalLight('#ffffff', 2.0);
+    this.headlight.layers.set(3);
+    this.meshAmb = new THREE.HemisphereLight('#e8eef5', '#40454c', 0.9);
+    this.meshAmb.layers.set(3);
+    s.add(this.headlight, this.headlight.target, this.meshAmb);
   }
 
   setEnvMap(r) {

@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 
 export const CLOUD_LAYER = 2;
+export const MESH_LAYER = 3;
 
 export const COLOR_MODES = [
   { id: 'intensity', name: 'Reflektivität', short: 'Reflekt.' },
