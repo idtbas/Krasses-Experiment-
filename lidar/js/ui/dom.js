@@ -85,6 +85,10 @@ export function slider(min, max, step, value, fmt, onChange) {
 export function field(label, control) { return h('div.field', h('label', label), control); }
 export function stat(label, value, small = '') { return h('div.stat', h('span', label), h('b', { html: value + (small ? ` <small>${small}</small>` : '') })); }
 
+// nur schreiben, wenn sich etwas ändert (jede Zuweisung kostet Stil- und Layoutarbeit)
+export function setHTML(el, html) { if (el._html !== html) { el._html = html; el.innerHTML = html; } }
+export function setText(el, text) { if (el._text !== text) { el._text = text; el.textContent = text; } }
+
 export function fmtInt(v) { return Math.round(v).toLocaleString('de-DE'); }
 export function fmtNum(v, d = 1) { return Number(v).toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }); }
 export function fmtBytes(b) { return b > 1e9 ? fmtNum(b / 1e9, 2) + ' GB' : b > 1e6 ? fmtNum(b / 1e6, 1) + ' MB' : fmtNum(b / 1e3, 0) + ' kB'; }

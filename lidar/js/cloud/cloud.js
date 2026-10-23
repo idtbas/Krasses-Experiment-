@@ -179,9 +179,16 @@ class Chunk {
   }
   flush() {
     if (this.dirtyFrom < 0) return;
-    const a = this.dirtyFrom, b = this.dirtyTo, n = b - a;
+    const a = this.dirtyFrom, b = this.dirtyTo;
     const g = this.geo;
-    const up = (name, k) => { const at = g.attributes[name]; at.clearUpdateRanges(); at.addUpdateRange(a * k, n * k); at.needsUpdate = true; };
+    // noch nicht hochgeladene Bereiche zusammenführen: mehrere Pakete pro Bild = ein Upload je Attribut
+    // (früher überschrieb jedes Paket den Bereich des vorigen, dessen Punkte erreichten die GPU nie)
+    const up = (name, k) => {
+      const at = g.attributes[name], R = at.updateRanges;
+      let s0 = a * k, s1 = b * k;
+      if (R.length) { for (const q of R) { s0 = Math.min(s0, q.start); s1 = Math.max(s1, q.start + q.count); } at.clearUpdateRanges(); }
+      at.addUpdateRange(s0, s1 - s0); at.needsUpdate = true;
+    };
     const ci = this.cinfo, rgb = this.rgb, it = this.inten;
     for (let i = a; i < b; i++) { const j = i * 4, k = i * 3; ci[j] = rgb[k]; ci[j + 1] = rgb[k + 1]; ci[j + 2] = rgb[k + 2]; ci[j + 3] = it[i]; }
     up('position', 3); up('cinfo', 4); up('meta', 4); up('ptime', 1);
@@ -252,11 +259,24 @@ export class PointCloud {
     const src = this.useWorld ? b.w : b.ls;
     const out = TMP;
     const e = M && M.isMatrix4 ? M.elements : null;
+    const cs = this.chunkSize, ring = this.ring, cap = ring ? Math.ceil(this.limit / cs) * cs : 0;
+    let c = null, i = 0;
     for (let k = 0; k < b.n; k++) {
       if (filter && !filter(b, k)) continue;
-      const s = this.slot();
-      if (!s) { this.dropped += b.n - k; break; }
-      const [c, i] = s;
+      // Schreibposition (wie slot(), ohne ein Feld je Punkt anzulegen)
+      if (ring) {
+        const q = this.written % cap, ci = (q / cs) | 0;
+        while (this.chunks.length <= ci) this.newChunk();
+        c = this.chunks[ci]; i = q - ci * cs;
+        if (c.n <= i) c.n = i + 1;
+        this.written++;
+      } else {
+        if (this.count >= this.limit) { this.dropped += b.n - k; break; }
+        c = this.chunks[this.chunks.length - 1];
+        if (!c || c.n >= c.cap) c = this.newChunk();
+        i = c.n++;
+        this.count++; this.written++;
+      }
       let x = src[k * 3], y = src[k * 3 + 1], z = src[k * 3 + 2];
       if (e) { const X = e[0] * x + e[4] * y + e[8] * z + e[12], Y = e[1] * x + e[5] * y + e[9] * z + e[13], Z = e[2] * x + e[6] * y + e[10] * z + e[14]; x = X; y = Y; z = Z; }
       else if (typeof M === 'function') { M(b, k, out); x = out[0]; y = out[1]; z = out[2]; }
@@ -272,9 +292,11 @@ export class PointCloud {
       if (c.dev) c.dev[i] = 1e9;
       if (t < this.tMin) this.tMin = t; if (t > this.tMax) this.tMax = t;
       if (!this.ring) this.box.expandByPoint(V.set(x, y, z));
-      c.markDirty(i, i + 1);
+      if (c.dirtyFrom < 0 || i < c.dirtyFrom) c.dirtyFrom = i;
+      if (i + 1 > c.dirtyTo) c.dirtyTo = i + 1;
     }
-    for (const c of this.chunks) { c.geo.setDrawRange(0, c.n); c.flush(); }
+    if (ring) this.count = Math.min(this.written, cap);
+    for (const ch of this.chunks) { ch.geo.setDrawRange(0, ch.n); ch.flush(); }
   }
 
   // Punkte direkt (z. B. aus Dateien oder Verarbeitung) hinzufügen

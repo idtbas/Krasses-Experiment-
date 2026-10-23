@@ -1,7 +1,7 @@
 // Feldrechner „ECHO Field T10“: robustes Tablet mit eigener Scan-Software.
 // Bereiche: Live, Scans, Ausrichten, Bearbeiten, Messen, Vergleich, Export, Gerät.
 import * as THREE from 'three';
-import { h, clear, toast } from '../ui/dom.js';
+import { h, clear, toast, setHTML, setText } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { COLOR_MODES } from '../cloud/cloud.js';
 import { Scan } from '../cloud/project.js';
@@ -144,11 +144,16 @@ export class FieldPC {
 
   // jedes Bild: Statusleiste, Überlagerungen, Abstandsbild
   frame(dt) {
-    const r = this.viewEl.getBoundingClientRect();
-    const st = this.vover.style;
-    const vis = r.width > 2 && !document.body.classList.contains('athome');
-    st.display = vis ? 'block' : 'none';
-    if (vis) { st.left = r.left + 'px'; st.top = r.top + 'px'; st.width = r.width + 'px'; st.height = r.height + 'px'; }
+    // Lage aus der Messung zu Beginn des Bildes (kein erneutes Layout), Stil nur bei Änderung setzen
+    const r = this.app.views.rectFor(this.viewEl);
+    const vis = !!r && !document.body.classList.contains('athome');
+    const key = vis ? `${r.x}|${r.y}|${r.w}|${r.h}` : 'none';
+    if (key !== this.voverKey) {
+      this.voverKey = key;
+      const st = this.vover.style;
+      st.display = vis ? 'block' : 'none';
+      if (vis) { st.left = r.x + 'px'; st.top = r.y + 'px'; st.width = r.w + 'px'; st.height = r.h + 'px'; }
+    }
     this.ft = (this.ft || 0) + dt;
     if (this.ft < 0.12) return;
     this.ft = 0;
@@ -156,22 +161,22 @@ export class FieldPC {
     const now = new Date();
     const link = d ? (d.kind === 'phone' ? 'ARKit' : d.spec.cls === 'tls' ? 'WLAN · ' + d.spec.model : 'ETH 100M · 192.168.1.201') : 'kein Gerät';
     const temp = d ? (34 + Math.min(14, a.clock.t * 0.02) + (d.state === 'stream' ? 4 : 0)).toFixed(0) : '–';
-    this.sbar.innerHTML = `<span>${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span><span class="row" style="gap:4px">${icon('wifi')}${link}</span><span class="grow"></span><span>${temp} °C</span><span class="row" style="gap:4px">${icon('battery')}86 %</span>`;
+    setHTML(this.sbar, `<span>${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span><span class="row" style="gap:4px">${icon('wifi')}${link}</span><span class="grow"></span><span>${temp} °C</span><span class="row" style="gap:4px">${icon('battery')}86 %</span>`);
     if (d) {
       const st = d.state === 'stream' ? `<span class="led acc"></span> LIVE` : d.state === 'tls' ? `<span class="led acc"></span> SCAN ${Math.round((this.tlsProgress || 0) * 100)} %` : '<span class="led"></span> BEREIT';
       const rate = d.stats.rate;
       const hit = d.stats.srate > 0 ? Math.min(100, (rate / d.stats.srate) * 100) : 0;
       const p = d.pattern;
       const freq = d.kind === 'tls' ? `${d.set.resolution} mm @ 10 m` : d.kind === 'depth' ? `${d.set.hz} Bilder/s` : p.hz ? `${p.hz} Hz` : '';
-      this.ovTL.innerHTML = `<div class="row" style="gap:6px;color:#dbe2e9">${st} · ${freq}${this.recording ? ' · <span style="color:#ff6b5e">● AUFNAHME</span>' : ''}</div><div>${Math.round(rate).toLocaleString('de-DE')} Pkt/s · Treffer ${hit.toFixed(0)} % · ${(rate * d.stats.bytes * 8 / 1e6).toFixed(1)} Mbit/s</div>`;
+      setHTML(this.ovTL, `<div class="row" style="gap:6px;color:#dbe2e9">${st} · ${freq}${this.recording ? ' · <span style="color:#ff6b5e">● AUFNAHME</span>' : ''}</div><div>${Math.round(rate).toLocaleString('de-DE')} Pkt/s · Treffer ${hit.toFixed(0)} % · ${(rate * d.stats.bytes * 8 / 1e6).toFixed(1)} Mbit/s</div>`);
     }
     // leere Ansicht erklären statt schwarz zu bleiben
     const visScans = a.project.scans.some((x) => x.visible && x.points);
     const empty = this.tab === 'live' && d && (d.state !== 'stream' && d.state !== 'tls') && !(this.showLive && d.live.count) && !visScans;
     this.ovC.classList.toggle('hidden', !empty);
-    if (empty) this.ovC.innerHTML = d.mountKind === 'getragen' ? `${d.spec.model} wird nur getragen –<br>auf ein Stativ oder eine Plattform setzen` : d.kind === 'tls' ? 'Bereit für den Stationsscan –<br><b>F</b> am Stativ oder „Stationsscan starten“' : 'Laser aus –<br><b>F</b> am Scanner oder „Laser an“ unten';
+    if (empty) setHTML(this.ovC, d.mountKind === 'getragen' ? `${d.spec.model} wird nur getragen –<br>auf ein Stativ oder eine Plattform setzen` : d.kind === 'tls' ? 'Bereit für den Stationsscan –<br><b>F</b> am Stativ oder „Stationsscan starten“' : 'Laser aus –<br><b>F</b> am Scanner oder „Laser an“ unten');
     const tot = a.project.total;
-    this.ovBL.textContent = `Projekt: ${a.project.scans.length} Scans · ${tot.toLocaleString('de-DE')} Punkte` + (d && d.live ? ` · Live ${d.live.count.toLocaleString('de-DE')}` : '');
+    setText(this.ovBL, `Projekt: ${a.project.scans.length} Scans · ${tot.toLocaleString('de-DE')} Punkte` + (d && d.live ? ` · Live ${d.live.count.toLocaleString('de-DE')}` : ''));
     if (d && d.rimg && !this.rimg.classList.contains('hidden') && d.rimg.dirty) this.drawRangeImage(d);
     const T = TABS.find((t) => t[0] === this.tab);
     if (T[3].tick) T[3].tick(this);
@@ -184,7 +189,8 @@ export class FieldPC {
     const img = this.rimgData, px = img.data;
     const mode = this.rimgMode, rmax = this.opts.rMax;
     // Zeile 0 = unterster Kanal → oben im Bild der höchste
-    const order = d.pattern.elev ? d.pattern.elev.map((e, i) => [e, i]).sort((a, b) => b[0] - a[0]).map((x) => x[1]) : [...Array(H).keys()];
+    const P = d.pattern;
+    const order = P._rowOrder || (P._rowOrder = P.elev ? P.elev.map((e, i) => [e, i]).sort((a, b) => b[0] - a[0]).map((x) => x[1]) : [...Array(H).keys()]);
     for (let y = 0; y < H; y++) {
       const ring = order[y];
       for (let x = 0; x < W; x++) {
@@ -200,7 +206,7 @@ export class FieldPC {
     }
     c.getContext('2d').putImageData(img, 0, 0);
     R.dirty = false;
-    this.rimgLab.textContent = `${mode === 'range' ? 'Abstandsbild' : 'Reflektivitätsbild'} · ${H} × ${W} (tippen zum Wechseln)`;
+    setText(this.rimgLab, `${mode === 'range' ? 'Abstandsbild' : 'Reflektivitätsbild'} · ${H} × ${W} (tippen zum Wechseln)`);
   }
 
   /* ---------- Ansicht ---------- */

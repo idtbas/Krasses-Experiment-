@@ -63,8 +63,8 @@ export class EDLPass {
     this.rt = new THREE.WebGLRenderTarget(w, h, { depthTexture: depth, depthBuffer: true, samples: 0 });
     this.rt.texture.minFilter = this.rt.texture.magFilter = THREE.NearestFilter;
   }
-  // scene/camera zuerst ins Ziel, dann zusammensetzen in den aktuellen Viewport
-  render(r, scene, camera, rect, dpr) {
+  // 1. Szene ins eigene Ziel (vor dem Bildschirm-Pass, siehe Views.frame)
+  prepare(r, scene, camera, rect, dpr) {
     const w = Math.max(1, Math.round(rect.w * dpr)), h = Math.max(1, Math.round(rect.h * dpr));
     this.ensure(w, h);
     const keepBg = scene.background;
@@ -76,6 +76,12 @@ export class EDLPass {
     r.render(scene, camera);
     r.setRenderTarget(null);
     scene.background = keepBg;
+    this.camera = camera; this.w = w; this.h = h;
+  }
+  // 2. zusammensetzen in den aktuellen Viewport des Bildschirms
+  composite(r) {
+    const w = this.w, h = this.h, camera = this.camera;
+    if (!camera) return;
     const u = this.mat.uniforms;
     u.tColor.value = this.rt.texture; u.tDepth.value = this.rt.depthTexture;
     u.texel.value.set(1 / w, 1 / h);
@@ -97,6 +103,8 @@ export class Views {
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFShadowMap;
     r.autoClear = false;
+    // Schattenkarte nur einmal je Bild (im Szenen-Pass), nicht zusätzlich für Feldrechner und Handy
+    r.shadowMap.autoUpdate = false;
     this.r = r;
     this.list = [];
     this.diag();
@@ -127,7 +135,8 @@ export class Views {
     };
     const dbg = gl.getExtension('WEBGL_debug_renderer_info');
     this.glName = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
-    setInterval(() => { const e = gl.getError(); if (e) show(`WebGL-Fehler 0x${e.toString(16)} · ${this.glName}`); }, 1500);
+    // getError wartet auf die GPU – nur ein paar Stichproben nach dem Start, nicht im laufenden Betrieb
+    for (const ms of [4000, 12000, 30000]) setTimeout(() => { const e = gl.getError(); if (e) show(`WebGL-Fehler 0x${e.toString(16)} · ${this.glName}`); }, ms);
   }
 
   rectOf(el) {
@@ -135,26 +144,48 @@ export class Views {
     return { x: b.left, y: b.top, w: b.width, h: b.height };
   }
 
-  frame() {
-    const r = this.r;
-    r.setScissorTest(false);
-    r.setViewport(0, 0, this.W, this.H);
-    r.setClearColor(0x000000, 0);
-    r.clear(true, true, true);
+  // Alle Rechtecke einmal je Bild lesen, bevor irgendetwas am DOM geschrieben wird (kein erzwungenes Layout).
+  // extra: weitere Elemente, deren Lage andere Teile brauchen (z. B. der Feldrechner für das Loch im Canvas)
+  measure(extra = []) {
+    this.active = [];
     for (const v of this.list) {
+      v.rect = null;
       if (!v.enabled || !v.el || !v.el.isConnected) continue;
+      if (v.el.offsetParent === null && getComputedStyle(v.el).position !== 'fixed') continue;
       const rect = this.rectOf(v.el);
       if (rect.w < 2 || rect.h < 2 || rect.x > this.W || rect.y > this.H || rect.x + rect.w < 0 || rect.y + rect.h < 0) continue;
-      if (v.el.offsetParent === null && getComputedStyle(v.el).position !== 'fixed') continue;
-      const y = this.H - rect.y - rect.h;
+      v.rect = rect;
+      this.active.push(v);
+    }
+    this.extra = new Map();
+    for (const el of extra) this.extra.set(el, el.isConnected ? el.getBoundingClientRect() : null);
+  }
+  rectFor(el) {
+    const v = this.list.find((x) => x.el === el);
+    return v ? v.rect : null;
+  }
+
+  // Reihenfolge für Kachel-GPUs (Apple, Mobil): erst alle Ziele außerhalb des Bildschirms (Viewer-Puffer,
+  // Schattenkarte im Szenen-Render), dann der Bildschirm in einem einzigen Durchgang. Jeder Wechsel mitten im
+  // Bild würde das ganze kantengeglättete Bild in den Speicher schreiben und wieder laden.
+  // Kein Löschen des ganzen Canvas vorab: ohne preserveDrawingBuffer beginnt jedes Bild ohnehin leer.
+  frame() {
+    const r = this.r;
+    if (!this.active) this.measure();
+    for (const v of this.active) {
+      v.camera.aspect = v.rect.w / v.rect.h;
+      v.camera.updateProjectionMatrix();
+      if (v.prepare) v.prepare(r, v.rect, this.dpr);
+    }
+    r.setRenderTarget(null);
+    for (const v of this.active) {
+      const rect = v.rect, y = this.H - rect.y - rect.h;
       r.setViewport(rect.x, y, rect.w, rect.h);
       r.setScissor(rect.x, y, rect.w, rect.h);
       r.setScissorTest(true);
-      v.camera.aspect = rect.w / rect.h;
-      v.camera.updateProjectionMatrix();
-      v.rect = rect;
       v.render(r, rect, this.dpr);
     }
     r.setScissorTest(false);
+    this.active = null;
   }
 }

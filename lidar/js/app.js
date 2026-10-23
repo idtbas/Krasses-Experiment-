@@ -122,11 +122,16 @@ export class App {
       render: (r, rect, dpr) => {
         this.setCloudUniforms('scene', rect, dpr, this.sceneCam);
         for (const c of this.allClouds()) c.group.visible = this.view.cloudInScene && (c.isLive || c.visibleInScene);
-        r.clear(true, true, true);
+        // Schattenkarte hier und nur hier neu; Löschen übernimmt three nach dem Schattenpass (ein Bildschirm-Durchgang)
+        r.shadowMap.needsUpdate = true;
+        r.setClearColor(0x000000, 0);
+        r.autoClear = true;
         r.render(this.world.scene, this.sceneCam);
+        r.autoClear = false;
         // Feldrechner vor dir: dort bleibt die Leinwand durchsichtig (das Tablet liegt darunter)
-        if (this.player.tabletOpen) {
-          const t = this.fpc.el.getBoundingClientRect(), H = this.views.H;
+        const t = this.player.tabletOpen && this.views.extra && this.views.extra.get(this.fpc.el);
+        if (t) {
+          const H = this.views.H;
           r.setScissor(t.left, H - t.top - t.height, t.width, t.height);
           r.setClearColor(0x000000, 0);
           r.clear(true, true, false);
@@ -144,14 +149,18 @@ export class App {
     this.fpc.bindViewer();
     this.views.add({
       name: 'viewer', el: this.fpc.viewEl, camera: this.viewerCam, enabled: true,
-      render: (r, rect, dpr) => {
+      // Punktwolke vorab in den eigenen Puffer, im Bildschirm-Durchgang nur noch zusammensetzen
+      prepare: (r, rect, dpr) => {
         this.setCloudUniforms('viewer', rect, dpr, this.viewerCam);
         for (const c of this.allClouds()) c.group.visible = c.isLive ? this.fpc.showLive : c.visible !== false;
         const hl = this.world.headlight;
         hl.position.copy(this.viewerCam.position); hl.target.position.copy(this.vorbit.target); hl.target.updateMatrixWorld();
+        this.edl.prepare(r, this.world.scene, this.viewerCam, rect, dpr);
+      },
+      render: (r) => {
         this.edl.mat.uniforms.enabled.value = this.fpc.opts.edl ? 1 : 0;
         this.edl.mat.uniforms.strength.value = this.fpc.opts.edlStrength;
-        this.edl.render(r, this.world.scene, this.viewerCam, rect, dpr);
+        this.edl.composite(r);
       },
     });
   }
@@ -332,6 +341,8 @@ export class App {
 
   /* ---------------- Takt ---------------- */
   loop(now) {
+    // Lage aller Ansichten zuerst lesen (Layout ist zu Beginn des Bildes sauber), danach nur noch schreiben
+    this.views.measure(this.player.tabletOpen ? [this.fpc.el] : []);
     const dtr = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
     const C = this.clock;
@@ -353,9 +364,14 @@ export class App {
     if (this.fpc.recording) this.fpc.recording.loc.update(C.t);
     this.phone.frame(dt);
     if (this.player.tabletOpen) {
-      const t = this.fpc.el.getBoundingClientRect(), st = this.tabShade.style;
-      st.left = t.left + 'px'; st.top = t.top + 'px'; st.width = t.width + 'px'; st.height = t.height + 'px';
-    }
+      const t = this.views.extra.get(this.fpc.el);
+      const key = t ? `${t.left}|${t.top}|${t.width}|${t.height}` : '';
+      if (t && key !== this.tabShadeKey) {
+        this.tabShadeKey = key;
+        const st = this.tabShade.style;
+        st.left = t.left + 'px'; st.top = t.top + 'px'; st.width = t.width + 'px'; st.height = t.height + 'px';
+      }
+    } else this.tabShadeKey = '';
     if ((this.topT = (this.topT || 0) + dtr) > 0.5) { this.topT = 0; this.top.render(); }
     this.player.updateCamera(this.sceneCam, dtr);
     this.vorbit.update(dtr);

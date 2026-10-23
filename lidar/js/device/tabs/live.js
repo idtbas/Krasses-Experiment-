@@ -1,5 +1,5 @@
 // Live: Datenstrom, Darstellung, Kennzahlen
-import { h, seg, toggle, slider, field, stat, fmtInt } from '../../ui/dom.js';
+import { h, seg, toggle, slider, field, stat, fmtInt, setHTML } from '../../ui/dom.js';
 import { icon } from '../../ui/icons.js';
 import * as platform from './platform.js';
 
@@ -54,14 +54,18 @@ export function tick(f) {
   const s = d.stats;
   const hit = s.srate > 0 ? (s.rate / s.srate) * 100 : 0;
   const env = f.app.world.weather;
-  f._stats.replaceChildren(
-    stat('Punkte/s', fmtInt(s.rate)),
-    stat('Schüsse/s', fmtInt(s.srate)),
-    stat('Trefferquote', hit.toFixed(0), '%'),
-    stat('Datenrate', (s.rate * s.bytes * 8 / 1e6).toFixed(1), 'Mbit/s'),
-    stat('Live-Puffer', fmtInt(d.live.count)),
-    stat('Echo-Modus', (d.set.returns || 'strongest').replace('strongest', 'stärkstes').replace('last', 'letztes').replace('dual', 'doppelt').replace('triple', 'dreifach').replace('multi', 'alle').replace('first', 'erstes')),
-    stat('Umgebung', env.fogVis ? `Sicht ${env.fogVis} m` : env.rain ? `Regen ${env.rain} mm/h` : env.sun > 0.5 ? 'Sonne' : 'klar'),
-    stat('Simulation', (f.app.clock.factor * 100).toFixed(0), '% Echtzeit'),
-  );
+  const rows = [
+    ['Punkte/s', fmtInt(s.rate)],
+    ['Schüsse/s', fmtInt(s.srate)],
+    ['Trefferquote', hit.toFixed(0), '%'],
+    ['Datenrate', (s.rate * s.bytes * 8 / 1e6).toFixed(1), 'Mbit/s'],
+    ['Live-Puffer', fmtInt(d.live.count)],
+    ['Echo-Modus', (d.set.returns || 'strongest').replace('strongest', 'stärkstes').replace('last', 'letztes').replace('dual', 'doppelt').replace('triple', 'dreifach').replace('multi', 'alle').replace('first', 'erstes')],
+    ['Umgebung', env.fogVis ? `Sicht ${env.fogVis} m` : env.rain ? `Regen ${env.rain} mm/h` : env.sun > 0.5 ? 'Sonne' : 'klar'],
+    ['Simulation', (f.app.clock.factor * 100).toFixed(0), '% Echtzeit'],
+  ];
+  // Kacheln einmal bauen, danach nur die Werte tauschen (kein Neuaufbau des Panels alle 120 ms)
+  const g = f._stats;
+  if (g.children.length !== rows.length) g.replaceChildren(...rows.map(([l, v, sm]) => stat(l, v, sm)));
+  else rows.forEach(([, v, sm], k) => setHTML(g.children[k].lastChild, v + (sm ? ` <small>${sm}</small>` : '')));
 }
