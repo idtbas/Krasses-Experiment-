@@ -33,7 +33,7 @@ export function render(f, P) {
     P.appendChild(field('Drehteller', h('div.row.wrap', seg([[0, 'Stopp'], [2 * Math.PI / 40, '40 s/U'], [2 * Math.PI / 20, '20 s/U'], [2 * Math.PI / 10, '10 s/U']], T.speed, (v) => { T.speed = v; f.render(); }),
       h('span.muted', { style: { fontSize: '11.5px' } }, T.speed ? 'Aufnahme in Objektkoordinaten' : ''))));
   }
-  const g = h('div.fgrid');
+  const g = h('div.fgrid.k8');
   f._stats = g;
   P.appendChild(g);
   P.appendChild(h('h4', 'Darstellung'));
@@ -62,7 +62,7 @@ export function tick(f) {
     ['Live-Puffer', fmtInt(d.live.count)],
     ['Echo-Modus', (d.set.returns || 'strongest').replace('strongest', 'stärkstes').replace('last', 'letztes').replace('dual', 'doppelt').replace('triple', 'dreifach').replace('multi', 'alle').replace('first', 'erstes')],
     ['Umgebung', env.fogVis ? `Sicht ${env.fogVis} m` : env.rain ? `Regen ${env.rain} mm/h` : env.sun > 0.5 ? 'Sonne' : 'klar'],
-    ['Simulation', (f.app.clock.factor * 100).toFixed(0), '% Echtzeit'],
+    ['Echtzeit', (f.app.clock.factor * 100).toFixed(0), '%'],
   ];
   // Kacheln einmal bauen, danach nur die Werte tauschen (kein Neuaufbau des Panels alle 120 ms)
   const g = f._stats;

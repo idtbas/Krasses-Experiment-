@@ -52,7 +52,7 @@ export class FieldPC {
 
   build() {
     const el = h('div.tablet');
-    el.append(h('div.corner2'), h('div.corner3'), h('div.cam'), h('div.brandplate', 'ECHO FIELD T10 · v23.10c'), h('div.hwbtn', { style: { top: '90px' } }), h('div.hwbtn', { style: { top: '134px' } }));
+    el.append(h('div.corner2'), h('div.corner3'), h('div.cam'), h('div.brandplate', 'ECHO FIELD T10 · v23.10d'), h('div.hwbtn', { style: { top: '90px' } }), h('div.hwbtn', { style: { top: '134px' } }));
     for (const [x, y] of [[8, 8], [8, null], [null, 8], [null, null]]) el.appendChild(h('div.screw', { style: { left: x != null ? x + 'px' : 'auto', right: x == null ? '8px' : 'auto', top: y != null ? y + 'px' : 'auto', bottom: y == null ? '8px' : 'auto' } }));
     const scr = h('div.screen');
     this.sbar = h('div.sbar');

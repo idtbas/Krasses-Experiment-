@@ -187,7 +187,7 @@ body.devfull #dock { width: auto; left: 0; }
 .fhead .sub { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fview { position: relative; flex: 1; min-height: 120px; }
 .fview .hit { position: absolute; inset: 0; touch-action: none; }
-.ov { position: absolute; pointer-events: none; font: 10.5px var(--mono); color: var(--muted); text-shadow: 0 1px 2px #000; }
+.ov { position: absolute; pointer-events: none; font: 10.5px var(--mono); color: var(--muted); text-shadow: 0 0 3px #000, 0 1px 2px #000, 0 0 8px rgba(0,0,0,.8); }
 .ov.tl { left: 8px; top: 7px; }
 .ov.tr { right: 8px; top: 7px; text-align: right; }
 .ov.bl { left: 8px; bottom: 7px; }
@@ -198,15 +198,21 @@ body.devfull #dock { width: auto; left: 0; }
 .rimg { flex: none; height: 54px; border-top: 1px solid var(--line); background: #050608; position: relative; }
 .rimg canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
 .rimg .lab { position: absolute; left: 6px; top: 3px; font: 9.5px var(--mono); color: var(--muted); background: rgba(0, 0, 0, .5); padding: 0 4px; border-radius: 3px; }
-.fpanel { flex: none; max-height: 46%; overflow-y: auto; border-top: 1px solid var(--line); background: #0c1015; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 9px; -webkit-overflow-scrolling: touch; }
+.fpanel { flex: none; max-height: 42%; overflow-y: auto; border-top: 1px solid var(--line); background: #0c1015; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 9px; -webkit-overflow-scrolling: touch; }
 .fpanel h4 { margin: 0; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
 .fgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.fgrid.k8 { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+@media (max-width: 960px) { .fgrid.k8 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.fgrid.k8 .stat { padding: 5px 7px; }
+.fgrid.k8 .stat span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9.5px; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; }
 .stat span { display: block; font-size: 10px; color: var(--dim); letter-spacing: .06em; text-transform: uppercase; }
-.stat b { display: block; font: 500 14px var(--mono); font-variant-numeric: tabular-nums; margin-top: 1px; white-space: nowrap; }
+.stat b { display: block; font: 500 14px var(--mono); font-variant-numeric: tabular-nums; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat b small { font-size: 10.5px; color: var(--muted); font-weight: 400; }
 .field { display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 8px; min-height: 30px; }
 .field > label { color: var(--muted); font-size: 12px; }
+.field > .sel { justify-self: start; max-width: 100%; }
+.field > .sel select { max-width: 100%; text-overflow: ellipsis; }
 .list { display: flex; flex-direction: column; gap: 4px; }
 .litem { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); cursor: pointer; }
 .litem.on { border-color: var(--accent-d); background: var(--accent-bg); }
@@ -372,7 +378,10 @@ kbd { display: inline-flex; align-items: center; justify-content: center; min-wi
 #touchui .tbtns { position: absolute; right: 14px; bottom: 70px; display: grid; grid-template-columns: repeat(3, 58px); gap: 8px; }
 #touchui .tbtn { height: 52px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(10, 13, 17, .7); color: #fff; font: 700 15px var(--sans); touch-action: none; }
 #touchui .tbtn.dim { opacity: .4; }
-#top .tstatus { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; display: flex; align-items: center; gap: 6px; }
+#top .tstatus { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; display: flex; align-items: center; gap: 6px; }
+#top .pick { flex: none; }
+@media (max-width: 1400px) { #top .pick span em { display: none; } #top .pick small { letter-spacing: .08em; } }
+@media (max-width: 1250px) { #top .brand small { display: none; } #top .tstatus em { display: none; } }
 #top .tstatus b { color: var(--text); font-weight: 600; }
 #top .tstatus em { font-style: normal; }
 #top .tstatus .recc { color: #ff6b5e; }

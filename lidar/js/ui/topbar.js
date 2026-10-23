@@ -1,5 +1,5 @@
 // Kopfzeile: Szene, Scanner, Halterung, Umgebung, Start/Stopp, Aufnahme, Zeitraffer
-import { h, popover, seg } from './dom.js';
+import { h, popover, seg, setHTML } from './dom.js';
 import { icon, LOGO } from './icons.js';
 import { SCENES } from '../world/scenes.js';
 import { fmtPrice } from '../scanners/catalog.js';
@@ -43,7 +43,7 @@ export class TopBar {
     b.addEventListener('click', () => fn(b));
     return b;
   }
-  setPick(b, html) { b.querySelector('span').innerHTML = html; }
+  setPick(b, html) { setHTML(b.querySelector('span'), html); }
 
   render() {
     const a = this.app, d = a.dev;
@@ -56,19 +56,19 @@ export class TopBar {
     if (d) {
       const st = d.state === 'stream' ? '<span class="led acc"></span> misst' : d.state === 'tls' ? '<span class="led acc"></span> Stationsscan' : '<span class="led"></span> bereit';
       const where = { stativ: 'auf dem Stativ', hand: 'in der Hand', getragen: 'getragen', boden: 'am Boden', rover: 'auf dem AMR-1', arm: 'am KX-5', drohne: 'an der Drohne' }[d.mountKind] || '';
-      this.status.innerHTML = `<b>${d.spec.maker} ${d.spec.model}</b> <em>${where}</em> ${st}${a.fpc.recording ? ' · <span class="recc">● Aufnahme</span>' : ''}`;
+      setHTML(this.status, `<b>${d.spec.maker} ${d.spec.model}</b> <em>${where}</em> ${st}${a.fpc.recording ? ' · <span class="recc">● Aufnahme</span>' : ''}`);
       const P = a.player;
-      this.tab.innerHTML = icon('device') + `<span>${P && P.tabletOpen ? 'Feldrechner senken' : 'Feldrechner'}</span>`;
+      setHTML(this.tab, icon('device') + `<span>${P && P.tabletOpen ? 'Feldrechner senken' : 'Feldrechner'}</span>`);
       this.tab.classList.toggle('on', !!(P && P.tabletOpen));
       this.tab.disabled = !(P && P.hasTablet);
       const tls = d.kind === 'tls';
       const busy = d.state === 'stream' || d.state === 'tls';
       this.go.className = 'btn go ' + (busy ? '' : 'primary');
-      this.go.innerHTML = icon(busy ? 'stop' : 'play') + `<span>${busy ? (tls ? 'Abbrechen' : 'Stopp') : tls ? 'Stationsscan' : 'Scannen'}</span>`;
+      setHTML(this.go, icon(busy ? 'stop' : 'play') + `<span>${busy ? (tls ? 'Abbrechen' : 'Stopp') : tls ? 'Stationsscan' : 'Scannen'}</span>`);
       this.rec.classList.toggle('hidden', tls || d.kind === 'phone');
       const on = !!a.fpc.recording;
       this.rec.className = 'btn' + (on ? ' rec' : '') + (tls || d.kind === 'phone' ? ' hidden' : '');
-      this.rec.innerHTML = icon('rec') + `<span>${on ? 'Aufnahme läuft' : 'Aufnahme'}</span>`;
+      setHTML(this.rec, icon('rec') + `<span>${on ? 'Aufnahme läuft' : 'Aufnahme'}</span>`);
     }
     this.pause.classList.toggle('on', a.clock.paused);
   }
