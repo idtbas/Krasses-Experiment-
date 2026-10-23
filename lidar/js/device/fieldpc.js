@@ -17,6 +17,8 @@ import * as measure from './tabs/measure.js';
 import * as compare from './tabs/compare.js';
 import * as exp from './tabs/export.js';
 import * as device from './tabs/device.js';
+import { brandOf, applyBrand, stateWord } from './brands.js';
+import { BootFX } from './bootfx.js';
 
 // Turbo-Farbskala (Google, 2019) als Tabelle
 const TURBO = Array.from({ length: 256 }, (_, i) => {
@@ -64,7 +66,7 @@ export class FieldPC {
 
   build() {
     const el = h('div.tablet');
-    el.append(h('div.corner2'), h('div.corner3'), h('div.cam'), h('div.brandplate', 'ECHO FIELD T10 · v23.11a'), h('div.hwbtn', { style: { top: '90px' } }), h('div.hwbtn', { style: { top: '134px' } }));
+    el.append(h('div.corner2'), h('div.corner3'), h('div.cam'), h('div.brandplate', 'ECHO FIELD T10 · v23.12'), h('div.hwbtn', { style: { top: '90px' } }), h('div.hwbtn', { style: { top: '134px' } }));
     for (const [x, y] of [[8, 8], [8, null], [null, 8], [null, null]]) el.appendChild(h('div.screw', { style: { left: x != null ? x + 'px' : 'auto', right: x == null ? '8px' : 'auto', top: y != null ? y + 'px' : 'auto', bottom: y == null ? '8px' : 'auto' } }));
     const scr = h('div.screen');
     this.sbar = h('div.sbar');
@@ -93,6 +95,8 @@ export class FieldPC {
     // Live-Ansicht folgt dem Scanner (Ziel der Kamera wandert mit, Drehen und Zoomen bleiben frei)
     this.followOn = true;
     document.getElementById('ui').appendChild(this.vover);
+    // Boot-Bildschirm der Marke liegt über dem Viewer
+    this.boot = new BootFX(this.vover);
     // Abstandsbild mit Kanalwahl
     this.rimg = h('div.rimg.hidden');
     this.rimgCanvas = h('canvas');
@@ -110,6 +114,8 @@ export class FieldPC {
     scr.append(this.sbar, this.fapp);
     el.appendChild(scr);
     this.el = el;
+    this.brand = null;
+    this.applyBrand();
     this.app.project.listeners.push(() => { if (['scans', 'align', 'edit', 'compare', 'export', 'measure'].includes(this.tab)) this.render(); });
     this.setTab('live');
   }
@@ -126,7 +132,17 @@ export class FieldPC {
 
   setDevice(d) {
     this.dev = d;
+    this.applyBrand();
     this.render();
+  }
+
+  // Software-Optik des Herstellers (Farben, Schrift, Aufbau, Viewer-Hintergrund)
+  applyBrand() {
+    const B = brandOf(this.dev && this.dev.spec);
+    if (B === this.brand) return;
+    this.brand = B;
+    applyBrand([this.el, this.vover], B);
+    this.voverKey = null;
   }
 
   setTab(id) {
@@ -140,7 +156,8 @@ export class FieldPC {
     const d = this.dev;
     clear(this.head);
     const T = TABS.find((t) => t[0] === this.tab);
-    this.head.append(h('h3', T[5]), h('div.sub', d ? `${d.spec.maker} ${d.spec.model}` : 'kein Gerät'), h('div.grow'));
+    const B = this.brand;
+    this.head.append(h('div.fbrand', { html: d ? B.word : '' }), h('h3', T[5]), h('div.sub', d ? (B.key === 'echo' ? `${d.spec.maker} ${d.spec.model}` : d.spec.model) : 'kein Gerät'), h('div.grow'));
     const modeSel = h('select');
     for (const m of COLOR_MODES) { const o = h('option', { value: m.id }, m.name); if (m.id === this.opts.mode) o.selected = true; modeSel.appendChild(o); }
     modeSel.addEventListener('change', () => { this.opts.mode = modeSel.value; this.updateLegend(); });
@@ -203,22 +220,24 @@ export class FieldPC {
     if (er) { const narrow = er.width < 940; if (narrow !== this.narrow) { this.narrow = narrow; this.el.classList.toggle('narrow', narrow); } }
     const TT = TABS.find((t) => t[0] === this.tab);
     if (TT[3].frame) TT[3].frame(this, dt);
+    this.boot.frame(dt, this.dev, this.brand, vis && ['live', 'scans', 'device'].includes(this.tab), r ? r.w : 0, r ? r.h : 0, this.app.world);
     this.ft = (this.ft || 0) + dt;
     if (this.ft < 0.12) return;
     this.ft = 0;
     const d = this.dev, a = this.app;
     setHTML(this.sbar, this.statusBar(d));
     if (d) {
-      const U = d.unit, ph = U ? U.phase : 'misst';
+      const U = d.unit, ph = U ? U.phase : 'misst', B = this.brand;
+      const word = (p) => (B.key === 'echo' ? null : stateWord(B, p, d));
       const st = d.state === 'tls' ? `<span class="led acc"></span> SCAN ${Math.round((this.tlsProgress || 0) * 100)} %`
-        : d.state === 'stream' && ph === 'boot' ? `<span class="led warn blink"></span> BOOTET ${Math.round(U.progress * 100)} %`
-        : d.state === 'stream' && ph === 'anlauf' ? `<span class="led warn blink"></span> MOTOR ${Math.round(U.rpmFrac * (d.pattern.hz || 10) * 60)} U/min`
-        : d.state === 'stream' ? `<span class="led acc"></span> LIVE` : '<span class="led"></span> BEREIT';
+        : d.state === 'stream' && ph === 'boot' ? `<span class="led warn blink"></span> ${word('boot') || 'BOOTET'} ${Math.round(U.progress * 100)} %`
+        : d.state === 'stream' && ph === 'anlauf' ? `<span class="led warn blink"></span> ${B.key === 'velodyne' ? word('anlauf') : `${word('anlauf') || 'MOTOR'} ${Math.round(U.rpmFrac * (d.pattern.hz || 10) * 60)} U/min`}`
+        : d.state === 'stream' ? `<span class="led acc"></span> ${word('misst') || 'LIVE'}` : `<span class="led"></span> ${word('bereit') || 'BEREIT'}`;
       const rate = d.stats.rate;
       const hit = d.stats.srate > 0 ? Math.min(100, (rate / d.stats.srate) * 100) : 0;
       const p = d.pattern;
       const freq = d.kind === 'tls' ? `${d.set.resolution} mm @ 10 m` : d.kind === 'depth' ? `${d.set.hz} Bilder/s` : p.hz ? `${p.hz} Hz` : '';
-      setHTML(this.ovTL, `<div class="row" style="gap:6px;color:#dbe2e9">${st} · ${freq}${this.recording ? ' · <span style="color:#ff6b5e">● AUFNAHME</span>' : ''}</div><div>${Math.round(rate).toLocaleString('de-DE')} Punkte/s · Treffer ${hit.toFixed(0)} % · ${(rate * d.stats.bytes * 8 / 1e6).toFixed(1).replace('.', ',')} Mbit/s</div>`);
+      setHTML(this.ovTL, `<div class="row hi" style="gap:6px">${st} · ${freq}${this.recording ? ' · <span style="color:#ff6b5e">● AUFNAHME</span>' : ''}</div><div>${Math.round(rate).toLocaleString('de-DE')} Punkte/s · Treffer ${hit.toFixed(0)} % · ${(rate * d.stats.bytes * 8 / 1e6).toFixed(1).replace('.', ',')} Mbit/s</div>`);
     }
     // leere Ansicht erklären statt schwarz zu bleiben
     const visScans = a.project.scans.some((x) => x.visible && x.points);
@@ -238,7 +257,7 @@ export class FieldPC {
     if (!d) return `<span class="sb-time">${now}</span><span class="sb-dev"><i class="led"></i><b>kein Gerät</b></span><span class="grow"></span><span>${icon('battery')}86 %</span>`;
     const U = d.unit, ph = U.phase;
     const led = d.state === 'tls' || (d.state === 'stream' && ph === 'misst') ? (U.lossRate > 0.01 ? 'warn' : 'acc') : ph === 'boot' || ph === 'anlauf' ? 'warn blink' : '';
-    const state = d.state === 'tls' ? 'Stationsscan' : { aus: 'aus', boot: 'bootet', anlauf: 'Motoranlauf', misst: d.state === 'stream' ? 'misst' : 'bereit', bereit: 'Bereitschaft' }[ph];
+    const state = d.state === 'tls' ? 'Stationsscan' : ph === 'misst' && d.state !== 'stream' ? stateWord(this.brand, 'bereit', d) : stateWord(this.brand, ph, d);
     const load = d.kind === 'stream' && d.state === 'stream' ? U.loadOf(d.bitRate) : 0;
     const loss = U.lossRate;
     const link = `<span class="sb-link">${icon('wifi')}${U.link.name}${load ? `<i class="ubar${load > 0.92 ? ' over' : ''}"><i style="width:${Math.min(100, load * 100).toFixed(0)}%"></i></i>${(load * 100).toFixed(0)} %` : ''}${loss > 0.001 ? `<b class="bad">Verlust ${(loss * 100).toFixed(loss < 0.1 ? 1 : 0)} %</b>` : ''}</span>`;

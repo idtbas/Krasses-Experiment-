@@ -293,7 +293,8 @@ export class ScannerDevice {
   animate(dt) {
     const m = this.model;
     if (this.state === 'stream') {
-      const hz = this.pattern.hz || this.set.hz || 10;
+      // beim Motoranlauf dreht der Kopf erst langsam hoch
+      const hz = (this.pattern.hz || this.set.hz || 10) * (this.unit ? this.unit.rpmFrac : 1);
       // sichtbare Rotoren laufen langsam (Stroboskop-Effekt vermeiden)
       if (m.rotor) m.rotor.rotation.y -= dt * (m.rotorSpins ? Math.min(hz, 3) : hz) * Math.PI * 2 * (m.rotorSpins ? 1 : 0.02);
       if (m.headRotor && this.spec.pattern.rotor) m.headRotor.rotation.z += dt * this.spec.pattern.rotor.hz * Math.PI * 2;

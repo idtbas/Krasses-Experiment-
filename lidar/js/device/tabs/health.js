@@ -9,7 +9,8 @@ const n1 = (v, d = 1) => v.toFixed(d).replace('.', ',');
 export function sensorCard(f) {
   const el = h('div.health');
   f._health = el;
-  tickCard(f);
+  // sofort füllen, sobald die Karte im Panel hängt (nicht erst beim nächsten Anzeige-Takt)
+  queueMicrotask(() => tickCard(f));
   return el;
 }
 
@@ -39,15 +40,17 @@ export function tickCard(f) {
 // Restfehler der Kalibrierung je Kanal als Balkendiagramm (Entfernung in mm oben, Elevation in Millgrad unten)
 export function calibChart(U) {
   const C = U.calib, n = C.dR.length;
-  const W = 320, H = 96, mid1 = 26, mid2 = 72, bw = Math.max(1, W / n - 1);
+  // je Kanal ein Balken; wenige Kanäle (Linienscanner) mittig mit begrenzter Breite
+  const W = 320, H = 96, mid1 = 26, mid2 = 72, step = Math.min(W / n, 22), bw = Math.max(1, step - 1), x0 = (W - step * n) / 2;
   const maxR = Math.max(0.002, ...C.dR.map(Math.abs)), maxE = Math.max(1e-6, ...C.dEl.map(Math.abs));
   let bars = '';
   for (let i = 0; i < n; i++) {
-    const x = (i * W) / n;
+    const x = x0 + i * step;
     const hr = (C.dR[i] / maxR) * 20, he = (C.dEl[i] / maxE) * 20;
-    bars += `<rect x="${x.toFixed(1)}" y="${(hr > 0 ? mid1 - hr : mid1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.abs(hr).toFixed(1)}" fill="#5fd3ff"/>`;
-    bars += `<rect x="${x.toFixed(1)}" y="${(he > 0 ? mid2 - he : mid2).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.abs(he).toFixed(1)}" fill="#f2b23a"/>`;
+    bars += `<rect class="rr" x="${x.toFixed(1)}" y="${(hr > 0 ? mid1 - hr : mid1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.abs(hr).toFixed(1)}"/>`;
+    bars += `<rect class="re" x="${x.toFixed(1)}" y="${(he > 0 ? mid2 - he : mid2).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.abs(he).toFixed(1)}"/>`;
   }
-  const t = (y, s) => `<text x="2" y="${y}" fill="#8b98a6" font-size="9" font-family="ui-monospace,monospace">${s}</text>`;
-  return `<svg viewBox="0 0 ${W} ${H}" class="calchart"><line x1="0" x2="${W}" y1="${mid1}" y2="${mid1}" stroke="#2a3442"/><line x1="0" x2="${W}" y1="${mid2}" y2="${mid2}" stroke="#2a3442"/>${bars}${t(9, `Entfernung ±${n1(maxR * 1000)} mm`)}${t(55, `Elevation ±${n1(maxE * 180 / Math.PI * 1000, 0)} m°`)}</svg>`;
+  // Farben kommen aus der Hersteller-Optik (CSS-Klassen)
+  const t = (y, s) => `<text x="2" y="${y}">${s}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" class="calchart"><line class="ax" x1="0" x2="${W}" y1="${mid1}" y2="${mid1}"/><line class="ax" x1="0" x2="${W}" y1="${mid2}" y2="${mid2}"/>${bars}${t(9, `Entfernung ±${n1(maxR * 1000)} mm`)}${t(55, `Elevation ±${n1(maxE * 180 / Math.PI * 1000, 0)} m°`)}</svg>`;
 }

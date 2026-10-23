@@ -71,7 +71,8 @@ export function render(f, P) {
   const room = models.filter((m) => m.room).at(-1);
   if (room && room.group.visible) {
     P.appendChild(h('h4', `Grundriss · ${room.name}`));
-    const plan = h('div.plan', { html: floorPlanSVG(room.room) });
+    // helle Hersteller-Oberflächen bekommen den Grundriss wie auf Papier
+    const plan = h('div.plan', { html: floorPlanSVG(room.room, f.brand && f.brand.light ? { bg: '#ffffff', ink: '#1d232a', dim: '#6b7480', acc: getComputedStyle(f.el).getPropertyValue('--accent').trim() || '#1d7fb8', fill: 'rgba(0,0,0,.04)' } : undefined) });
     P.appendChild(plan);
   }
 }

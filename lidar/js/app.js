@@ -162,8 +162,10 @@ export class App {
         u.enabled.value = this.fpc.opts.edl ? 1 : 0;
         u.strength.value = this.fpc.opts.edlStrength;
         // Modell-Tab: heller Studiohintergrund statt Nachthimmel
+        // sonst der Hintergrund der Hersteller-Software (VeloView schwarz, SOPAS hell …)
         const st = this.fpc.tab === 'model' && this.fpc.studio && this.fpc.studio.visible;
-        if (st !== this._studioBg) { this._studioBg = st; u.bgTop.value.set(st ? '#4a5462' : '#14202e'); u.bgBottom.value.set(st ? '#1b1f25' : '#030405'); }
+        const bg = st ? ['#4a5462', '#1b1f25'] : (this.fpc.brand && this.fpc.brand.view) || ['#14202e', '#030405'];
+        if (bg !== this._viewBg) { this._viewBg = bg; u.bgTop.value.set(bg[0]); u.bgBottom.value.set(bg[1]); }
         this.edl.composite(r);
       },
     });
