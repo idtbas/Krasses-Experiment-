@@ -245,6 +245,7 @@ export class FieldPC {
     if (d.state !== 'stream') d.start();
     const pos = a.mounts ? a.mounts.recordOptions(d, o) : { mode: 'ideal', drift: 'fixed', deskew: true };
     const scan = new Scan({ kind: 'mobile', spec: d.spec, set: d.set, name: o.name || `Aufnahme ${d.spec.model}`, origin: new THREE.Vector3(...d.pose().slice(0, 3)) });
+    if (pos.keepEvery > 1) scan.stats.decimate = pos.keepEvery;
     a.project.add(scan);
     const loc = new Localizer(a, d, scan, pos);
     this.recording = { scan, loc, t0: a.clock.t };

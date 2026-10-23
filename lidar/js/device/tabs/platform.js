@@ -2,6 +2,7 @@
 import { h, seg, toggle, slider, field, stat, fmtInt, fmtNum } from '../../ui/dom.js';
 import { icon } from '../../ui/icons.js';
 import { PLATFORMS } from '../../robots/mounts.js';
+import { STUDIO_OBJECTS } from '../../world/scenes.js';
 
 const DEG = Math.PI / 180;
 
@@ -13,8 +14,13 @@ export function render(f, P) {
   box.appendChild(h('h4', `Autoscan · ${Pf.name}`));
   // Ziel
   if (kind === 'arm') {
-    const obj = M.studioObject();
-    box.appendChild(field('Objekt', h('span.mono', obj ? `${obj.name} auf dem Drehteller` : '–')));
+    // Messobjekt wechseln: Messraum wird mit dem neuen Objekt neu aufgebaut, der Arm wieder montiert
+    const sel = h('select');
+    const cur = a.studioObject || 'bust';
+    for (const [k, [name]] of Object.entries(STUDIO_OBJECTS)) { const op = h('option', { value: k }, name); if (k === cur) op.selected = true; sel.appendChild(op); }
+    sel.disabled = !!job;
+    sel.addEventListener('change', async () => { a.studioObject = sel.value; await a.switchScene('messraum'); await a.setMount('arm'); });
+    box.appendChild(field('Objekt', h('div.sel', sel)));
   } else {
     const sel = h('select');
     const cur = M.defaultTarget();

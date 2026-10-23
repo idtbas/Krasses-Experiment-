@@ -105,7 +105,9 @@ export class VoxelMap {
     const s = c.s, n = c.n, mx = s[0] / n, my = s[1] / n, mz = s[2] / n;
     const r = eig3(s[3] / n - mx * mx, s[4] / n - mx * my, s[5] / n - mx * mz, s[6] / n - my * my, s[7] / n - my * mz, s[8] / n - mz * mz);
     c.fit = n; c.c = [mx, my, mz]; c.nr = r.n;
-    c.ok = r.l[0] < 0.12 * r.l[1] && r.l[1] > 1e-6;
+    // Ebene nur bei echter Flächenausdehnung: ein einzelner Laserring bildet mit dem Entfernungsrauschen ein
+    // schmales Band entlang des Strahls – dessen „Normale“ wäre um den Höhenwinkel gekippt (Ring-Einrasten)
+    c.ok = r.l[0] < 0.12 * r.l[1] && r.l[1] > (this.v / 8) ** 2;
     return c.ok;
   }
   // nächste Ebene zu einem Punkt (eigener Voxel, sonst die sechs Nachbarn)
@@ -218,6 +220,8 @@ export class Localizer {
     this.K = this.driftParams();
     this.batches = [];
     this.fStart = null;
+    this.every = Math.max(1, Math.round(o.keepEvery || 1)); // jede n-te Messung speichern (Speicherbudget)
+    this.cnt = 0;
     this.stats = { frames: 0, rms: 0, inl: 0, fails: 0, errP: 0, errYaw: 0, ms: 0, voxels: 0, dist: 0 };
     this.fn = (data) => this.ingest(data);
     if (o.listen !== false) dev.onPoints.push(this.fn);
@@ -229,7 +233,7 @@ export class Localizer {
   driftParams() {
     const g = () => gauss(this.r);
     switch (this.drift) {
-      case 'wheel': return { scale: 0.01 * g(), turn: 0.02 * (0.6 + 0.4 * Math.abs(g())) * (this.r() < 0.5 ? -1 : 1), bias: 2e-4 * g(), nPos: 0.004, nYaw: 0.002 };
+      case 'wheel': return { scale: 0.01 * g(), turn: 0.012 * (0.6 + 0.4 * Math.abs(g())) * (this.r() < 0.5 ? -1 : 1), bias: 2e-4 * g(), nPos: 0.004, nYaw: 0.001 };
       case 'vio': return { scale: 0.008 * g(), turn: 0.006 * g(), bias: 4e-5 * g(), vert: 0.004 * g(), nPos: 0.0015, nYaw: 0.0008 };
       case 'gnss': return { sh: 0.7, sv: 1.1, tau: 25, syaw: 0.006, b: [g() * 0.7, g() * 1.1, g() * 0.7, g() * 0.006] };
       case 'imu': { const a = this.r() * Math.PI * 2; return { ab: [Math.cos(a) * 0.012, g() * 0.003, Math.sin(a) * 0.012], bg: 9e-4 * g(), v: [0, 0, 0] }; }
@@ -312,10 +316,11 @@ export class Localizer {
   prior() {
     const P = this.period / 0.1;
     switch (this.drift) {
-      case 'wheel': return [0.0015, 0.01 * P, 0.0015, 0.03 * P, 0.004, 0.03 * P];
-      case 'gnss': return [0.002, 0.01 * P, 0.002, 0.08 * P, 0.03 * P, 0.08 * P];
-      case 'vio': return [0.002, 0.005 * P, 0.002, 0.02 * P, 0.02 * P, 0.02 * P];
-      default: return [0.003, 0.02 * P, 0.003, 0.1 * P, 0.05 * P, 0.1 * P];
+      case 'wheel': return [0.0015, 0.004 * P, 0.0015, 0.05 * P, 0.004, 0.05 * P];
+      case 'gnss': return [0.002, 0.004 * P, 0.002, 0.06 * P, 0.006 * P, 0.06 * P];
+      case 'vio': return [0.002, 0.003 * P, 0.002, 0.03 * P, 0.005 * P, 0.03 * P];
+      case 'imu': return [0.002, 0.004 * P, 0.002, 0.04 * P, 0.005 * P, 0.04 * P];
+      default: return [0.003, 0.006 * P, 0.003, 0.08 * P, 0.008 * P, 0.08 * P];
     }
   }
 
@@ -417,7 +422,14 @@ export class Localizer {
         if (this.onAlign) this.onAlign({ T0, T: T.clone(), res, tRef, n: sel.length / 3 });
         this.stats.rms = res.rms; this.stats.inl = res.inl;
         if (!res.ok || res.rms > 0.25) { this.stats.fails++; T.copy(ref).premultiply(this.C); }
-        else this.C.copy(T).multiply(new THREE.Matrix4().copy(ref).invert());
+        else {
+          this.C.copy(T).multiply(new THREE.Matrix4().copy(ref).invert());
+          // wie ein LiDAR-Inertial-Filter: Geschwindigkeitsfehler zurücksetzen, Bias und Odometrie-Kalibrierung
+          // (Radumfang, Spurweite, Kreiselbias) werden laufend mitgeschätzt
+          const K = this.K, f = 0.96;
+          if (this.drift === 'imu') { K.v = [0, 0, 0]; K.ab = K.ab.map((x) => x * f); K.bg *= f; }
+          else if (this.drift === 'wheel' || this.drift === 'vio') { K.scale *= f; K.turn *= f; K.bias *= f; if (K.vert != null) K.vert *= f; }
+        }
       }
       const e = T.elements;
       for (let i = 0; i < n; i++) {
@@ -451,7 +463,7 @@ export class Localizer {
     for (const p of parts) {
       const b = p.x.b, map = new Int32Array(b.n).fill(-1);
       p.idx.forEach((k, j) => { map[k] = p.o / 3 + j; });
-      cloud.add(b, (bb, k, dst) => { const q = map[k]; dst[0] = out[q * 3]; dst[1] = out[q * 3 + 1]; dst[2] = out[q * 3 + 2]; }, (bb, k) => { const q = map[k]; return q >= 0 && (!keep || keep[q]); });
+      cloud.add(b, (bb, k, dst) => { const q = map[k]; dst[0] = out[q * 3]; dst[1] = out[q * 3 + 1]; dst[2] = out[q * 3 + 2]; }, (bb, k) => { const q = map[k]; return q >= 0 && (!keep || keep[q]) && (this.every === 1 || this.cnt++ % this.every === 0); });
     }
     // Bahn (geschätzt und wahr)
     const est = this.estimateAt(tRef, new THREE.Matrix4());

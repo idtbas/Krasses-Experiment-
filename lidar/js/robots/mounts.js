@@ -455,7 +455,11 @@ export class Mounts {
     if (d.state !== 'stream') d.start();
     const P = PLATFORMS[job.kind];
     const mode = job.kind === 'arm' ? 'Drehteller' : { ideal: 'Referenz', odo: P.odoName, slam: 'SLAM' }[this.opts.pos];
-    job.scan = a.fpc.toggleRecord({ name: `${P.short} · ${job.target.name} · ${mode}`, ...extra });
+    // Speicherbudget: bei sehr hohen Punktraten nur jede n-te Messung speichern (gleichmäßig, Muster bleibt erhalten)
+    const budget = 6e6, expect = (d.pattern.rate || 1e5) * (job.estDur || 60) * (job.kind === 'arm' ? 0.25 : 1);
+    const keepEvery = Math.max(1, Math.ceil(expect / budget));
+    if (keepEvery > 1) toast(`Aufzeichnung mit jeder ${keepEvery}. Messung (≈ ${Math.round(expect / keepEvery / 1e6 * 10) / 10} Mio. Punkte, Speicher des Browsers)`, 'warn');
+    job.scan = a.fpc.toggleRecord({ name: `${P.short} · ${job.target.name} · ${mode}`, keepEvery, ...extra });
     job.recording = true;
     a.top.render();
   }
@@ -499,6 +503,7 @@ export class Mounts {
     if (fnd.error) { this.job = null; throw new Error(fnd.error); }
     const { path } = fnd;
     job.path = path; job.R = fnd.R;
+    job.estDur = path.L * o.laps / Math.max(0.1, o.speed) + 4;
     if (Math.abs(fnd.R - want) > 0.01) toast(`Abstand auf ${fnd.R.toFixed(2).replace('.', ',')} m angepasst (freie Bahn)`, 'warn');
     const tls = a.dev.kind === 'tls';
     rb.speed = 0.5;
@@ -572,6 +577,7 @@ export class Mounts {
     const fp = c.fp, pl = c.plate;
     const crop = { r: 0.4, y0: pl.y + 0.03, y1: fp.top + 0.25 };
     job.rings = rings;
+    job.estDur = rings.length * (o.rev + 6);
     job.task = arm.run(function* () {
       for (let i = 0; i < rings.length; i++) {
         const R = rings[i];
@@ -635,6 +641,7 @@ export class Mounts {
     wps.push(new THREE.Vector3(home.x, alt, home.z));
     wps.push(new THREE.Vector3(home.x, 0, home.z));
     job.wps = wps;
+    { let L = 0; for (let k = 2; k < wps.length - 2; k++) L += wps[k].distanceTo(wps[k - 1]); job.estDur = L / Math.max(0.5, speed) + wps.length * 1.5; }
     let i = 0, recStarted = false;
     const total = wps.length;
     job.gen = (function* (self) {
@@ -718,6 +725,7 @@ export class Mounts {
     else { const s0 = pathNearest(path, pr.position.x, pr.position.z); legs = [[s0, s0 + path.L * (phone ? Math.max(1.05, o.laps) : o.laps)]]; }
     if (fnd.arc) toast(`Rundum nicht frei – Bogen über ${Math.round(fnd.frac * 100)} % des Umfangs, hin und zurück`, 'warn');
     const total = legs.reduce((a2, l) => a2 + Math.abs(l[1] - l[0]), 0);
+    job.estDur = total / Math.max(0.2, phone ? Math.min(o.speed, 0.6) : o.speed) + 5;
     const speed = phone ? Math.min(o.speed, 0.6) : o.speed;
     const ctr = new THREE.Vector3(fpT.cx, (fpT.top + Math.max(0, fpT.bottom)) / 2, fpT.cz);
     job.gen = (function* () {
