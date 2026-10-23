@@ -17,10 +17,12 @@ uniform float enabled;
 varying vec2 vUv;
 float lin(float d) { float z = d * 2.0 - 1.0; return (2.0 * near * far) / (far + near - z * (far - near)); }
 void main() {
-  float d = texture2D(tDepth, vUv).r;
+  vec4 c4 = texture2D(tColor, vUv);
   vec3 bg = mix(bgBottom, bgTop, vUv.y);
-  if (d >= 0.99999) { gl_FragColor = vec4(bg, 1.0); return; }
-  vec3 col = texture2D(tColor, vUv).rgb;
+  // Hintergrund über Alpha erkennen (Ziel wird mit Alpha 0 gelöscht) – Tiefentexturen liefern nicht überall dasselbe
+  if (c4.a < 0.01) { gl_FragColor = vec4(bg, 1.0); return; }
+  vec3 col = c4.rgb;
+  float d = texture2D(tDepth, vUv).r;
   if (enabled < 0.5) { gl_FragColor = vec4(col, 1.0); return; }
   float lz = log2(lin(d));
   float s = 0.0;

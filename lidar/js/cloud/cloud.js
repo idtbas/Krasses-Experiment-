@@ -137,6 +137,14 @@ export function makeCloudMaterial() {
   });
 }
 
+// „keine Abweichung“ (1e9) für alle Punkte, ein GPU-Puffer je Blockgröße für alle Blöcke
+const NO_DEV = new Map();
+function noDev(cap) {
+  let a = NO_DEV.get(cap);
+  if (!a) NO_DEV.set(cap, a = new THREE.BufferAttribute(new Float32Array(cap).fill(1e9), 1));
+  return a;
+}
+
 class Chunk {
   constructor(cap, material) {
     this.cap = cap; this.n = 0;
@@ -154,7 +162,7 @@ class Chunk {
     g.setAttribute('intensity', A(this.inten, 1, true));
     g.setAttribute('meta', A(this.meta, 4));
     g.setAttribute('ptime', A(this.time, 1));
-    g.setAttribute('dev', new THREE.Float32BufferAttribute(new Float32Array(1), 1)); // Platzhalter
+    g.setAttribute('dev', noDev(cap)); // Platzhalter in voller Länge: Safari verwirft Zeichenaufrufe mit zu kurzen Attributen
     g.setDrawRange(0, 0);
     this.geo = g;
     this.points = new THREE.Points(g, material);
