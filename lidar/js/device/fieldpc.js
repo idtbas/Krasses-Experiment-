@@ -66,14 +66,16 @@ export class FieldPC {
     this.head = h('div.fhead');
     this.viewEl = h('div.fview');
     this.viewHit = h('div.hit');
-    this.ovTL = h('div.ov.tl'); this.ovTR = h('div.ov.tr'); this.ovBL = h('div.ov.bl');
+    this.ovTL = h('div.ov.tl'); this.ovTR = h('div.ov.tr'); this.ovBL = h('div.ov.bl'); this.ovC = h('div.ov.c.hidden');
     this.vbtns = h('div.vbtns');
     for (const [ic, title, fn] of [['fit', 'Einpassen', () => this.fit()], ['top', 'Draufsicht', () => this.viewPreset('top')], ['front', 'Seitenansicht', () => this.viewPreset('front')], ['iso', 'Schrägansicht', () => this.viewPreset('iso')], ['scanner', 'Vom Scanner aus', () => this.viewPreset('sensor')]]) {
       const b = h('button.btn.small.icon', { html: icon(ic), title }); b.addEventListener('click', fn); this.vbtns.appendChild(b);
     }
     this.viewEl.append(this.viewHit);
     // Anzeigen über dem Viewer liegen in einer eigenen Ebene oberhalb des WebGL-Canvas
-    this.vover = h('div#vover', this.ovTL, this.ovTR, this.ovBL, this.vbtns);
+    this.vover = h('div#vover', this.ovTL, this.ovTR, this.ovBL, this.ovC, this.vbtns);
+    // Live-Ansicht folgt dem Scanner (Ziel der Kamera wandert mit, Drehen und Zoomen bleiben frei)
+    this.followOn = true;
     document.getElementById('ui').appendChild(this.vover);
     this.rimg = h('div.rimg.hidden');
     this.rimgCanvas = h('canvas');
@@ -88,6 +90,16 @@ export class FieldPC {
     this.el = el;
     this.app.project.listeners.push(() => { if (['scans', 'align', 'edit', 'compare', 'export', 'measure'].includes(this.tab)) this.render(); });
     this.setTab('live');
+  }
+
+  // Live-Ansicht folgt dem Scanner (Ziel der Kamera wandert mit, Drehen und Zoomen bleiben frei)
+  bindViewer() {
+    this.app.vorbit.follow = () => {
+      const d = this.dev;
+      if (!this.followOn || this.tab !== 'live' || !d) return null;
+      const p = d.pose();
+      return new THREE.Vector3(p[0], p[1] - 0.6, p[2]);
+    };
   }
 
   setDevice(d) {
@@ -153,6 +165,11 @@ export class FieldPC {
       const freq = d.kind === 'tls' ? `${d.set.resolution} mm @ 10 m` : d.kind === 'depth' ? `${d.set.hz} Bilder/s` : p.hz ? `${p.hz} Hz` : '';
       this.ovTL.innerHTML = `<div class="row" style="gap:6px;color:#dbe2e9">${st} · ${freq}${this.recording ? ' · <span style="color:#ff6b5e">● AUFNAHME</span>' : ''}</div><div>${Math.round(rate).toLocaleString('de-DE')} Pkt/s · Treffer ${hit.toFixed(0)} % · ${(rate * d.stats.bytes * 8 / 1e6).toFixed(1)} Mbit/s</div>`;
     }
+    // leere Ansicht erklären statt schwarz zu bleiben
+    const visScans = a.project.scans.some((x) => x.visible && x.points);
+    const empty = this.tab === 'live' && d && (d.state !== 'stream' && d.state !== 'tls') && !(this.showLive && d.live.count) && !visScans;
+    this.ovC.classList.toggle('hidden', !empty);
+    if (empty) this.ovC.innerHTML = d.mountKind === 'getragen' ? `${d.spec.model} wird nur getragen –<br>auf ein Stativ oder eine Plattform setzen` : d.kind === 'tls' ? 'Bereit für den Stationsscan –<br><b>F</b> am Stativ oder „Stationsscan starten“' : 'Laser aus –<br><b>F</b> am Scanner oder „Laser an“ unten';
     const tot = a.project.total;
     this.ovBL.textContent = `Projekt: ${a.project.scans.length} Scans · ${tot.toLocaleString('de-DE')} Punkte` + (d && d.live ? ` · Live ${d.live.count.toLocaleString('de-DE')}` : '');
     if (d && d.rimg && !this.rimg.classList.contains('hidden') && d.rimg.dirty) this.drawRangeImage(d);
@@ -196,6 +213,16 @@ export class FieldPC {
     }
     return box;
   }
+  // Blick hinter dir auf den Scanner (beim Hochnehmen des Feldrechners)
+  aimAtDevice() {
+    const d = this.dev, a = this.app;
+    if (!d) return;
+    const p = d.pose(), P = a.player;
+    const indoor = !!a.world.bounds && a.sceneId !== 'aussen' && a.sceneId !== 'pruef';
+    const dist = a.sceneId === 'wohnung' || a.sceneId === 'messraum' ? 4.5 : indoor ? 9 : 14;
+    a.vorbit.lookAt(new THREE.Vector3(p[0], p[1] - 0.6, p[2]), dist, (P ? P.yaw : 0) + Math.PI, 0.62);
+  }
+
   fit() {
     const box = this.visibleBox();
     if (box.isEmpty()) return;

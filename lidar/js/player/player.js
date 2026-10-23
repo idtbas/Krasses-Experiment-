@@ -153,6 +153,7 @@ export class Player {
     if (open && !this.hasTablet) { toast('Der Feldrechner liegt an der Geräteausgabe – hingehen und mit F nehmen.', 'warn'); return; }
     this.tabletOpen = open;
     document.body.classList.toggle('tabopen', open);
+    if (open) { this.app.fpc.setTab('live'); this.app.fpc.aimAtDevice(); }
     if (open && document.pointerLockElement) document.exitPointerLock();
     this.lockHint.classList.toggle('hidden', open || this.locked || TOUCH);
     this.app.fpc.render();

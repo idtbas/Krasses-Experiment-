@@ -18,6 +18,7 @@ export function render(f, P) {
   }
   row.appendChild(h('div.grow'));
   row.appendChild(toggle('Live-Punkte', f.showLive, (v) => { f.showLive = v; }));
+  row.appendChild(toggle('Scanner folgen', f.followOn, (v) => { f.followOn = v; if (v) f.aimAtDevice(); }));
   P.appendChild(row);
   f._plat = null;
   if (d.mountKind !== 'stativ') platform.render(f, P);

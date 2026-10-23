@@ -389,3 +389,5 @@ body.tabopen #scene, body.tabopen #scene * { pointer-events: none !important; }
 body.tabopen #prompt, body.tabopen #cross, body.tabopen #touchui, body.tabopen .phone, body.tabopen #lockhint { display: none !important; }
 body.player.tabopen #vover { z-index: 4; }
 body.tabopen #keyshelp, body.tabopen #hotbar, body.tabopen #status, body.tabopen #tools, body.tabopen #hint { display: none !important; }
+.ov.c { left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; font: 13px var(--sans); color: #c9d1d9; background: rgba(10, 13, 17, .7); padding: 10px 16px; border-radius: 10px; line-height: 1.5; }
+.ov.c b { color: var(--accent); }

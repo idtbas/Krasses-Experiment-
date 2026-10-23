@@ -141,6 +141,7 @@ export class App {
     this.vorbit = new OrbitCam(this.viewerCam, this.fpc.viewHit);
     this.vorbit.maxDist = 300; this.vorbit.minDist = 0.2;
     this.vorbit.onTap = (info) => this.fpc.onViewerTap(info);
+    this.fpc.bindViewer();
     this.views.add({
       name: 'viewer', el: this.fpc.viewEl, camera: this.viewerCam, enabled: true,
       render: (r, rect, dpr) => {

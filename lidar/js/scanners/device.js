@@ -23,7 +23,7 @@ export function defaultSettings(spec) {
     fov: null,
     color: !!spec.camera,
     shadow: spec.cls === 'tls',
-    persistence: p.type === 'rosette' || p.type === 'dome' ? 1.0 : 0,
+    persistence: p.type === 'dome' ? 2.5 : p.type === 'rosette' ? 1.5 : 0, // Linienmuster: länger nachleuchten, sonst nur Streifen
     budget: 3e6,
     quality: 1,
   };
