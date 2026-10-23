@@ -317,7 +317,7 @@ export class App {
   }
   setHint(text) {
     this.hintEl.classList.toggle('hidden', !text);
-    if (text) this.hintEl.innerHTML = text;
+    if (text) this.hintEl.innerHTML = `<span>${text}</span>`;
   }
   lookFromScanner() {
     if (!this.dev) return;

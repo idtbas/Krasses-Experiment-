@@ -143,6 +143,8 @@ body.devfull #scene { right: 0; }
 .hud .kv { gap: 1px 12px; }
 #hint { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: rgba(10, 13, 17, .92); border: 1px solid var(--line2); border-radius: 18px; padding: 7px 14px; font-size: 12.5px; color: var(--text); display: flex; gap: 8px; align-items: center; max-width: 70%; }
 #hint b { color: var(--accent); font-weight: 600; }
+#hint > span { line-height: 1.45; }
+body.player #hint { top: 58px; max-width: min(620px, 80%); border-radius: 12px; }
 .tag3d { position: absolute; transform: translate(-50%, -100%); background: rgba(8, 11, 15, .9); border: 1px solid var(--line2); color: var(--text); font-size: 11px; padding: 2px 7px; border-radius: 5px; white-space: nowrap; pointer-events: none; }
 .tag3d.sel { border-color: var(--accent); color: var(--accent); }
 .tag3d.scanner { border-color: var(--accent-d); }
@@ -321,7 +323,7 @@ body.athome #top, body.athome #dock, body.athome #scene > :not(#scene-hit) { vis
 
 /* Smartphone mit LiDAR-App (Querformat) */
 /* Rahmen nur als Rand: die Kamerafläche bleibt durchsichtig, darunter zeichnet der WebGL-Canvas das Kamerabild */
-.phone { position: absolute; right: 14px; bottom: 14px; z-index: 3; border-style: solid; border-width: 9px 12px 9px 22px; border-color: #2c2f33; border-radius: 30px; background: transparent; box-shadow: 0 0 0 1.5px #5b5f64, 0 18px 40px rgba(0, 0, 0, .55); pointer-events: auto; }
+.phone { position: absolute; right: 14px; bottom: 60px; z-index: 3; border-style: solid; border-width: 9px 12px 9px 22px; border-color: #2c2f33; border-radius: 30px; background: transparent; box-shadow: 0 0 0 1.5px #5b5f64, 0 18px 40px rgba(0, 0, 0, .55); pointer-events: auto; }
 .phone.hidden { display: none; }
 .phone .pnotch { position: absolute; left: -15px; top: 50%; width: 7px; height: 64px; margin-top: -32px; border-radius: 4px; background: #08090a; }
 .pscreen { position: relative; display: flex; border-radius: 20px; overflow: hidden; background: transparent; }

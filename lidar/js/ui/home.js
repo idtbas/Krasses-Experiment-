@@ -30,14 +30,18 @@ export class Home {
       c.addEventListener('click', () => this.quick(q.id));
       qs.appendChild(c);
     }
-    const free = h('button.qcard', { html: `<div class="ic">${icon('catalog')}</div><h3>Frei arbeiten</h3><p>Szene, Scanner und Halterung selbst wählen. ${SCANNERS.length} Geräte im Katalog, von 100 € bis 120.000 €.</p><div class="meta"><span class="chip acc">Alle Werkzeuge</span></div>` });
-    free.addEventListener('click', () => this.hide());
+    const free = h('button.qcard', { html: `<div class="ic">${icon('catalog')}</div><h3>Frei arbeiten</h3><p>Du stehst in der Halle: Feldrechner holen, Scanner aus dem Koffer nehmen, Stativ aufstellen, Roboter bestücken. ${SCANNERS.length} Geräte von 100 € bis 120.000 €.</p><div class="meta"><span class="chip acc">Alles selbst</span></div>` });
+    free.addEventListener('click', () => {
+      this.hide();
+      const a = this.app;
+      if (!a.player.hasTablet) { a.setHint('<b>Willkommen!</b> Du bist der Vermesser. Geh zur <b>Geräteausgabe</b> (Tisch mit Koffern), nimm mit <b>F</b> den Feldrechner und wähle mit <b>E</b> einen Scanner. Das Stativ steht schon bereit.'); setTimeout(() => a.setHint(null), 16000); }
+    });
     qs.appendChild(free);
     const cls = (k) => SCANNERS.filter((s) => s.cls === k).length;
     this.el.replaceChildren(
       h('div.hbrand', { html: LOGO.replace('width="28" height="28"', 'width="38" height="38"') + '<div><b>ECHO</b><small>LIDAR-STUDIO</small></div>' }),
       h('h1', { html: 'Laserscannen, wie es <em>wirklich</em> funktioniert.' }),
-      h('p.lead', 'Echte Abtastmuster, Strahldivergenz, Mischpixel, Mehrfachechos, Glas, Spiegel und Retroreflektoren, Rauschen nach Datenblatt, Sonne, Nebel und Regen. Alles läuft physikalisch im Browser – auf dem Stativ, auf einem Roboter oder im Smartphone.'),
+      h('p.lead', 'Du bist der Vermesser: Geh durch Halle, Straße, Wohnung, Prüfstrecke und Messraum, stell Stative auf, setz Scanner auf Roboter und Drohnen oder scanne selbst aus der Hand. Echte Abtastmuster, Strahldivergenz, Mischpixel, Mehrfachechos, Glas, Spiegel und Retroreflektoren, Rauschen nach Datenblatt, Sonne, Nebel und Regen.'),
       h('div.stats', { html: `<div><b>${SCANNERS.length}</b>Scanner</div><div><b>${cls('spin')}</b>rotierend</div><div><b>${cls('tls')}</b>terrestrisch</div><div><b>${cls('line')}</b>2D</div><div><b>${cls('solid')}</b>Festkörper</div><div><b>${Object.keys(SCENES).length}</b>Szenen</div>` }),
       qs,
       h('footer', 'Kennwerte nach öffentlichen Datenblättern, gerundet; wo Angaben fehlen, aus vergleichbaren Geräten abgeleitet. Preise sind unverbindliche Richtwerte. Keine Verbindung zu den Herstellern – nachgebildet wird das Messprinzip, nicht die Firmware.'),
@@ -97,13 +101,11 @@ export class Home {
 
   help() {
     const body = h('div', { html: `
-      <p><b>Szene</b> (links): ziehen dreht die Ansicht, zwei Finger verschieben und zoomen. Das Stativ lässt sich mit dem Verschieben-Werkzeug ziehen.</p>
-      <p><b>Scanner</b> (oben): Katalog mit Datenblatt und Musterschau. „Diesen Scanner verwenden“ montiert ihn an der Stelle des alten.</p>
-      <p><b>Feldrechner</b> (rechts): die Scan-Software. <i>Live</i> zeigt den Datenstrom und das Abstandsbild, <i>Scans</i> die gespeicherten Aufnahmen, <i>Ausrichten</i> verbindet mehrere Stationen, <i>Bearbeiten</i> filtert und vernetzt, <i>Messen</i> und <i>Vergleich</i> prüfen Maße und Abweichungen, <i>Export</i> speichert PLY, LAS, PCD, XYZ, OBJ und mehr.</p>
-      <p><b>Halterung</b> (oben): Stativ, Fahrroboter AMR-1, Roboterarm KX-5 mit Drehteller (Messraum), Drohne oder handgeführt. Auf einer Plattform erscheint im Feldrechner unter <i>Live</i> der <b>Autoscan</b>: Ziel wählen, starten – Roboter, Drohne oder Person erledigen den Rest. Die <b>Positionsbestimmung</b> lässt sich umschalten: Referenzbahn, reine Koppelnavigation (mit Drift) oder LiDAR-SLAM; dazu die Entzerrung der Bewegung innerhalb einer Umdrehung.</p>
-      <p><b>Smartphone</b>: Das iPhone-LiDAR aus dem Katalog erscheint als Handy mit Scanner-App. Auslöser drücken – die Person geht um das Objekt oder dreht sich im Raum, die App zeigt Kamerabild, Laserpunkte und das wachsende Netz und liefert am Ende Punkte und Netz an den Feldrechner.</p>
-      <p><b>Realismus</b>: Jeder Schuss wird mit mehreren Teilstrahlen über die Strahldivergenz verfolgt. Echos unterhalb der Pulsauflösung verschmelzen (Mischpixel), Glas lässt durch, Spiegel erzeugen Geisterpunkte, Retroreflektoren übersteuern. Die Erkennungsschwelle folgt aus der Reichweite bei 10 % Reflektivität.</p>
-      <p class="muted">Tastatur: Leertaste startet/stoppt den Scanner, R startet die Aufnahme, F passt die Ansicht ein.</p>` });
+      <p><b>Du bist die Figur.</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> oder Pfeiltasten zum Gehen, <kbd>Shift</kbd> schneller. In die Szene klicken fängt die Maus – dann umsehen, <kbd>Esc</kbd> gibt sie frei. Mausrad: Abstand der Kamera, <kbd>V</kbd>: Schulterblick oder Ich-Sicht. Am iPad: links ziehen zum Gehen, rechts wischen zum Umsehen, Tasten unten rechts.</p>
+      <p><b>Aktionen</b> stehen unten in der Mitte, sobald du vor etwas stehst: <kbd>E</kbd> nehmen, aufsetzen, montieren · <kbd>F</kbd> einschalten, Stationsscan, Autoscan, Drehteller · <kbd>R</kbd> Aufnahme · <kbd>G</kbd> ablegen oder das Stativ samt Scanner tragen · <kbd>Q</kbd> markiert das Objekt in der Bildmitte (Ziel für den Autoscan, Sollgeometrie im Vergleich).</p>
+      <p><b>Geräteausgabe</b> (Tisch mit Koffern): <kbd>E</kbd> öffnet den Katalog mit 44 Scannern – der gewählte liegt danach in deiner Hand. Dort liegt auch der <b>Feldrechner</b>: <kbd>F</kbd> nimmt ihn mit, <kbd>Tab</kbd> hält ihn vor dich. Darin: Live-Daten und Abstandsbild, Scans, Ausrichten, Bearbeiten, Messen, Soll-Ist-Vergleich, Export.</p>
+      <p><b>Plattformen</b>: Fahrroboter AMR-1, Roboterarm KX-5 am Drehteller (Messraum) und Drohne stehen geparkt herum. Mit dem Scanner in der Hand davor <kbd>E</kbd> – montiert. <kbd>F</kbd> startet den Autoscan um das markierte Objekt. Leichte Scanner (bis 2 kg, z. B. BLK2GO, ZEB, iPhone) misst du auch selbst aus der Hand: einschalten, <kbd>R</kbd>, losgehen – LiDAR-SLAM rechnet deine Bahn.</p>
+      <p><b>Realismus</b>: Jeder Schuss wird mit mehreren Teilstrahlen über die Strahldivergenz verfolgt. Echos unterhalb der Pulsauflösung verschmelzen (Mischpixel), Glas lässt durch, Spiegel erzeugen Geisterpunkte, Retroreflektoren übersteuern. Auch du selbst bist für den Laser sichtbar und wirfst Scanschatten.</p>` });
     modal('Kurzanleitung', body, [{ label: 'Verstanden', primary: true }], { width: 'min(640px, 100%)' });
   }
 }

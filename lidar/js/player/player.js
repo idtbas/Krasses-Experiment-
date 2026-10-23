@@ -8,6 +8,7 @@ import { h, toast } from '../ui/dom.js';
 import { openCatalog } from '../ui/catalog.js';
 import { PLATFORMS } from '../robots/mounts.js';
 import { tabletModel } from './items.js';
+import { lm, lmTint } from '../world/lidarmat.js';
 
 export const PLAYER_LAYER = 5;
 const R_BODY = 0.27;
@@ -51,7 +52,14 @@ export class Player {
     this.holster = tabletModel(); this.holster.scale.setScalar(0.85); this.holster.position.set(0.215, 0.98, -0.02); this.holster.rotation.set(0, 0, Math.PI / 2);
     this.held = tabletModel(); this.held.position.set(0, 1.2, 0.36); this.held.rotation.x = -1.05;
     for (const t of [this.holster, this.held]) { t.userData.noLidar = true; g.add(t); }
-    g.traverse((o) => { if (o.isMesh) { o.layers.set(PLAYER_LAYER); o.castShadow = true; } });
+    // eigene Ausrüstung: orange Warnweste und blauer Helm (die Kollegen in der Halle tragen Gelb und Weiß)
+    const vest = lm('warnweste'), myVest = lmTint('warnweste', '#ff7a1a'), myHelmet = lmTint('kunststoff_weiss', '#2f6fd6');
+    g.traverse((o) => {
+      if (!o.isMesh) return;
+      if (o.material === vest) o.material = myVest;
+      else if (o.material && o.material.color && o.material.color.getHexString() === 'f2f2f0') o.material = myHelmet;
+      o.layers.set(PLAYER_LAYER); o.castShadow = true;
+    });
     this.pos.set(x, 0, z); this.vel.set(0, 0, 0);
     this.yaw = this.bodyYaw = yaw; this.pitch = -0.15;
     this.ground = 0;
@@ -470,6 +478,9 @@ export class Player {
       const c = head.clone().addScaledVector(dir, -this.camDist).add(V(0, 0.32, 0));
       const b = a.world.bounds;
       if (b) { c.x = clamp(c.x, b[0] + 0.15, b[1] - 0.15); c.z = clamp(c.z, b[2] + 0.15, b[3] - 0.15); }
+      // an Wänden rückt die Kamera näher – dann über die Schulter nach oben ausweichen
+      const dd = c.distanceTo(head);
+      if (dd < this.camDist * 0.75) c.y += (this.camDist * 0.75 - dd) * 0.9;
       const ceil = CEIL[a.sceneId];
       c.y = clamp(c.y, this.pos.y + 0.35, ceil ? ceil : 1e9);
       if (!this.camInit) { cam.position.copy(c); this.camInit = true; }
