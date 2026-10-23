@@ -3,6 +3,7 @@ import { h, field, select, seg, slider, toggle, fmtInt } from '../../ui/dom.js';
 import { RETURN_NAMES, fmtPrice, CLASSES } from '../../scanners/catalog.js';
 import { makePattern } from '../../scanners/patterns.js';
 import { datasheet } from '../../ui/catalog.js';
+import { sensorCard, tickCard, calibChart } from './health.js';
 
 export function render(f, P) {
   const d = f.dev, a = f.app;
@@ -10,6 +11,15 @@ export function render(f, P) {
   const s = d.spec, p = s.pattern;
   P.appendChild(h('div.row', h('div', h('div', { style: { fontWeight: 600, fontSize: '14px' } }, `${s.maker} ${s.model}`), h('div.muted', `${CLASSES[s.cls].name} · ${s.wavelength} nm · ${fmtPrice(s.price)}`)), h('div.grow'), (() => { const b = h('button.btn.small', 'Datenblatt'); b.addEventListener('click', () => datasheet(a, s)); return b; })()));
   const apply = (patch) => { d.configure(patch); f.render(); };
+  // Einzelgerät: Zustand, Kalibrierung je Kanal, Anschluss
+  P.appendChild(h('h4', 'Einzelgerät'));
+  P.appendChild(sensorCard(f));
+  if (d.unit.channels > 1 || d.kind === 'stream') {
+    P.appendChild(field('Kalibrierung', seg([['ideal', 'Ideal'], ['werk', 'Werk'], ['dejustiert', 'Dejustiert']], d.unit.calibMode, (v) => { d.setCalib(v); f.render(); })));
+    P.appendChild(h('div.calbox', { html: calibChart(d.unit) + '<p>Restfehler je Kanal nach der Werkskalibrierung: Der Strahl läuft minimal anders, als das Gerät meldet. Auf ebenen Flächen sieht man das als feine Stufen zwischen den Ringen, im Reflektivitätsbild als Streifen.</p>' }));
+  }
+  if (/^ETH/.test(d.unit.link.name)) P.appendChild(field('Anschluss', seg([[100, '100 Mbit/s'], [1000, '1 Gbit/s']], d.unit.link.mbit, (v) => { d.setLink(v); f.render(); })));
+  P.appendChild(h('h4', 'Betrieb'));
   if (p.hzOptions) P.appendChild(field('Drehzahl', seg(p.hzOptions.map((hz) => [hz, `${hz} Hz`]), d.set.hz, (v) => apply({ hz: v }))));
   if (Array.isArray(p.cols)) P.appendChild(field('Spalten', seg([...new Set(p.cols)].map((c) => [c, String(c)]), d.set.cols, (v) => apply({ cols: v }))));
   if (s.returns.length > 1) P.appendChild(field('Echos', select(s.returns.map((r) => [r, RETURN_NAMES[r]]), d.set.returns, (v) => apply({ returns: v }))));
@@ -45,3 +55,5 @@ export function render(f, P) {
     h('span', 'Firmware'), h('b', `ECHO-SIM ${s.id}.${s.wavelength}`)));
   void slider;
 }
+
+export function tick(f) { tickCard(f); }

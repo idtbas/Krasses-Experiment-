@@ -2,6 +2,7 @@
 import { h, seg, toggle, slider, field, stat, fmtInt, setHTML } from '../../ui/dom.js';
 import { icon } from '../../ui/icons.js';
 import * as platform from './platform.js';
+import { sensorCard, tickCard } from './health.js';
 
 export function render(f, P) {
   const a = f.app, d = f.dev;
@@ -20,6 +21,7 @@ export function render(f, P) {
   row.appendChild(toggle('Live-Punkte', f.showLive, (v) => { f.showLive = v; }));
   row.appendChild(toggle('Scanner folgen', f.followOn, (v) => { f.followOn = v; if (v) f.aimAtDevice(); }));
   P.appendChild(row);
+  P.appendChild(sensorCard(f));
   f._plat = null;
   if (d.mountKind !== 'stativ') platform.render(f, P);
   if (tls && d.state === 'tls') {
@@ -50,9 +52,10 @@ export function tick(f) {
   const d = f.dev;
   if (!d || !f._stats) return;
   if (f._tlsBar) f._tlsBar.style.width = Math.round((f.tlsProgress || 0) * 100) + '%';
+  tickCard(f);
   platform.tick(f);
   const s = d.stats;
-  const hit = s.srate > 0 ? (s.rate / s.srate) * 100 : 0;
+  const hit = s.srate > 0 ? Math.min(100, (s.rate / s.srate) * 100) : 0;
   const env = f.app.world.weather;
   const rows = [
     ['Punkte/s', fmtInt(s.rate)],

@@ -75,7 +75,8 @@ export class Unit {
     this.tau = spec.cls === 'tls' ? 240 : 160;
     this.Tref = 22 + this.dTrun;
     this.kT = driftOf(spec);
-    this.T = null;                // °C innen (wird beim ersten Update auf Umgebung gesetzt)
+    this.T = 21;                  // °C innen (beim ersten Update auf die Umgebung der Szene gesetzt)
+    this.tInit = false;
     [this.tBoot, this.tSpin] = bootTimes(spec);
     this.phase = 'aus'; this.phaseT = 0;
     this.link = linkOf(spec);
@@ -109,7 +110,7 @@ export class Unit {
   // je Bild: Zustand, Temperatur, Entfernungsdrift. on: Gerät eingeschaltet (misst), dt in Sekunden Simulationszeit
   update(dt, on, world) {
     const A = this.ambientOf(world);
-    if (this.T == null) this.T = A.T;
+    if (!this.tInit) { this.T = A.T; this.tInit = true; }
     // Zustandsfolge beim Einschalten: Booten → Anlauf → misst; beim Ausschalten sofort aus (warm bleibt er)
     // Kaltstart: Booten → Anlauf → misst. „Laser aus“ = Bereitschaft (Motor steht, Elektronik bleibt warm);
     // aus der Bereitschaft muss nur der Motor wieder auf Drehzahl.
@@ -128,7 +129,7 @@ export class Unit {
   get ready() { return this.phase === 'misst'; }
   get progress() { return this.phase === 'boot' ? this.phaseT / this.tBoot : this.phase === 'anlauf' ? this.phaseT / this.tSpin : this.phase === 'misst' ? 1 : 0; }
   // systematischer Entfernungsfehler aus der Temperatur (m)
-  get bias() { return this.kT * ((this.T ?? this.Tref) - this.Tref); }
+  get bias() { return this.kT * (this.T - this.Tref); }
   get rpmFrac() { return this.phase === 'anlauf' ? Math.min(1, this.phaseT / this.tSpin) : this.phase === 'misst' ? 1 : 0; }
 
   // Netzwerk: Auslastung bei nominaler Datenrate (bit/s) und Anteil verlorener Pakete

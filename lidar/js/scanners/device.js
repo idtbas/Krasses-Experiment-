@@ -85,7 +85,7 @@ export class ScannerDevice {
     const p = this.pattern;
     this.rows = p.rows || 0; this.cols = p.cols || 0;
     if (this.kind === 'stream' && this.rows && this.cols && this.rows * this.cols < 600000) {
-      this.rimg = { r: new Float32Array(this.rows * this.cols), i: new Uint8Array(this.rows * this.cols), a: new Uint8Array(this.rows * this.cols), dirty: true };
+      this.rimg = { r: new Float32Array(this.rows * this.cols), i: new Uint8Array(this.rows * this.cols), a: new Uint8Array(this.rows * this.cols), colT: new Float64Array(this.cols).fill(-1e9), tMax: -1e9, dirty: true };
     } else this.rimg = null;
     // Live-Puffer: eine Umdrehung bzw. Nachleuchtdauer
     const per = Math.max(p.period || 0.1, this.set.persistence || 0);
@@ -243,6 +243,8 @@ export class ScannerDevice {
         R.r[id] = Math.hypot(data.ls[k * 3], data.ls[k * 3 + 1], data.ls[k * 3 + 2]);
         R.i[id] = data.i[k];
         if (data.amb) R.a[id] = data.amb[k];
+        R.colT[data.col[k]] = data.t[k];
+        if (data.t[k] > R.tMax) R.tMax = data.t[k];
       }
       R.dirty = true;
     }

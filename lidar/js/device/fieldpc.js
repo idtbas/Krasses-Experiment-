@@ -1,5 +1,6 @@
 // Feldrechner „ECHO Field T10“: robustes Tablet mit eigener Scan-Software.
-// Bereiche: Live, Scans, Ausrichten, Bearbeiten, Messen, Vergleich, Export, Gerät.
+// Aufbau: Statusleiste (Gerät, Zustand, Netz, Temperatur) · Navigation in Gruppen · großer Viewer mit Abstandsbild ·
+// Inspektor rechts (bei schmalem Tablet unten) mit den Werkzeugen des gewählten Bereichs.
 import * as THREE from 'three';
 import { h, clear, toast, setHTML, setText } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
@@ -26,10 +27,21 @@ const TURBO = Array.from({ length: 256 }, (_, i) => {
   return [r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v * 255))));
 });
 
+// [id, Kurzname, Symbol, Modul, Gruppe, Titel, Unterzeile]
 const TABS = [
-  ['live', 'Live', 'live', live], ['scans', 'Scans', 'scans', scans], ['align', 'Ausricht.', 'align', align], ['edit', 'Bearb.', 'edit', edit], ['model', 'Modell', 'cube', model],
-  ['measure', 'Messen', 'measure', measure], ['compare', 'Vergl.', 'compare', compare], ['export', 'Export', 'export', exp], ['device', 'Gerät', 'device', device],
+  ['live', 'Live', 'live', live, 'erfassen', 'Live-Ansicht', 'Datenstrom, Darstellung, Sensorzustand'],
+  ['scans', 'Scans', 'scans', scans, 'erfassen', 'Scans', 'Aufnahmen und Stationen im Projekt'],
+  ['align', 'Ausrichten', 'align', align, 'verarbeiten', 'Ausrichten', 'Registrierung mehrerer Standorte (ICP)'],
+  ['edit', 'Bearbeiten', 'edit', edit, 'verarbeiten', 'Bearbeiten', 'Bereinigen, gliedern, zuschneiden'],
+  ['model', 'Modell', 'cube', model, 'verarbeiten', '3D-Modell', 'Glattes Netz oder Raum mit Grundriss'],
+  ['measure', 'Messen', 'measure', measure, 'auswerten', 'Messen', 'Punkte, Strecken, Höhen über Boden'],
+  ['compare', 'Vergleich', 'compare', compare, 'auswerten', 'Vergleich', 'Soll-Ist und Wolke zu Wolke'],
+  ['export', 'Export', 'export', exp, 'ausgabe', 'Export', 'Punktwolken, Netze, Rohdaten'],
+  ['device', 'Gerät', 'device', device, 'system', 'Gerät', 'Betrieb, Einzelgerät, Datenblatt'],
 ];
+const GROUPS = { erfassen: 'Erfassen', verarbeiten: 'Verarbeiten', auswerten: 'Auswerten', ausgabe: 'Ausgabe', system: 'System' };
+// Kanäle des Abstandsbilds (Umgebungslicht liefern nur Sensoren mit eigenem NIR-Kanal)
+const RIMG = [['range', 'Entfernung'], ['intensity', 'Reflektivität'], ['ambient', 'Umgebungslicht']];
 
 export const LEGEND = {
   intensity: 'linear-gradient(90deg,#000,#fff)', intensity_rb: 'linear-gradient(90deg,#30123b,#4662d7,#36aaf9,#1ae4b6,#72fe5e,#c8ef34,#faba39,#f66b19,#ca2a04,#7a0403)',
@@ -52,13 +64,16 @@ export class FieldPC {
 
   build() {
     const el = h('div.tablet');
-    el.append(h('div.corner2'), h('div.corner3'), h('div.cam'), h('div.brandplate', 'ECHO FIELD T10 · v23.10e'), h('div.hwbtn', { style: { top: '90px' } }), h('div.hwbtn', { style: { top: '134px' } }));
+    el.append(h('div.corner2'), h('div.corner3'), h('div.cam'), h('div.brandplate', 'ECHO FIELD T10 · v23.11a'), h('div.hwbtn', { style: { top: '90px' } }), h('div.hwbtn', { style: { top: '134px' } }));
     for (const [x, y] of [[8, 8], [8, null], [null, 8], [null, null]]) el.appendChild(h('div.screw', { style: { left: x != null ? x + 'px' : 'auto', right: x == null ? '8px' : 'auto', top: y != null ? y + 'px' : 'auto', bottom: y == null ? '8px' : 'auto' } }));
     const scr = h('div.screen');
     this.sbar = h('div.sbar');
-    const fapp = h('div.fapp');
+    this.fapp = h('div.fapp');
+    // Navigation in Gruppen
     this.rail = h('nav.frail');
-    for (const [id, label, ic] of TABS) {
+    let lastG = null;
+    for (const [id, label, ic, , g] of TABS) {
+      if (g !== lastG) { this.rail.appendChild(h('div.rgroup', GROUPS[g])); lastG = g; }
       const b = h('button', { html: icon(ic) + `<span>${label}</span>`, 'data-tab': id });
       b.addEventListener('click', () => this.setTab(id));
       this.rail.appendChild(b);
@@ -78,15 +93,21 @@ export class FieldPC {
     // Live-Ansicht folgt dem Scanner (Ziel der Kamera wandert mit, Drehen und Zoomen bleiben frei)
     this.followOn = true;
     document.getElementById('ui').appendChild(this.vover);
+    // Abstandsbild mit Kanalwahl
     this.rimg = h('div.rimg.hidden');
     this.rimgCanvas = h('canvas');
+    this.rimgTabs = h('div.rtabs');
     this.rimgLab = h('div.lab');
-    this.rimg.append(this.rimgCanvas, this.rimgLab);
-    this.rimg.addEventListener('click', () => { this.rimgMode = this.rimgMode === 'range' ? 'intensity' : 'range'; });
+    this.rimg.append(this.rimgCanvas, this.rimgTabs, this.rimgLab);
+    // Inspektor
+    this.side = h('aside.fside');
+    this.sideHead = h('div.fside-head');
     this.panel = h('div.fpanel');
-    main.append(this.head, this.viewEl, this.rimg, this.panel);
-    fapp.append(this.rail, main);
-    scr.append(this.sbar, fapp);
+    this.side.append(this.sideHead, this.panel);
+    this.sheetOpen = true;
+    main.append(this.head, this.viewEl, this.rimg);
+    this.fapp.append(this.rail, main, this.side);
+    scr.append(this.sbar, this.fapp);
     el.appendChild(scr);
     this.el = el;
     this.app.project.listeners.push(() => { if (['scans', 'align', 'edit', 'compare', 'export', 'measure'].includes(this.tab)) this.render(); });
@@ -119,19 +140,37 @@ export class FieldPC {
     const d = this.dev;
     clear(this.head);
     const T = TABS.find((t) => t[0] === this.tab);
-    const titles = { live: 'Live-Ansicht', scans: 'Scans im Projekt', align: 'Ausrichten (Registrierung)', edit: 'Bearbeiten', model: '3D-Modell', measure: 'Messen', compare: 'Soll-Ist-Vergleich', export: 'Export', device: 'Gerät' };
-    this.head.append(h('h3', titles[this.tab] || T[1]), h('div.sub', d ? `· ${d.spec.maker} ${d.spec.model}` : ''), h('div.grow'));
+    this.head.append(h('h3', T[5]), h('div.sub', d ? `${d.spec.maker} ${d.spec.model}` : 'kein Gerät'), h('div.grow'));
     const modeSel = h('select');
     for (const m of COLOR_MODES) { const o = h('option', { value: m.id }, m.name); if (m.id === this.opts.mode) o.selected = true; modeSel.appendChild(o); }
     modeSel.addEventListener('change', () => { this.opts.mode = modeSel.value; this.updateLegend(); });
     this.head.appendChild(h('div.sel', modeSel));
+    const tg = h('button.btn.small.icon' + (this.sheetOpen ? '.on' : ''), { html: icon('layers'), title: 'Inspektor ein-/ausblenden' });
+    tg.addEventListener('click', () => { this.sheetOpen = !this.sheetOpen; this.fapp.classList.toggle('nosheet', !this.sheetOpen); this.render(); });
+    this.head.appendChild(tg);
+    this.fapp.classList.toggle('nosheet', !this.sheetOpen);
+    // Inspektor: Gruppe, Titel, Unterzeile
+    clear(this.sideHead);
+    this.sideHead.append(h('small', GROUPS[T[4]]), h('b', T[5]), h('span', T[6]));
     // Bildlauf behalten, solange man im selben Tab bleibt (z. B. nach Umschaltern)
     const keepScroll = this._lastTab === this.tab ? this.panel.scrollTop : 0;
     clear(this.panel);
     T[3].render(this, this.panel);
     this.panel.scrollTop = keepScroll;
     this._lastTab = this.tab;
-    this.rimg.classList.toggle('hidden', !(this.tab === 'live' && d && d.rimg));
+    const showR = this.tab === 'live' && d && d.rimg;
+    this.rimg.classList.toggle('hidden', !showR);
+    if (showR) {
+      const amb = d.spec.maker === 'Ouster';
+      if (this.rimgMode === 'ambient' && !amb) this.rimgMode = 'range';
+      clear(this.rimgTabs);
+      for (const [k, label] of RIMG) {
+        if (k === 'ambient' && !amb) continue;
+        const b = h('button' + (k === this.rimgMode ? '.on' : ''), label);
+        b.addEventListener('click', () => { this.rimgMode = k; d.rimg.dirty = true; for (const x of this.rimgTabs.children) x.classList.toggle('on', x === b); });
+        this.rimgTabs.appendChild(b);
+      }
+    }
     this.updateLegend();
   }
 
@@ -159,18 +198,22 @@ export class FieldPC {
       st.display = vis ? 'block' : 'none';
       if (vis) { st.left = r.x + 'px'; st.top = r.y + 'px'; st.width = r.w + 'px'; st.height = r.h + 'px'; }
     }
+    // schmaler Feldrechner (Hochformat): Inspektor wandert nach unten
+    const er = this.app.views.extra && this.app.views.extra.get(this.el);
+    if (er) { const narrow = er.width < 940; if (narrow !== this.narrow) { this.narrow = narrow; this.el.classList.toggle('narrow', narrow); } }
     const TT = TABS.find((t) => t[0] === this.tab);
     if (TT[3].frame) TT[3].frame(this, dt);
     this.ft = (this.ft || 0) + dt;
     if (this.ft < 0.12) return;
     this.ft = 0;
     const d = this.dev, a = this.app;
-    const now = new Date();
-    const link = d ? (d.kind === 'phone' ? 'ARKit' : d.spec.cls === 'tls' ? 'WLAN · ' + d.spec.model : 'ETH 100M · 192.168.1.201') : 'kein Gerät';
-    const temp = d ? (34 + Math.min(14, a.clock.t * 0.02) + (d.state === 'stream' ? 4 : 0)).toFixed(0) : '–';
-    setHTML(this.sbar, `<span>${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span><span class="row" style="gap:4px">${icon('wifi')}${link}</span><span class="grow"></span><span>${temp} °C</span><span class="row" style="gap:4px">${icon('battery')}86 %</span>`);
+    setHTML(this.sbar, this.statusBar(d));
     if (d) {
-      const st = d.state === 'stream' ? `<span class="led acc"></span> LIVE` : d.state === 'tls' ? `<span class="led acc"></span> SCAN ${Math.round((this.tlsProgress || 0) * 100)} %` : '<span class="led"></span> BEREIT';
+      const U = d.unit, ph = U ? U.phase : 'misst';
+      const st = d.state === 'tls' ? `<span class="led acc"></span> SCAN ${Math.round((this.tlsProgress || 0) * 100)} %`
+        : d.state === 'stream' && ph === 'boot' ? `<span class="led warn blink"></span> BOOTET ${Math.round(U.progress * 100)} %`
+        : d.state === 'stream' && ph === 'anlauf' ? `<span class="led warn blink"></span> MOTOR ${Math.round(U.rpmFrac * (d.pattern.hz || 10) * 60)} U/min`
+        : d.state === 'stream' ? `<span class="led acc"></span> LIVE` : '<span class="led"></span> BEREIT';
       const rate = d.stats.rate;
       const hit = d.stats.srate > 0 ? Math.min(100, (rate / d.stats.srate) * 100) : 0;
       const p = d.pattern;
@@ -189,12 +232,26 @@ export class FieldPC {
     if (T[3].tick) T[3].tick(this);
   }
 
+  // Statusleiste: Uhr · Gerät mit Zustand und Seriennummer · Anschluss mit Auslastung und Verlust · Temperatur · Akku
+  statusBar(d) {
+    const now = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    if (!d) return `<span class="sb-time">${now}</span><span class="sb-dev"><i class="led"></i><b>kein Gerät</b></span><span class="grow"></span><span>${icon('battery')}86 %</span>`;
+    const U = d.unit, ph = U.phase;
+    const led = d.state === 'tls' || (d.state === 'stream' && ph === 'misst') ? (U.lossRate > 0.01 ? 'warn' : 'acc') : ph === 'boot' || ph === 'anlauf' ? 'warn blink' : '';
+    const state = d.state === 'tls' ? 'Stationsscan' : { aus: 'aus', boot: 'bootet', anlauf: 'Motoranlauf', misst: d.state === 'stream' ? 'misst' : 'bereit', bereit: 'Bereitschaft' }[ph];
+    const load = d.kind === 'stream' && d.state === 'stream' ? U.loadOf(d.bitRate) : 0;
+    const loss = U.lossRate;
+    const link = `<span class="sb-link">${icon('wifi')}${U.link.name}${load ? `<i class="ubar${load > 0.92 ? ' over' : ''}"><i style="width:${Math.min(100, load * 100).toFixed(0)}%"></i></i>${(load * 100).toFixed(0)} %` : ''}${loss > 0.001 ? `<b class="bad">Verlust ${(loss * 100).toFixed(loss < 0.1 ? 1 : 0)} %</b>` : ''}</span>`;
+    return `<span class="sb-time">${now}</span><span class="sb-dev"><i class="led ${led}"></i><b>${d.spec.model}</b><em>SN ${U.serial}</em><span>${state}</span></span><span class="grow"></span>${link}<span>${icon('gauge')}${U.T.toFixed(1).replace('.', ',')} °C</span><span>${icon('battery')}86 %</span>`;
+  }
+
   drawRangeImage(d) {
     const R = d.rimg, W = d.cols, H = d.rows;
     const c = this.rimgCanvas;
     if (c.width !== W || c.height !== H) { c.width = W; c.height = H; this.rimgData = c.getContext('2d').createImageData(W, H); }
     const img = this.rimgData, px = img.data;
     const mode = this.rimgMode, rmax = this.opts.rMax;
+    const now = R.tMax, stale = 1.5 * (d.pattern.period || 0.1); // bezogen auf die jüngste empfangene Messung
     // Zeile 0 = unterster Kanal → oben im Bild der höchste
     const P = d.pattern;
     const order = P._rowOrder || (P._rowOrder = P.elev ? P.elev.map((e, i) => [e, i]).sort((a, b) => b[0] - a[0]).map((x) => x[1]) : [...Array(H).keys()]);
@@ -203,7 +260,9 @@ export class FieldPC {
       for (let x = 0; x < W; x++) {
         const id = ring * W + x, o = (y * W + (W - 1 - x)) * 4;
         const r = R.r[id];
-        if (!r) { px[o] = px[o + 1] = px[o + 2] = 8; px[o + 3] = 255; continue; }
+        // Spalte länger als 1,5 Umdrehungen nicht aktualisiert (Paket verloren): schwarz wie in echten Werkzeugen
+        if (!r || (R.colT && now - R.colT[x] > stale)) { px[o] = px[o + 1] = px[o + 2] = 8; px[o + 3] = 255; continue; }
+        if (mode === 'ambient') { const v = R.a[id]; px[o] = px[o + 1] = px[o + 2] = v; px[o + 3] = 255; continue; }
         if (mode === 'range') {
           const c = TURBO[Math.min(255, Math.round((1 - Math.min(1, r / rmax)) * 255))];
           px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2];
@@ -213,7 +272,7 @@ export class FieldPC {
     }
     c.getContext('2d').putImageData(img, 0, 0);
     R.dirty = false;
-    setText(this.rimgLab, `${mode === 'range' ? 'Abstandsbild' : 'Reflektivitätsbild'} · ${H} × ${W} (tippen zum Wechseln)`);
+    setText(this.rimgLab, `${H} × ${W}`);
   }
 
   /* ---------- Ansicht ---------- */
@@ -322,6 +381,8 @@ export class FieldPC {
     this.tlsProgress = 0;
     a.top.render();
     this.setTab('live');
+    // Selbsttest und Horizontierung (Kompensator) vor dem ersten Schuss
+    if (!d.unit.ready) { toast(`${d.spec.model}: Selbsttest und Kompensator …`); await d.whenReady(); }
     const per = pat.rowsPerSide * 2;
     const chunk = Math.max(1, Math.floor(45000 / per));
     let done = 0;
