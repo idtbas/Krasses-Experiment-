@@ -87,6 +87,7 @@
   function onFrame(dt) {
     if (!cur || !cur.inst.frame) return;
     if (home && home.style.visibility === 'hidden') return;
+    if (V.glances && V.glances.faceShown <= 0) return;   // ein Blick liegt vorn: das weggedrehte Blatt ruht
     cur.inst.frame(dt, V.time.view());
   }
 
@@ -204,9 +205,14 @@
         slots[i] = { el: s, ch: null };
         return slots[i];
       }
+      let lastSet = 0;
       return {
         set(str) {
           const chars = String(str).split('');
+          // Werte in rascher Folge (Drehen bei der Zeitreise, Rücklauf): knackig umschalten statt rollen
+          const nowT = performance.now();
+          const fast = nowT - lastSet < 170;
+          if (str !== this._last) { lastSet = nowT; this._last = str; }
           // überzählige entfernen
           while (slots.length > chars.length) { const s = slots.pop(); s.el.remove(); }
           chars.forEach((ch, i) => {
@@ -217,7 +223,7 @@
             const prev = s.ch;
             s.ch = ch;
             const nu = U.el('span', { class: 'rd-ch', style: { display: 'inline-block', willChange: 'transform, opacity, filter' }, text: ch });
-            if (prev === null || o.instant) { if (s.sp) { s.sp.stop(); s.sp = null; } s.el.innerHTML = ''; s.el.appendChild(nu); return; }
+            if (prev === null || o.instant || fast) { if (s.sp) { s.sp.stop(); s.sp = null; } s.el.innerHTML = ''; s.el.appendChild(nu); return; }
             // läuft noch ein Wechsel (schnelles Drehen bei der Zeitreise): den alten sofort abschließen
             if (s.sp) {
               s.sp.stop(); s.sp = null;

@@ -691,7 +691,7 @@
       sm.g.appendChild(head);
       const tL = sm.endLabel('left'), tR = sm.endLabel('right');
       root.append(disc, title, sub, svg);
-      let rot = 0, acc = 1, lastKey = '', playing = false;
+      let rot = 0, acc = 1, lastKey = '', playing = false, artKey = '';
 
       V.ui.tap(btn, () => { const m = info(); if (m && m.toggle) m.toggle(); V.emit('activity'); setTimeout(update, 60); });
 
@@ -717,8 +717,14 @@
           lastKey = key;
           label.set(m.artist || 'Musik');
           label.text.setAttribute('fill', U.lighten(c, 0.15));
-          const dk = U.mix(c, '#07070a', 0.72), lt = U.lighten(c, 0.38), md = U.mix(c, '#000000', 0.25);
-          art.style.background = `radial-gradient(circle at 50% 50%, rgba(0,0,0,.0) 0 33%, rgba(0,0,0,.28) 34%, rgba(0,0,0,0) 36%), conic-gradient(from 0deg, ${md}, ${dk} 18%, ${c} 38%, ${lt} 50%, ${md} 64%, ${dk} 82%, ${md})`;
+          // das Cover des Titels (aus der Musik-App); sonst eine Scheibe in der Farbe des Senders
+          const A = V.music && V.music.art ? V.safe(() => V.music.art(), 'cover') : null;
+          if (A && A.canvas) {
+            if (A.key !== artKey) { artKey = A.key; art.innerHTML = ''; art.appendChild(A.canvas); art.style.background = '#0c0c0e'; disc.classList.add('cover'); }
+          } else {
+            const dk = U.mix(c, '#07070a', 0.72), lt = U.lighten(c, 0.38), md = U.mix(c, '#000000', 0.25);
+            art.style.background = `radial-gradient(circle at 50% 50%, rgba(0,0,0,.0) 0 33%, rgba(0,0,0,.28) 34%, rgba(0,0,0,0) 36%), conic-gradient(from 0deg, ${md}, ${dk} 18%, ${c} 38%, ${lt} 50%, ${md} 64%, ${dk} 82%, ${md})`;
+          }
           glow.style.background = `radial-gradient(circle, ${U.rgba(c, playing ? 0.5 : 0.22)}, ${U.rgba(c, 0)} 68%)`;
           prog.setAttribute('stroke', U.lighten(c, 0.1));
           setText(title, m.title || 'Musik');
@@ -848,11 +854,13 @@
     .glc-next b { font-weight: 620; color: rgba(255,255,255,.72); font-variant-numeric: tabular-nums; }
     .glc-next span { overflow: hidden; text-overflow: ellipsis; }
 
-    .glm-disc { position: absolute; left: 50%; top: 39.6cqw; width: 35cqw; height: 35cqw; margin: -17.5cqw 0 0 -17.5cqw; border-radius: 50%; }
+    .glm-disc { position: absolute; left: 50%; top: 39.4cqw; width: 36cqw; height: 36cqw; margin: -18cqw 0 0 -18cqw; border-radius: 50%; }
     .glm-glow { position: absolute; inset: -9cqw; border-radius: 50%; pointer-events: none; transition: opacity .8s ease; opacity: .7; }
     .glm-disc.on .glm-glow { opacity: 1; }
-    .glm-art { position: absolute; inset: 0; border-radius: 50%; will-change: transform;
+    .glm-art { position: absolute; inset: 0; border-radius: 50%; will-change: transform; overflow: hidden;
       box-shadow: 0 2cqw 5cqw rgba(0,0,0,.55); }
+    .glm-art canvas { display: block; width: 100%; height: 100%; border-radius: 50%; }
+    .glm-disc.cover .glm-sheen { background: conic-gradient(from 210deg, rgba(255,255,255,0) 0 12%, rgba(255,255,255,.16) 20%, rgba(255,255,255,0) 30% 62%, rgba(255,255,255,.09) 70%, rgba(255,255,255,0) 80%); }
     .glm-sheen { position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
       background:
         repeating-radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0 .55cqw, rgba(0,0,0,.13) .55cqw .7cqw),

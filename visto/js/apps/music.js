@@ -1709,6 +1709,8 @@
         next: () => skip(1), previous: () => skip(-1),
         info, stations: () => STATIONS.map((s) => ({ id: s.id, name: s.name, color: s.c1 })),
         get playing() { return M.playing; },
+        /** Cover des aktuellen Titels als Canvas (eigene Kopie, z. B. für den Musik-Blick) + Schlüssel für Wechsel */
+        art() { const st = cur(), track = rec(st.id).track; const c = artFor(st, track); return { canvas: c, key: st.id + ':' + track }; },
         _render: render,
       };
       V.info = V.info || {};

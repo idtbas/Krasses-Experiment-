@@ -97,7 +97,12 @@
 
       // Zeichen mit Übergang: {ch, prev, t (0…1), sp}
       const chars = [];
+      let lastSet = 0, lastStr = '';
       function setText(str, instant) {
+        // Werte in rascher Folge (Drehen bei der Zeitreise, Rücklauf): knackig umschalten statt gleiten
+        const nowT = performance.now();
+        if (!instant && nowT - lastSet < 170) instant = true;
+        if (str !== lastStr) { lastSet = nowT; lastStr = str; }
         for (let i = 0; i < str.length; i++) {
           const ch = str[i];
           if (!chars[i]) chars[i] = { ch, prev: null, t: 1 };

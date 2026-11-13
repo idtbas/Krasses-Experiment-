@@ -34,7 +34,14 @@
   /* ---------------------------------------------------- Symbole als Bild */
   const glyphs = new Map();
   /** Symbol (V.icon) in einer Farbe als Bild für Canvas; null, solange es noch lädt */
+  let gName = '', gColor = '', gIm = null;      // letzter Treffer: spart den Schlüssel-String je Bild
   function glyph(name, color) {
+    if (name === gName && color === gColor && gIm) return gIm;
+    const im = glyphLoad(name, color);
+    if (im) { gName = name; gColor = color; gIm = im; }
+    return im;
+  }
+  function glyphLoad(name, color) {
     const key = name + '|' + color;
     let im = glyphs.get(key);
     if (!im) {
@@ -52,17 +59,30 @@
     const a = V.shell && V.shell.app;
     return !!(a && a.def.id === e.app);
   }
-  /** sichtbare Einträge nach Rang; vergibt Spuren (0 = ganz außen) */
+  /** sichtbare Einträge nach Rang; vergibt Spuren (0 = ganz außen). Die Reihenfolge wird nur bei Änderungen neu sortiert. */
+  let order = [], orderDirty = true;
   function layout() {
-    const list = [];
-    for (const e of items.values()) if (!e.dead) list.push(e);
-    list.sort((a, b) => b.priority - a.priority || a.seq - b.seq);
+    if (orderDirty) {
+      orderDirty = false;
+      order.length = 0;
+      for (const e of items.values()) if (!e.dead) order.push(e);
+      order.sort((a, b) => b.priority - a.priority || a.seq - b.seq);
+    }
     let lane = 0;
-    for (const e of list) {
+    for (let i = 0; i < order.length; i++) {
+      const e = order[i];
       e.want = !hiddenFor(e) && lane < MAX_LANES;
       if (e.want) { e.laneT = LANE0 - lane * LANE_GAP; lane++; }
     }
-    return list;
+    return order;
+  }
+  /** Farben je Eintrag einmal ableiten (nicht in jedem Bild) */
+  function tones(e) {
+    if (e._c === e.color) return;
+    e._c = e.color;
+    e.cFill = U.mix(e.color, '#0b0b0d', 0.8);
+    e.cRing = U.rgba(e.color, 0.62);
+    e.cIcon = U.lighten(e.color, 0.3);
   }
 
   const live = (V.live = {
@@ -75,7 +95,9 @@
         items.set(id, e);
       }
       e.dead = false;
+      const pr = e.priority;
       Object.assign(e, o);
+      if (fresh || pr !== e.priority) orderDirty = true;
       if (fresh) { e.shown = null; V.emit('live:changed', { id, on: true }); }
       return e;
     },
@@ -83,11 +105,12 @@
       const e = items.get(id);
       if (!e || e.dead) return;
       e.dead = true;
+      orderDirty = true;
       V.emit('live:changed', { id, on: false });
     },
     has: (id) => { const e = items.get(id); return !!(e && !e.dead); },
     get(id) { const e = items.get(id); return e && !e.dead ? pub(e) : null; },
-    list() { return layout().map(pub); },
+    list() { return layout().filter((e) => !e.dead).map(pub); },
     get count() { let n = 0; for (const e of items.values()) if (!e.dead) n++; return n; },
     glyph,
   });
@@ -168,12 +191,13 @@
       ctx.globalAlpha = Math.min(1, alpha * 1.3);
       ctx.fillStyle = '#000';
       ctx.beginPath(); ctx.arc(p.x, p.y, (BADGE + 2.5) * k, 0, TAU); ctx.fill();
-      ctx.fillStyle = U.mix(e.color, '#0b0b0d', 0.8);
+      tones(e);
+      ctx.fillStyle = e.cFill;
       ctx.beginPath(); ctx.arc(p.x, p.y, BADGE * k, 0, TAU); ctx.fill();
-      ctx.strokeStyle = U.rgba(e.color, 0.62);
+      ctx.strokeStyle = e.cRing;
       ctx.lineWidth = 1.4;
       ctx.beginPath(); ctx.arc(p.x, p.y, (BADGE - 0.7) * k, 0, TAU); ctx.stroke();
-      const im = glyph(e.icon, U.lighten(e.color, 0.3));
+      const im = glyph(e.icon, e.cIcon);
       if (im) { const s = 16.5 * k; ctx.drawImage(im, p.x - s / 2, p.y - s / 2, s, s); }
       g.globalAlpha = alpha * 0.5;
       g.fillStyle = e.color;

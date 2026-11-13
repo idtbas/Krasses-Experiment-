@@ -232,7 +232,7 @@
       const field = U.el('div', { class: 'talk-field' }, micBtn, input, sendBtn);
       const chips = U.el('div', { class: 'talk-chips' });
       for (const c of CHIPS) chips.appendChild(U.el('button', { class: 'talk-chip', text: c, on: { click: () => { if (V.shell.mode !== 'setup' && V.shell.mode !== 'boot') V.convo.input(c); } } }));
-      const hint = U.el('p', { class: 'talk-hint', html: 'Linie unten antippen ruft Visto · ↑ Apps · ↓ Kontrollzentrum · ← → Zifferblatt · Halten zum Anpassen · Vom linken Rand wischen = zurück · Taste am Sockel = Home' });
+      const hint = U.el('p', { class: 'talk-hint', html: 'Linie unten antippen ruft Visto · ↑ Apps · ↓ Kontrollzentrum · ← → Blicke (Wetter, Kalender, Musik, Zuhause) · Am Rand drehen = Zeitreise · Halten = Zifferblatt anpassen · Vom linken Rand wischen = zurück · Taste am Sockel = Home, doppelt gedrückt = zuletzt benutzte Apps' });
       talk.append(field, chips, hint);
       const exit = U.el('button', { class: 'emu-iconbtn emu-exitfull', attrs: { 'aria-label': 'Vollbild verlassen' }, html: V.icon('shrink'), on: { click: () => setFull(false) } });
       page.append(head, stage, talk);

@@ -163,12 +163,17 @@
         if (delay) sl.tm = setTimeout(run, delay); else run();
       }
 
+      let lastSet = 0;
       function setTime(now, instant) {
         const p = V.fmt.parts(now);
         const hh = V.fmt.h24() ? p.hh : U.pad(p.h);
         const strs = [hh, p.mm];
+        // Werte in rascher Folge (Drehen bei der Zeitreise, Rücklauf): knackig umschalten statt rollen
+        const nowT = performance.now();
+        if (!instant && nowT - lastSet < 170) instant = 'fast';
+        if (strs[0] !== shown[0] || strs[1] !== shown[1]) lastSet = nowT;
         strs.forEach((str, i) => {
-          if (str === shown[i] && !instant) return;
+          if (str === shown[i] && instant !== true) return;
           // Einer zuerst, dann Zehner – wie ein Zählwerk
           roll(slots[i][1], str[1], 0, instant);
           roll(slots[i][0], str[0], 110, instant);

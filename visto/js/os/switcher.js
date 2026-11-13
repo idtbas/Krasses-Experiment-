@@ -146,7 +146,13 @@
         if (!d || !d.mode) return;
         if (d.mode === 'rim' || d.mode === 'pan') {
           // Schwung trägt weiter (auch über mehrere Scheiben), dann rastet der Ring ein
-          const vel = p.cancelled || performance.now() - d.st > 120 ? 0 : U.clamp(d.vel, -900, 900);
+          let vel = performance.now() - d.st > 120 ? 0 : d.vel;
+          // Tempo der Geste selbst (falls nur wenige Messpunkte ankamen): Wischen → Ringwinkel, am Rand → Winkeltempo
+          let vx = p.vx || 0, vy = p.vy || 0;
+          if (p.ms > 0 && p.ms < 300) { const ax = p.dx / (p.ms / 1000), ay = p.dy / (p.ms / 1000); if (Math.hypot(ax, ay) > Math.hypot(vx, vy)) { vx = ax; vy = ay; } }
+          const gv = d.mode === 'pan' ? -U.deg(vx / RX) : U.deg(((p.x - 500) * vy - (p.y - 500) * vx) / Math.max(1, p.r * p.r));
+          if (Math.abs(gv) > Math.abs(vel) && gv * (vel || gv) > 0 && performance.now() - d.st < 160) vel = gv;
+          vel = p.cancelled ? 0 : U.clamp(vel, -900, 900);
           snap(rot.value + vel * 0.24, vel);
         } else if (d.mode === 'lift') {
           const dy = p.dy - d.dy0;
@@ -247,16 +253,16 @@
       const far = 1;
       const lift = it.lift.value, la = Math.abs(lift);
       const x = 500 + RX * Math.sin(a);
-      const y = Y_BACK + (Y_FRONT - Y_BACK) * (t * t * (3 - 2 * t)) + lift;
-      const s = (S_BACK + (1 - S_BACK) * t * t) * (0.72 + 0.28 * k) * (1 - Math.min(0.22, la / 1600));
+      const y = Y_BACK + (Y_FRONT - Y_BACK) * Math.pow(t, 1.25) + lift;
+      const s = (S_BACK + (1 - S_BACK) * Math.pow(t, 2.3)) * (0.72 + 0.28 * k) * (1 - Math.min(0.22, la / 1600));
       const op = kc * far * (0.42 + 0.58 * t) * (1 - U.smoothstep(240, 620, la));
       const st = it.el.style;
       st.transform = `translate(${(x / 10).toFixed(2)}cqw, ${(y / 10).toFixed(2)}cqw) scale(${Math.max(0.01, s).toFixed(4)})`;
       st.opacity = op.toFixed(3);
       st.zIndex = String(Math.round(t * 100) + (la > 4 ? 200 : 0));
       // Unschärfe und Helligkeit in Stufen (zwischen zwei Stufen bleibt das Bild der Scheibe im Grafikspeicher)
-      const bl = low ? 0 : Math.round((1 - t) * 1.2 * 5) / 5;
-      const br = Math.round((0.4 + 0.6 * Math.pow(t, 0.8)) * 25) / 25;
+      const bl = low ? 0 : Math.round(Math.pow(1 - t, 1.4) * 1.5 * 5) / 5;
+      const br = Math.round((0.36 + 0.64 * Math.pow(t, 0.7)) * 25) / 25;
       const f = t > 0.975 ? '' : (bl > 0 ? `blur(${bl.toFixed(1)}cqw) ` : '') + `brightness(${br.toFixed(2)})`;
       if (st.filter !== f) st.filter = f;
       it.sx = x; it.sy = y; it.sr = (DISC / 2) * s; it.t = t * far;
@@ -276,8 +282,9 @@
     if (kc < 0.002) { stage.scale = ''; stage.filter = ''; root.style.background = ''; }
     else {
       stage.scale = (1 - 0.1 * kc).toFixed(4);
-      stage.filter = (low ? '' : `blur(${(2.2 * kc).toFixed(2)}cqw) `) + `brightness(${(1 - 0.72 * kc).toFixed(3)}) saturate(${(1 + 0.2 * kc).toFixed(2)})`;
-      root.style.background = `rgba(0,0,0,${(0.34 * kc).toFixed(3)})`;
+      // ohne Unschärfe (sparsame Stufe) tritt der Hintergrund stärker ins Dunkel, damit nichts Scharfes stört
+      stage.filter = low ? `brightness(${(1 - 0.86 * kc).toFixed(3)})` : `blur(${(2.2 * kc).toFixed(2)}cqw) brightness(${(1 - 0.7 * kc).toFixed(3)}) saturate(${(1 + 0.2 * kc).toFixed(2)})`;
+      root.style.background = `rgba(0,0,0,${((low ? 0.5 : 0.32) * kc).toFixed(3)})`;
     }
   }
 
@@ -417,7 +424,7 @@
     if (Array.isArray(hooks.basePress)) hooks.basePress.unshift(() => { if (!opened) return false; close(); return true; });
     intents();
   });
-  V.on('convo:open', () => { if (opened) close({ stay: true }); });
+  V.on('convo:open', () => { if (opened) { const r = ret; close({ stay: true }); if (r && r.home && V.shell.mode === 'launcher') V.shell.home(); } });
   V.on('alert', () => { if (opened) close({ stay: true }); });
   V.on('ambient', (on) => { if (on && opened) close({ stay: true }); });
   V.on('control:open', () => { if (opened) close({ stay: true }); });
@@ -458,10 +465,10 @@
     .sw-disc { position: absolute; left: 0; top: 0; width: ${DISC / 10}cqw; height: ${DISC / 10}cqw; margin: ${-DISC / 20}cqw 0 0 ${-DISC / 20}cqw; border-radius: 50%;
       display: grid; place-items: center; will-change: transform, opacity; cursor: pointer;
       background:
-        radial-gradient(120% 80% at 50% -8%, rgba(255,255,255,.2), rgba(255,255,255,0) 58%),
-        radial-gradient(86% 70% at 50% 118%, color-mix(in srgb, var(--c) 62%, transparent), transparent 72%),
-        linear-gradient(180deg, #26262b 0%, #101013 62%, #0a0a0c 100%);
-      box-shadow: var(--glass-edge, inset 0 .24cqw .22cqw -.06cqw rgba(255,255,255,.42), inset 0 0 0 .13cqw rgba(255,255,255,.075)), 0 2.6cqw 6cqw rgba(0,0,0,.6); }
+        radial-gradient(120% 82% at 50% -6%, rgba(255,255,255,.27), rgba(255,255,255,0) 60%),
+        radial-gradient(92% 74% at 50% 122%, color-mix(in srgb, var(--c) 74%, transparent), transparent 74%),
+        linear-gradient(180deg, #2e2e35 0%, #141417 58%, #0b0b0d 100%);
+      box-shadow: inset 0 .3cqw .3cqw -.08cqw rgba(255,255,255,.5), inset 0 0 0 .16cqw rgba(255,255,255,.1), inset 0 -1.6cqw 3cqw -1.2cqw color-mix(in srgb, var(--c) 60%, transparent), 0 2.6cqw 6cqw rgba(0,0,0,.6); }
     .sw-glow { position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
       background: radial-gradient(60% 60% at 50% 44%, color-mix(in srgb, var(--c) 26%, transparent), transparent 70%); }
     .sw-icon { position: relative; aspect-ratio: 1; height: auto !important; margin-top: -2%; }

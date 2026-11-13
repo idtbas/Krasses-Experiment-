@@ -13,7 +13,7 @@
  *                                  – folgt selbst 'shell:mode', 'ambient', 'convo:open' / 'convo:close'
  *  V.lumen.tint(hex | null, s = 1) Lichtfarbe; null = Akzent – folgt selbst 'app:open' / 'app:close'
  *  V.lumen.touch(x, y, kraft = 1)  Lichtreflex + Welle (logisch 0…1000); hängt selbst an den Zeigerereignissen
- *  V.lumen.flare({ x, y, color, kind: 'iris' | 'ring' | 'burst', size, reverse, strength, duration })
+ *  V.lumen.flare({ x, y, color, kind: 'iris' | 'ring' | 'burst', size, reverse, strength, duration, reach })
  *        iris   Lichtring läuft vom Symbol (size = Radius) über das ganze Display – wie die App-Blende;
  *               reverse: true zieht ihn zurück zum Symbol (Schließen)
  *        ring   kurzer Ring um eine Stelle (Bestätigung, Hinweis)
@@ -257,7 +257,7 @@ void main() {
   let sheenA = 315, sheenI = 0, sheenDrawnA = -999, sheenDrawnI = -1;
   const SHEEN_W = 40, SHEEN_W2 = 26;  // Halbwinkel Glanzlicht / Widerschein (Grad)
   // Zeichenbereiche der Lichtebene (uv: x0, y0, x1, y1)
-  const rects = new Float32Array(4 * (2 + MAX_T * 2 + MAX_F));
+  const rects = new Float32Array(4 * (2 + MAX_T * 2 + MAX_F * 4));
   let nRects = 0;
 
   function quality() {
@@ -368,7 +368,7 @@ void main() {
     if (!L.ok) return;
     const l = lvl();
     const dev = Math.max(64, V.display.size * Math.min(V.display.dpr || 1, 2));
-    const bw = U.clamp(Math.round(dev * [0.34, 0.4, 0.5][l]), 96, 640);
+    const bw = U.clamp(Math.round(dev * [0.28, 0.34, 0.42][l]), 96, 560);
     const lw = U.clamp(Math.round(dev * [0.5, 0.66, 0.85][l]), 128, 960);
     if (back.w !== bw) { back.w = bw; back.cv.width = back.cv.height = bw; if (!back.lost) back.gl.viewport(0, 0, bw, bw); backDirty = true; }
     if (light.w !== lw) { light.w = lw; light.cv.width = light.cv.height = lw; if (!light.lost) light.gl.viewport(0, 0, lw, lw); sheenDrawnA = -999; }
@@ -557,7 +557,7 @@ void main() {
     f.size = Math.max(0.02, (o.size === undefined ? (kind === 0 ? 60 : 44) : o.size) / 500);
     f.k = U.clamp(o.strength === undefined ? 1 : o.strength, 0, 2);
     // iris: bis über den fernsten Rand, wie die runde Blende der Shell (Feder, response 0.5)
-    f.reach = kind === 0 ? 1.04 + Math.hypot(f.x, f.y) : f.size + (kind === 1 ? 0.5 : 0.42);
+    f.reach = kind === 0 ? 1.04 + Math.hypot(f.x, f.y) : o.reach ? o.reach / 500 : f.size + (kind === 1 ? 0.5 : 0.42);
     f.dur = o.duration || (kind === 0 ? (f.rev ? 0.5 : 0.78) : kind === 1 ? 0.8 : 0.6);
     const c = U.hexToRgb(o.color || tintHex || V.store.get('settings.accent', '#FF9A4D'));
     const mx = Math.max(c[0], c[1], c[2], 1);
@@ -596,11 +596,14 @@ void main() {
       if (wAge[i] > 2.6) wAge[i] = -1; else { waves = true; if (wAge[i] < 1.1) fresh = true; }
     }
     const lit = cur[GAIN] > 0.002 || tgt[GAIN] > 0;
-    if (q === 0 || !lit || occluded || back.lost) {
+    // verdeckt nur, solange die deckende App wirklich offen ist (beim Schließen gibt die Shell sie sofort frei)
+    const occ = occluded && !!(V.shell && V.shell.app);
+    if (q === 0 || !lit || occ || back.lost) {
       if (back.shown && !back.lost) {     // einmal schwarz, dann ruht die Ebene
         back.gl.clear(back.gl.COLOR_BUFFER_BIT);
         show(back, false);
       }
+      if (occ || q === 0) { cur[GAIN] = 0; vel[GAIN] = 0; }   // kommt das Licht wieder, blendet es weich ein
       backDrawn = false;
     } else {
       if (l > 0) flowT += dt * cur[FLOW] * (1 + 0.6 * cur[ENERGY]);
@@ -731,12 +734,14 @@ void main() {
     for (let i = 0; i < MAX_T; i++) {
       const o = i * 4, pr = tPress[i];
       if (pr > 0) {
+        nt++;
         const rad = 0.105 + 0.03 * Math.min(1, tAge[i] / 0.5) * (tDown[i] ? 1 : 0.6);
         uTouch[o] = tX[i]; uTouch[o + 1] = tY[i]; uTouch[o + 2] = rad; uTouch[o + 3] = 0.19 * pr * tK[i];
         addRect(tX[i] - rad * 2.7, tY[i] - rad * 2.7, tX[i] + rad * 2.7, tY[i] + rad * 2.7);
       } else uTouch[o + 3] = 0;
       const a = gAge[i];
       if (a >= 0) {
+        nt++;
         const t = a / 0.72, e = 1 - (1 - t) * (1 - t) * (1 - t);
         const R = 0.05 + 0.33 * e, wdt = (0.008 + R * 0.055) * 1.6;
         uRing[o] = gX[i]; uRing[o + 1] = gY[i]; uRing[o + 2] = R;
@@ -779,12 +784,19 @@ void main() {
       uFlareA[o] = f.x; uFlareA[o + 1] = f.y; uFlareA[o + 2] = R; uFlareA[o + 3] = 1 / wd;
       uFlareB[o] = I * f.k; uFlareB[o + 1] = fringe; uFlareB[o + 2] = fill * f.k; uFlareB[o + 3] = halo;
       uFlareC[i * 3] = f.r; uFlareC[i * 3 + 1] = f.g; uFlareC[i * 3 + 2] = f.b;
-      const ext = R + wd * 20;
-      addRect(f.x - ext, f.y - ext, f.x + ext, f.y + ext);
+      nf++;
+      // Zeichenbereich: das Quadrat um den Ring – bei großen Ringen ohne Füllung nur der Rahmen darum
+      const ext = R + wd * 22.5, hole = (R - wd * 22.5) * 0.7 - 0.01;
+      if (fill * f.k > 0.002 || hole < 0.2) addRect(f.x - ext, f.y - ext, f.x + ext, f.y + ext);
+      else {
+        addRect(f.x - ext, f.y - ext, f.x + ext, f.y - hole); addRect(f.x - ext, f.y + hole, f.x + ext, f.y + ext);
+        addRect(f.x - ext, f.y - hole, f.x - hole, f.y + hole); addRect(f.x + hole, f.y - hole, f.x + ext, f.y + hole);
+      }
     }
 
-    gl.uniform4fv(u.uTouch, uTouch); gl.uniform4fv(u.uRing, uRing); gl.uniform3fv(u.uTouchC, uTouchC);
-    gl.uniform4fv(u.uFlareA, uFlareA); gl.uniform4fv(u.uFlareB, uFlareB); gl.uniform3fv(u.uFlareC, uFlareC);
+    const u = use(light, nt ? (nf ? 'TF' : 'T') : nf ? 'F' : '');
+    if (nt) { gl.uniform4fv(u.uTouch, uTouch); gl.uniform4fv(u.uRing, uRing); gl.uniform3fv(u.uTouchC, uTouchC); }
+    if (nf) { gl.uniform4fv(u.uFlareA, uFlareA); gl.uniform4fv(u.uFlareB, uFlareB); gl.uniform3fv(u.uFlareC, uFlareC); }
     gl.uniform4fv(u.uSheen, uSheen); gl.uniform3fv(u.uSheenC, uSheenC); gl.uniform4fv(u.uMisc, uMisc);
 
     // nur die Rechtecke zeichnen, in denen Licht liegt (zusammen kleiner als die halbe Fläche), sonst alles
@@ -792,7 +804,7 @@ void main() {
     gl.clear(gl.COLOR_BUFFER_BIT);
     let area = 0;
     for (let i = 0; i < nRects; i++) area += (rects[i * 4 + 2] - rects[i * 4]) * (rects[i * 4 + 3] - rects[i * 4 + 1]);
-    if (area > 2.2 || nRects === 0) { gl.drawArrays(gl.TRIANGLES, 0, 3); draws++; return; }
+    if (area > 2.6 || nRects === 0) { gl.drawArrays(gl.TRIANGLES, 0, 3); draws++; return; }
     gl.enable(gl.SCISSOR_TEST);
     const W = light.w, h = W / 2;
     for (let i = 0; i < nRects; i++) {

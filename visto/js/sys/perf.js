@@ -90,7 +90,7 @@
     if (load > 1.3) {
       goodMs = 0;
       if (++badWins >= 2 && level > 0) {
-        if (t - lastRaise < 20000) upWait = Math.min(120000, upWait * 2);   // Anheben war zu früh
+        if (t - lastRaise < 20000) upWait = Math.min(480000, upWait * 2);   // Anheben war zu früh
         lastDrop = t;
         setLevel(level - 1, true);
       }
