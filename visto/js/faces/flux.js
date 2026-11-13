@@ -197,7 +197,7 @@
           g.globalCompositeOperation = 'source-over';
           g.globalAlpha = 1;
         }
-        g.globalAlpha = amb ? 0.55 : 1;
+        g.globalAlpha = amb ? 0.42 : 1;
         g.drawImage(field, bx, by);
         g.globalAlpha = 1;
       }

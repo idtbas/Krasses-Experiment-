@@ -21,7 +21,6 @@
   const TAU = Math.PI * 2;
   const R = 471;            // Mittellinie des Tagesrings (logisch)
   const BAND = 38;          // Breite des Rings
-  const LANE = 42;          // überlappende Termine rücken nach innen
   const LABEL_R = 425;      // Titel am Bogen
   const DATE_R = 372;       // Datum oben
   const FONT = "'Inter Tight', system-ui, sans-serif";
@@ -245,18 +244,31 @@
 
   /** Anordnung eines Tages: Bögen, Bahnen, Titel, Stundenmarken */
   function layout(view) {
-    const lanes = [];
-    const items = eventsIn(view.t0, view.t1).map((e) => {
+    // Überschneidungen: Gruppen bilden, darin Bahnen – parallel im Ring, außen zuerst
+    const items = [];
+    let group = [], lanes = [], groupEnd = -Infinity;
+    const close = () => { const n = Math.min(3, lanes.length || 1); for (const it of group) it.lanes = n; group = []; lanes = []; };
+    for (const e of eventsIn(view.t0, view.t1)) {
       const s = Math.max(e.start, view.t0), en = Math.min(e.end, view.t1);
+      if (s >= groupEnd) close();
       let lane = lanes.findIndex((end) => end <= s);
       if (lane < 0) { lane = lanes.length; lanes.push(en); } else lanes[lane] = en;
-      return { e, a0: angle(view, s), a1: Math.max(angle(view, en), angle(view, s) + 1.4), lane: Math.min(lane, 2) };
-    });
+      groupEnd = Math.max(groupEnd === -Infinity ? en : groupEnd, en);
+      const it = { e, a0: angle(view, s), a1: Math.max(angle(view, en), angle(view, s) + 1.4), lane: Math.min(lane, 2), lanes: 1 };
+      group.push(it);
+      items.push(it);
+    }
+    close();
+    for (const it of items) {
+      const inner = BAND - 8;
+      const lw = inner / it.lanes;
+      it.r = R + inner / 2 - lw * (it.lane + 0.5);
+      it.w = it.lanes > 1 ? lw - 3 : BAND - 10;
+    }
     // Titel: nur so viele, wie ohne Überschneidung passen
     const placed = [];
     const labels = [];
-    const maxLane = items.reduce((m, it) => Math.max(m, it.lane), 0);
-    const lr = LABEL_R - maxLane * LANE;
+    const lr = LABEL_R;
     for (const it of items) {
       const mid = (it.a0 + it.a1) / 2;
       const text = fitLabel(it.e.title, LABEL_FONT, 1.2, Math.min(330, lr * U.rad(64)));
@@ -278,7 +290,7 @@
       const ms = hourOf(view.d0, h);
       const a = angle(view, ms);
       const A = U.wrap(a, 360);
-      const covered = items.some((it) => it.lane === 0 && a > it.a0 - 2.2 && a < it.a1 + 2.2);
+      const covered = items.some((it) => a > it.a0 - 2.2 && a < it.a1 + 2.2);
       const bottom = A > 168 && A < 192;
       const labeled = !bottom && (view.mode === '12' ? true : h % 3 === 0);
       const hh = V.fmt.h24() ? h : h % 12 || 12;
@@ -639,10 +651,10 @@
           const e = it.e;
           const a0 = it.a0 + off;
           const a1 = a0 + (it.a1 - it.a0) * g;
-          const r = R - it.lane * LANE;
-          let w = BAND - 10;
+          const r = it.r;
+          let w = it.w;
           let al = alpha * (e.end <= t ? 0.38 : 1);
-          if (sel) { if (sel === e.id) w += 7 * selK.value; else al *= 1 - 0.72 * selK.value; }
+          if (sel) { if (sel === e.id) w += (it.lanes > 1 ? 3 : 7) * selK.value; else al *= 1 - 0.72 * selK.value; }
           c.lineCap = 'round';
           c.globalAlpha = al;
           c.strokeStyle = e.color;
@@ -1046,7 +1058,7 @@
           const d = U.wrap(p.a - (it.a0 + off), 360);
           const inside = d <= span + 5 || d >= 360 - 5;
           if (!inside) continue;
-          const dm = Math.abs(U.angDiff(it.a0 + off + span / 2, p.a)) + Math.abs(p.r - (R - it.lane * LANE)) * 0.05;
+          const dm = Math.abs(U.angDiff(it.a0 + off + span / 2, p.a)) * 0.2 + Math.abs(p.r - it.r) * (p.r > R - BAND ? 0.5 : 0);
           if (dm < bestD) { bestD = dm; best = it.e; }
         }
         return best;

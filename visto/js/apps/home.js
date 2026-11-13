@@ -439,6 +439,7 @@
     for (let h = 0; h <= 360; h += 20) hueStops.push(hueHex(h % 360));
     V.css('home', `
 .hm-root { overflow: hidden; }
+.hm-root .vos-svg { pointer-events: none; }
 .hm-layer { position: absolute; inset: 0; pointer-events: none; }
 .hm-page { position: absolute; inset: 0; will-change: transform, opacity; transform-origin: 50% 50%; }
 .hm-halo { position: absolute; width: 84cqw; height: 84cqw; left: 8cqw; border-radius: 50%; pointer-events: none; will-change: transform, background; }
@@ -1097,12 +1098,10 @@
           b.style.setProperty('--c2', U.rgba(sc.color, 0.1));
           b.style.setProperty('--c3', U.rgba(sc.color, 0.3));
           b.style.setProperty('--c4', U.rgba(sc.color, 0.55));
-          // Beschriftung folgt dem Kreis: oben über, unten unter den Scheiben
-          const pr = V.display.polar(x, y);
-          const top = y < 500;
-          const l = V.ui.arcText({ text: sc.name, r: pr.r + 120, at: top ? pr.a : pr.a, side: top ? 'top' : 'bottom', size: 30, weight: 600, spacing: 0.5, color: 'rgba(255,255,255,.72)', upper: false });
+          // Beschriftung außen: obere Reihe darüber, untere darunter
+          const l = U.el('div', { class: 'hm-scenelbl', text: sc.name, style: at(x, y < 500 ? y - 136 : y + 104) });
           tap(b, () => { runScene(sc.id); V.sound.play('success'); V.haptic([8, 30, 8]); }, false);
-          el.append(l.el, b);
+          el.append(b, l);
           return { b, sc };
         });
         Object.assign(P, {

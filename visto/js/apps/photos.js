@@ -1002,36 +1002,42 @@
             c.globalCompositeOperation = 'source-over';
           }
         } else {
-          const F = 34;
-          const th = e * (360 + F);
-          const a0 = U.rad(t.start - 90);
+          // Fächer: öffnet sich von t.start aus in beide Richtungen, zwei Lichtköpfe laufen am Rand
+          const F = 30;
+          const half = e * (180 + F);
+          const a0 = U.rad(t.start - 90 - 180);
           if (hasConic) {
             const gr = bg.createConicGradient(a0, W / 2, W / 2);
-            const p1 = U.clamp((th - F) / 360, 0, 1), p2 = U.clamp(th / 360, 0, 1);
-            if (t.dir > 0) {
-              gr.addColorStop(0, '#000'); gr.addColorStop(p1, '#000'); gr.addColorStop(p2, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-            } else {
-              gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1 - p2, 'rgba(0,0,0,0)'); gr.addColorStop(1 - p1, '#000'); gr.addColorStop(1, '#000');
-            }
+            const h = U.clamp(half / 360, 0, 0.5), f = U.clamp((half - F) / 360, 0, 0.5);
+            gr.addColorStop(0, 'rgba(0,0,0,0)');
+            gr.addColorStop(0.5 - h, 'rgba(0,0,0,0)');
+            gr.addColorStop(0.5 - f, '#000');
+            gr.addColorStop(0.5 + f, '#000');
+            gr.addColorStop(0.5 + h, 'rgba(0,0,0,0)');
+            gr.addColorStop(1, 'rgba(0,0,0,0)');
             bg.fillStyle = gr;
             bg.fillRect(0, 0, W, W);
           } else {
+            const m = U.rad(t.start - 90), hw = U.rad(Math.min(180, half));
             bg.beginPath(); bg.moveTo(W / 2, W / 2);
-            bg.arc(W / 2, W / 2, W, a0, a0 + t.dir * U.rad(Math.min(360, th)), t.dir < 0);
+            bg.arc(W / 2, W / 2, W, m - hw, m + hw);
             bg.closePath(); bg.fillStyle = '#000'; bg.fill();
           }
           bg.globalCompositeOperation = 'source-over';
           c.drawImage(buf, 0, 0);
-          const tail = U.smoothstep(0.72, 1, e);
+          const tail = U.smoothstep(0.8, 1, e);
           if (tail > 0) { c.globalAlpha = tail; drawSlide(c, t.to, 1 + 0.07 * (1 - e)); c.globalAlpha = 1; }
-          // Lichtkopf am Rand
-          const head = t.start + t.dir * Math.min(360, Math.max(0, th - F * 0.5));
-          const hx = W / 2 + Math.sin(U.rad(head)) * W * 0.465, hy = W / 2 - Math.cos(U.rad(head)) * W * 0.465;
-          const ha = 0.55 * Math.sin(Math.min(1, e * 1.1) * Math.PI);
+          // Lichtköpfe am Rand
+          const ha = 0.6 * Math.sin(Math.min(1, e * 1.08) * Math.PI);
           if (ha > 0.01) {
             c.globalCompositeOperation = 'lighter';
-            c.fillStyle = rg(c, hx, hy, 0, W * 0.09, [[0, `rgba(255,250,240,${ha})`], [0.3, `rgba(255,230,240,${ha * 0.35})`], [1, 'rgba(255,220,240,0)']]);
-            c.fillRect(hx - W * 0.09, hy - W * 0.09, W * 0.18, W * 0.18);
+            const reach = Math.min(180, Math.max(0, half - F * 0.5));
+            for (const sg of [-1, 1]) {
+              const head = t.start + sg * reach;
+              const hx = W / 2 + Math.sin(U.rad(head)) * W * 0.468, hy = W / 2 - Math.cos(U.rad(head)) * W * 0.468;
+              c.fillStyle = rg(c, hx, hy, 0, W * 0.085, [[0, `rgba(255,250,240,${ha})`], [0.28, `rgba(255,228,240,${ha * 0.35})`], [1, 'rgba(255,220,240,0)']]);
+              c.fillRect(hx - W * 0.085, hy - W * 0.085, W * 0.17, W * 0.17);
+            }
             c.globalCompositeOperation = 'source-over';
           }
         }
@@ -1091,7 +1097,7 @@
         tr = {
           to: sl, t: 0, type, dir: dir < 0 ? -1 : 1,
           dur: o.dur || (o.manual ? 1.1 : TRANS),
-          start: o.manual ? 0 : [0, 90, 180, 270][Math.floor(Math.random() * 4)],
+          start: o.manual ? (dir < 0 ? 270 : 90) : [0, 90, 180, 270][Math.floor(Math.random() * 4)],
           ox: o.origin ? (o.origin[0] / 1000) * W : W / 2, oy: o.origin ? (o.origin[1] / 1000) * W : W / 2,
         };
         if (o.manual) V.haptic(4);

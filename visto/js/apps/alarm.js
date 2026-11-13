@@ -88,6 +88,7 @@
   const hm = (h, m) => V.fmt.time(new Date(2000, 0, 1, h, m));
   function daysText(a) {
     const d = a.days;
+    if (a.on && a.snooze && a.next === a.snooze) return 'Schlummert bis ' + V.fmt.time(new Date(a.snooze));
     if (!d.length) {
       if (a.on && a.next) return V.fmt.relDay(new Date(a.next));
       return 'Einmalig';
@@ -439,14 +440,13 @@
   function actList() {
     const list = sorted();
     if (!list.length) return { say: 'Du hast keinen Wecker gestellt.', card: { type: 'icon', icon: 'alarm', color: COLOR, title: 'Keine Wecker', sub: 'Sag „Weck mich um 7“' } };
-    const on = list.filter((a) => a.on);
+    const on = list.filter((a) => a.on && a.next).sort((x, y) => x.next - y.next);
     const parts = (on.length ? on : list).slice(0, 4).map((a) => daysWords(a) + ' um ' + spokenTime(a.h, a.m));
     const joined = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' und ' + parts[parts.length - 1] : parts[0];
     let say;
     if (!on.length) say = `Du hast ${list.length === 1 ? 'einen Wecker' : list.length + ' Wecker'}, aber keiner ist an.`;
     else say = `${on.length === 1 ? 'Ein Wecker ist an' : on.length + ' Wecker sind an'}: ${joined}.`;
-    const nx = upcoming();
-    if (nx && on.length > 1) say += ` Der nächste klingelt ${inWords(nx.next - now())}.`;
+    if (on.length === 1) say += ` Das ist ${inWords(on[0].next - now())}.`;
     return { say, card: listCard(list) };
   }
   function actDelete(args) {
@@ -616,10 +616,11 @@
         const sw = U.el('div', { class: 'vos-switch alm-sw' + (a.on ? ' on' : ''), attrs: { role: 'switch', 'aria-checked': String(a.on), 'aria-label': 'Wecker ' + hm(a.h, a.m), 'data-tap': '1' } });
         const dd = U.el('span', { class: 'alm-dd' });
         if (a.days.length) for (const d of ORDER) dd.appendChild(U.el('i', { class: a.days.includes(d) ? 'on' : '', text: SHORT[d][0] }));
-        const txt = a.label ? (a.days.length ? a.label : a.label + ' · ' + daysText(a)) : daysText(a);
+        const group = /^(Täglich|Werktags|Am Wochenende|\w+tags|\w+chs)$/.test(daysText(a)) || /^Schlummert/.test(daysText(a));
+        const txt = a.label ? (a.days.length && !/^Schlummert/.test(daysText(a)) ? a.label : a.label + ' · ' + daysText(a)) : a.days.length && !group ? '' : daysText(a);
         const meta = U.el('div', { class: 'alm-rm' },
           a.sun ? U.frag(V.icon('sunrise')) : null,
-          U.el('span', { class: 'lb', text: txt }),
+          txt ? U.el('span', { class: 'lb', text: txt }) : null,
           a.days.length ? dd : null);
         const row = U.el('div', { class: 'alm-row' + (a.on ? '' : ' off'), attrs: { 'data-tap': '1', role: 'button', 'aria-label': 'Wecker ' + hm(a.h, a.m) + ' bearbeiten' } },
           U.el('div', { class: 'alm-rl' }, U.el('div', { class: 'alm-rt', text: hm(a.h, a.m) }), meta), sw);
