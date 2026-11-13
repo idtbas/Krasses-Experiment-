@@ -1,0 +1,126 @@
+/* VistoOS · core/store.js — dauerhafter Speicher (über V.platform.storage, abgesichert)
+ *
+ *  V.store.get('settings.accent')            Wert lesen (Punkt-Pfad)
+ *  V.store.set('settings.accent', '#fff')    schreiben + Ereignis 'store' {path, value}
+ *  V.store.app('timer')                       eigenes Objekt einer App; nach Änderung V.store.save()
+ *  V.store.reset()                            Werkszustand
+ */
+'use strict';
+(function () {
+  const V = window.V, U = V.util;
+  const KEY = 'vistoos.v1';
+
+  const DEFAULTS = {
+    setupDone: false,
+    user: { name: '' },
+    settings: {
+      accent: '#FF9A4D',
+      face: 'monolith',
+      faceOpts: {},
+      use24h: true,
+      showSeconds: false,
+      brightness: 0.9,
+      autoBrightness: true,
+      night: 'auto',          // auto | on | off
+      nightFrom: 22,
+      nightTo: 7,
+      alwaysOn: true,
+      idleSec: 60,
+      timeMode: 'auto',       // auto | manual
+      timeOffset: 0,          // ms (manuell gestellte Uhr)
+      sounds: true,
+      volume: 0.6,
+      haptics: true,
+      voice: true,            // Visto spricht Antworten
+      voiceRate: 1.04,
+      vistoStyle: 'aurora',   // aurora | mono | accent
+      vistoAI: true,          // Claude nutzen, wenn verfügbar
+      wifi: '',
+      location: 'Berlin',
+      dnd: false,
+      micMuted: false,
+      units: 'metric',
+    },
+    apps: {},
+  };
+
+  function isObj(o) { return o && typeof o === 'object' && !Array.isArray(o); }
+  function kind(v) { return v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v; }
+  /** Gespeichertes über Standardwerte legen – kaputte Werte (falscher Typ, NaN) behalten den Standard */
+  function merge(base, over) {
+    if (!isObj(over)) return base;
+    for (const k in over) {
+      const b = base[k], o = over[k];
+      if (isObj(b)) { if (isObj(o)) merge(b, o); continue; }
+      if (b !== undefined && b !== null && kind(o) !== kind(b)) continue;
+      if (typeof o === 'number' && !isFinite(o)) continue;
+      base[k] = o;
+    }
+    return base;
+  }
+
+  let saved = null;
+  const disk = V.platform.storage;   // Plattformschicht: Browser-Speicher bzw. Gerätespeicher
+  try { saved = JSON.parse(disk.get(KEY) || 'null'); } catch (e) { saved = null; }
+  let data = merge(U.clone(DEFAULTS), saved || {});
+  if (!/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(data.settings.accent)) data.settings.accent = DEFAULTS.settings.accent;
+
+  let timer = 0;
+  function persist() {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      try { disk.set(KEY, JSON.stringify(data)); } catch (e) { /* privat/voll: still weiter */ }
+    }, 150);
+  }
+
+  function walk(path, create) {
+    const parts = path.split('.');
+    let o = data;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!isObj(o[parts[i]])) { if (!create) return [null, null]; o[parts[i]] = {}; }
+      o = o[parts[i]];
+    }
+    return [o, parts[parts.length - 1]];
+  }
+
+  V.store = {
+    defaults: DEFAULTS,
+    get data() { return data; },
+    get(path, def) {
+      const [o, k] = walk(path, false);
+      if (!o || o[k] === undefined) return def;
+      return o[k];
+    },
+    set(path, value) {
+      const [o, k] = walk(path, true);
+      const old = o[k];
+      o[k] = value;
+      persist();
+      V.emit('store', { path, value, old });
+      V.emit('store:' + path, value);
+      return value;
+    },
+    update(path, fn) { return this.set(path, fn(this.get(path))); },
+    /** eigener Speicherbereich einer App */
+    app(id, defaults) {
+      if (!isObj(data.apps)) data.apps = {};
+      if (!isObj(data.apps[id])) data.apps[id] = {};
+      const o = data.apps[id];
+      if (defaults) {
+        for (const k in defaults) {
+          const d = defaults[k];
+          // fehlend oder kaputt (falscher Typ) → Standard; Listen ohne leere Einträge
+          if (o[k] === undefined || (d !== null && kind(o[k]) !== kind(d))) o[k] = U.clone(d);
+          else if (Array.isArray(o[k]) && o[k].some((x) => x === null || x === undefined)) o[k] = o[k].filter((x) => x !== null && x !== undefined);
+        }
+      }
+      return o;
+    },
+    save() { persist(); },
+    reset() {
+      data = merge(U.clone(DEFAULTS), {});
+      disk.remove(KEY);
+      V.emit('store:reset');
+    },
+  };
+})();
