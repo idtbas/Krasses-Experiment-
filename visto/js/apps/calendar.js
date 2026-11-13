@@ -304,9 +304,9 @@
     }
     if (d0 === todayD0()) {
       const p = V.display.pt(angle(view, t), 86);
-      const x = 100 + (p.x - 500) * (86 / 86) * 1, y = 100 + (p.y - 500);
-      svg.appendChild(U.svg('circle', { cx: (x - 100) * (86 / 86) + 100, cy: y, r: 9, fill: 'rgba(255,255,255,.25)' }));
-      svg.appendChild(U.svg('circle', { cx: x, cy: y, r: 5, fill: '#fff' }));
+      const x = p.x - 400, y = p.y - 400;
+      svg.appendChild(U.svg('circle', { cx: x, cy: y, r: 10, fill: 'rgba(255,255,255,.22)' }));
+      svg.appendChild(U.svg('circle', { cx: x, cy: y, r: 5.5, fill: '#fff' }));
     }
     svg.appendChild(U.svg('text', { x: 100, y: 104, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 66, 'font-weight': 220, fill: '#fff', 'font-family': FONT, style: 'font-variant-numeric:tabular-nums;letter-spacing:-2px', text: big }));
     svg.appendChild(U.svg('text', { x: 100, y: 146, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 700, fill: 'rgba(255,255,255,.5)', 'font-family': FONT, 'letter-spacing': 2.4, text: String(small).toUpperCase() }));
@@ -390,7 +390,7 @@
     const t = now();
     const all = eventsOfDay(d0);
     const evs = off === 0 ? all.filter((e) => e.end > t) : all;
-    const card = { type: 'el', el: miniRing(d0, String(evs.length), off === 0 ? (evs.length === 1 ? 'Termin offen' : 'Termine offen') : evs.length === 1 ? 'Termin' : 'Termine') };
+    const card = { type: 'el', el: miniRing(d0, String(evs.length), off === 0 ? 'offen' : evs.length === 1 ? 'Termin' : 'Termine') };
     const items = (list) => list.map((e) => tm(e.start) + ' ' + e.title);
     if (off === 0) {
       if (!evs.length) {
@@ -562,7 +562,7 @@
       let draft = null;
       let dirty = true;
       let growClock = 0, popId = null, popClock = 9;
-      let page = null;
+      let page = null, crownAcc = 0;
       const mark = () => { dirty = true; };
       const trans = V.spring(1, { response: 0.55, bounce: 0.1 }).onUpdate(mark);
       const rot = V.spring(0, { response: 0.42, bounce: 0.12 }).onUpdate(mark);
@@ -622,8 +622,7 @@
         // Termine
         const sel = state === 'add' ? '__draft' : selId;
         L.items.forEach((it, i) => {
-          let g = grow(i);
-          if (popId === it.e.id) g = V.ease.outBack(U.clamp(popClock / 0.55, 0, 1), 1.2) * 0 + V.ease.smooth(U.clamp(popClock / 0.6, 0, 1));
+          const g = popId === it.e.id ? V.ease.smooth(U.clamp(popClock / 0.6, 0, 1)) : grow(i);
           if (g <= 0) return;
           const e = it.e;
           const a0 = it.a0 + off;
@@ -773,7 +772,6 @@
             if (old) { old.style.transform = `scale(${(1 + 0.08 * v).toFixed(4)})`; old.style.opacity = U.clamp(1 - v * 2, 0, 1).toFixed(3); }
           }
         });
-        sp.onUpdate(() => {});
         nu.style.opacity = '0';
         sp.to(1).then(() => { if (old && old !== page) old.remove(); nu.style.transform = ''; });
       }
@@ -894,11 +892,11 @@
         const ok = V.ui.roundButton('check', { kind: 'sm', label: 'Eintragen', cls: 'cal-ok', onClick: saveDraft });
         row.append(cancel, pg._dur, ok);
         const dots = U.el('div', { class: 'cal-dots' });
+        // Arten als Bogen unten – links drei, rechts drei, die Mitte bleibt Visto
+        const ANG = [254, 232, 210, 150, 128, 106];
         pg._dots = PICK.map((id, i) => {
           const cat = CATS[id];
-          const n = PICK.length;
-          const a = 180 + (i - (n - 1) / 2) * 22.5;
-          const p = V.display.pt(a, 322);
+          const p = V.display.pt(ANG[i], 330);
           const b = U.el('button', { class: 'cal-dot', attrs: { type: 'button', 'aria-label': cat.name }, style: { left: p.x / 10 + 'cqw', top: p.y / 10 + 'cqw', '--c': cat.color }, html: V.icon(cat.icon) });
           V.ui.tap(b, () => { draft.cat = id; fillAdd(pg); mark(); });
           dots.appendChild(b);
@@ -1123,14 +1121,14 @@
           return false;
         },
         params: applyParams,
+        // falls die Shell doch einmal die Drehkrone weiterreicht
         crown(dA) {
-          rotAcc += dA;
-          if (Math.abs(rotAcc) >= 40) { const d = Math.sign(rotAcc); rotAcc = 0; if (state === 'day') goDay(addDays(viewDay, d), { dir: d }); }
+          crownAcc += dA;
+          if (Math.abs(crownAcc) >= 40) { const d = Math.sign(crownAcc); crownAcc = 0; if (state === 'day') goDay(addDays(viewDay, d), { dir: d }); }
         },
       };
     },
   });
-  let rotAcc = 0;
 
   V.css('calendar', `
     .cal-root { position: absolute; inset: 0; }

@@ -171,10 +171,10 @@
     if (isOpen()) { V.rim.pulse({ at: 0, color: col, spread: 150, duration: 2.2 }); return; }
     const L = st().last;
     const msg = {
-      break: ['Zeit für eine Pause', `${s.breakMin} Minuten durchatmen · Runde ${s.done} von ${s.rounds} geschafft`],
-      long: ['Lange Pause', `Alle ${s.rounds} Runden geschafft · ${s.longMin} Minuten Pause`],
-      focus: ['Weiter geht’s', `Runde ${s.round} von ${s.rounds} · ${s.focusMin} Minuten Fokus`],
-      complete: ['Fokus-Zyklus geschafft', L ? `${rundenWort(L.rounds)} · ${minWords(L.sec)} konzentriert` : 'Gut gemacht!'],
+      break: [`Runde ${s.done} geschafft`, `Zeit für ${s.breakMin} Min. Pause`],
+      long: ['Alle Runden geschafft', `Zeit für ${s.longMin} Min. Pause`],
+      focus: ['Weiter geht’s', `Runde ${s.round} von ${s.rounds} · ${s.focusMin} Min.`],
+      complete: ['Fokus-Zyklus geschafft', L ? `${rundenWort(L.rounds)} · ${minShort(L.sec)}` : 'Gut gemacht!'],
     }[kind];
     if (msg) V.notify.banner({ title: msg[0], body: msg[1], icon: 'focus', color: col, sound: 'none', onClick: () => V.shell.open('focus') });
   }
@@ -371,7 +371,14 @@
           if (/^(öffne|zeig)/.test(t)) return null;
           return { s: V.brain.parseDuration(t) };
         },
-        run(m) { return V.actions.run('focus.start', { minutes: m.s ? Math.round(m.s / 60) : undefined }); },
+        run(m) {
+          const s = st().session;
+          if (s && !m.s) {
+            const what = s.phase === 'focus' ? `Runde ${s.round} von ${s.rounds}` : 'Gerade ist Pause';
+            return { say: `Dein Fokus läuft schon. ${what}, noch ${V.fmt.durationWords(leftOf(s))}.`, card: { type: 'big', text: V.fmt.duration(leftOf(s)), sub: 'Fokus' }, open: 'focus' };
+          }
+          return V.actions.run('focus.start', { minutes: m.s ? Math.round(m.s / 60) : undefined });
+        },
       });
     },
 
@@ -445,9 +452,9 @@
       views.run.append(dotsSvg, runLab, runSub, runRow);
 
       // — Geschafft
-      const doneH = U.el('div', { class: 'fo-h', style: { top: '33cqw' } });
-      const doneSub = U.el('div', { class: 'fo-sub', style: { top: '45cqw', fontSize: '4.2cqw', color: 'rgba(255,255,255,.72)' } });
-      const doneLab = U.el('div', { class: 'fo-lab vos-label', style: { top: '52cqw', color: U.rgba('#B9A8FF', 0.9) } });
+      const doneH = U.el('div', { class: 'fo-h', style: { top: '35.5cqw' } });
+      const doneSub = U.el('div', { class: 'fo-sub', style: { top: '47.6cqw', fontSize: '4.2cqw', color: 'rgba(255,255,255,.72)' } });
+      const doneLab = U.el('div', { class: 'fo-lab vos-label', style: { top: '54.6cqw', color: U.rgba('#B9A8FF', 0.9) } });
       const againBtn = V.ui.button('Nochmal', { icon: 'reset', onClick: () => { st().last && (st().last.seen = true); start(sel); chime('start'); } });
       const okBtn = V.ui.button('Fertig', { kind: 'white', onClick: () => { st().last && (st().last.seen = true); showDone = false; V.store.save(); render(); } });
       const doneRow = U.el('div', { class: 'fo-row', style: { top: '69.5cqw', height: '11.5cqw', gap: '3cqw' } }, againBtn, okBtn);
@@ -506,7 +513,7 @@
           setLab.textContent = `${ROUNDS} Runden · ${brk} Min. Pause`;
           const d = today();
           setSub.innerHTML = d.sec >= 60
-            ? `${V.icon('check')}<span>Heute ${U.esc(rundenWort(d.rounds))} · ${U.esc(minShort(d.sec))}</span>`
+            ? `${V.icon('check')}<span>Heute ${d.rounds ? U.esc(rundenWort(d.rounds)) + ' · ' + U.esc(minShort(d.sec)) : U.esc(minShort(d.sec)) + ' fokussiert'}</span>`
             : `${V.icon('moon')}<span>„Nicht stören“ schaltet sich ein</span>`;
           digits.set(V.fmt.duration(sel * 60));
           title.set('Fokus');
@@ -531,7 +538,7 @@
           doneH.textContent = L.complete ? 'Geschafft.' : 'Gut gemacht.';
           doneSub.textContent = `${minShort(L.sec)} konzentriert`;
           const d = today();
-          doneLab.textContent = `${rundenWort(L.rounds)} · heute ${minShort(Math.max(d.sec, L.sec))}`;
+          doneLab.textContent = L.rounds ? `${rundenWort(L.rounds)} · heute ${minShort(Math.max(d.sec, L.sec))}` : `Heute insgesamt ${minShort(Math.max(d.sec, L.sec))}`;
           title.set(L.complete ? 'Zyklus geschafft' : 'Fokus');
           alphaSp.to(1.1);
           sizeSp.to(1.12);
@@ -610,7 +617,7 @@
         c2.clearRect(0, 0, W, W);
         c2.setTransform(W / 1000, 0, 0, W / 1000, 0, 0);
         const breath = 1 + 0.028 * Math.sin(T * 0.85) + 0.012 * Math.sin(T * 2.1 + 1);
-        drawOrb(c2, T, { cx: 500, cy: mode === 'done' ? 400 : 428, R: 238 * sizeSp.value * breath, cols, a: Math.max(0, alphaSp.value) });
+        drawOrb(c2, T, { cx: 500, cy: mode === 'done' ? 420 : 428, R: 238 * sizeSp.value * breath, cols, a: Math.max(0, alphaSp.value) });
 
         if (mode === 'run' && s) {
           digits.set(V.fmt.duration(leftOf(s)));

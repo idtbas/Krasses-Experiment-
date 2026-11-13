@@ -284,7 +284,7 @@
 
   function renderLayout() {
     const k = lay.value;
-    flower.style.transform = `translateY(${(-5.6 * k).toFixed(3)}cqw) scale(${(1 - 0.14 * k).toFixed(4)})`;
+    flower.style.transform = `translateY(${(-6.4 * k).toFixed(3)}cqw) scale(${(1 - 0.15 * k).toFixed(4)})`;
     const po = U.smoothstep(0.45, 1, prog.value) * U.clamp(k, 0, 1);
     player.style.opacity = po.toFixed(3);
     player.style.visibility = po < 0.01 ? 'hidden' : '';
