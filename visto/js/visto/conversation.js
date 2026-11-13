@@ -228,7 +228,8 @@
           listenH = null;
           if (/not-allowed|service-not-allowed|not_granted|audio-capture/.test(reason || '')) {
             micFailed = true;
-            if (active && phase === 'listening') hint('Mikrofon nicht verfügbar – tippe unten.');
+            // Emulator: Eingabefeld unter dem Gerät · Gerätemodus: Tastatur schreibt direkt ins Display
+            if (active && phase === 'listening') hint(V.platform.host === 'device' ? 'Mikrofon nicht verfügbar – schreib einfach los.' : 'Mikrofon nicht verfügbar – tippe unten.');
           } else if (active && phase === 'listening' && reason !== 'final') {
             hint('Was kann ich für dich tun?');
           }
@@ -238,6 +239,21 @@
     },
 
     stopListening() { if (listenH) { listenH.stop(); listenH = null; } },
+
+    /** Getippte Frage (Gerätemodus: Tastatur statt Mikrofon) – erscheint wie Gehörtes unter dem Ring, mit Schreibmarke.
+     *  Ruft Visto bei Bedarf; abschicken mit convo.input(text). → false, wenn Visto gerade nicht gerufen werden kann */
+    typing(text) {
+      text = String(text === undefined || text === null ? '' : text);
+      if (!active || phase !== 'listening') convo.activate({ via: 'text' });
+      if (!active) return false;
+      if (listenH) { listenH.stop(); listenH = null; }
+      if (text) { if (chipsEl.firstChild) showChips(false); hint(''); }
+      else { if (!chipsEl.firstChild) showChips(true); hint('Schreib einfach los …'); }
+      V.ui.fitText(aEl, text, { top: 628, bottom: 862, size: 44, minSize: 28, weight: 500, cls: 'cv-user cv-typed' });
+      if (text && aEl.lastElementChild) aEl.lastElementChild.appendChild(U.el('span', { class: 'cv-caret' }));
+      scheduleClose(text ? 30000 : 14000);
+      return true;
+    },
 
     input(text) {
       text = String(text || '').trim();

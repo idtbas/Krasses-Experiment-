@@ -167,9 +167,10 @@
      *   homeCrown  {start(p), turn(dA, p), end(p)}          Drehen am Rand auf dem Zifferblatt (Zeitreise)
      *   tap[]      fn(p, e) → true, wenn behandelt           (z. B. Live-Rand antippen)
      *   long[]     fn(p, e) → true, wenn behandelt           (z. B. Tortenmenü)
+     *   basePress[] fn() → true, wenn behandelt             einfacher Druck auf die Sockeltaste (Blick → Zifferblatt, Karussell schließen)
      *   baseDouble fn()                                      Doppeldruck auf die Sockeltaste (Karussell)
      */
-    hooks: { homeSwipeX: null, homeCrown: null, tap: [], long: [], baseDouble: null },
+    hooks: { homeSwipeX: null, homeCrown: null, tap: [], long: [], basePress: [], baseDouble: null },
 
     /** Taste am Sockel */
     homeButton() {
@@ -185,6 +186,7 @@
       if (V.convo && V.convo.active) { V.convo.close(); return; }
       if (V.control && V.control.isOpen) { V.control.close(); return; }
       if (V.faceEditor && V.faceEditor.isOpen) { V.faceEditor.close(); return; }
+      for (const fn of shell.hooks.basePress) if (V.safe(() => fn(), 'hook basePress')) return;
       if (shell.mode === 'app') shell.home();
       else if (shell.mode === 'launcher') shell.home();
       else shell.launcher();
@@ -338,6 +340,9 @@
           const radial = Math.abs(p.r - p.r0);
           const visto = V.convo && V.convo.active;
           const ccOpen = !!(V.control && V.control.isOpen);
+          // langsam am Rand entlang: erst entscheiden, wenn die Drehung eindeutig ist (sonst würde ein behutsamer
+          // Dreh-Beginn als Wischen gewertet – wichtig für Zeitreise und Drehkrone)
+          if (startRim && tang > radial * 1.4 && tang <= 18 && !ccOpen && ng !== 'all' && !(startLine && vert) && crownTarget()) return;
           if (startEdge && horiz && p.dx > 0 && (shell.mode === 'app' || shell.mode === 'launcher') && !visto && !ccOpen && ng !== 'noedge') kind = 'back';
           else if (startLine && vert && p.dy < 0 && !visto) kind = 'visto';
           else if (startRim && tang > radial * 1.4 && tang > 18 && !ccOpen && (crownFn = crownTarget()) && ng !== 'all') kind = 'crown';
@@ -364,7 +369,8 @@
           const d = p.dA - lastA; lastA = p.dA;
           crownAcc += d;
           // fühlbare Rastung alle 12°
-          if (Math.abs(crownAcc) >= 12) { V.sound.play('tick'); V.haptic(3); crownAcc = 0; }
+          // (homeCrown rastet selbst – Zeitreise: je Viertelstunde)
+          if (!crownHome && Math.abs(crownAcc) >= 12) { V.sound.play('tick'); V.haptic(3); crownAcc = 0; }
           crownFn(d, p);
         }
       },

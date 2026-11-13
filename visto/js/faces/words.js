@@ -81,6 +81,7 @@
     id: 'words',
     name: 'Wortuhr',
     order: 5,
+    horizon: 'travel', horizonR: 488, horizonCapsule: { y: 9.8, compact: true },   // die Buchstaben füllen den Kreis: Horizont nur bei Zeitreise, ganz außen
     options: [
       { key: 'color', label: 'Farbe', type: 'color', default: '#FFFFFF' },
       { key: 'font', label: 'Schrift', type: 'choice', default: 'sans', values: [{ v: 'sans', label: 'Grotesk' }, { v: 'mono', label: 'Mono' }, { v: 'serif', label: 'Serif' }] },

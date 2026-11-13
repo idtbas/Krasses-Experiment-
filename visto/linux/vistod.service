@@ -1,0 +1,33 @@
+# VistoOS · linux/vistod.service — Gerätedienst (WebSocket-Brücke, Helligkeit, Lichtsensor, WLAN, Neustart)
+#
+# STATUS: Vorlage, auf echter Visto-Hardware UNGETESTET.
+#
+# Installieren:  cp vistod.service /etc/systemd/system/ && systemctl enable --now vistod.service
+# Läuft als root (schreibt nach /sys, ruft nmcli und systemctl auf), lauscht aber nur auf 127.0.0.1
+# und nimmt WebSocket-Verbindungen nur von lokalen Seiten an.
+
+[Unit]
+Description=vistod – Gerätedienst für VistoOS
+Documentation=file:///opt/visto/linux/README.md
+After=network.target NetworkManager.service
+Before=visto-kiosk.service
+
+[Service]
+Type=notify
+EnvironmentFile=-/etc/default/visto
+ExecStart=/usr/bin/python3 /opt/visto/linux/vistod.py --www /opt/visto $VISTOD_ARGS
+Restart=always
+RestartSec=1
+
+# Absicherung: nur Loopback, kein Heimatverzeichnis, kein Schreiben außerhalb von /sys
+IPAddressDeny=any
+IPAddressAllow=localhost
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=full
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

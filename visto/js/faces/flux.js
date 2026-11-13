@@ -33,6 +33,7 @@
     id: 'flux',
     name: 'Flux',
     order: 7,
+    horizon: 'rim', horizonR: 462,
     options: [
       { key: 'palette', label: 'Farbfluss', type: 'choice', default: 'aurora', values: [{ v: 'aurora', label: 'Aurora' }, { v: 'sunset', label: 'Abendrot' }, { v: 'ocean', label: 'Ozean' }, { v: 'ember', label: 'Glut' }, { v: 'accent', label: 'Akzent' }] },
       { key: 'weight', label: 'Stärke', type: 'choice', default: '600', values: [{ v: '300', label: 'Fein' }, { v: '600', label: 'Kräftig' }, { v: '860', label: 'Schwer' }] },
@@ -103,12 +104,15 @@
           const c = chars[i];
           if (c.ch === ch) continue;
           c.prev = c.ch; c.ch = ch;
+          // läuft noch ein Wechsel (schnelles Drehen bei der Zeitreise): den alten abbrechen
+          clearTimeout(c.tm);
+          if (c.sp) { c.sp.stop(); c.sp = null; }
           if (instant || ctx.preview) { c.t = 1; c.prev = null; continue; }
           c.t = 0;
-          const sp = V.spring(0, { response: 0.8, bounce: 0.1 });
+          const sp = (c.sp = V.spring(0, { response: 0.8, bounce: 0.1 }));
           sp.onUpdate((v) => { c.t = v; });
           const delay = (str.length - 1 - i) * 90;
-          setTimeout(() => sp.to(1).then(() => { c.prev = null; c.t = 1; }), delay);
+          c.tm = setTimeout(() => sp.to(1).then((ok) => { if (ok) { c.prev = null; c.t = 1; if (c.sp === sp) c.sp = null; } }), delay);
         }
         chars.length = str.length;
       }

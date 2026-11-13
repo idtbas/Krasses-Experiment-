@@ -3,9 +3,10 @@
    Lädt nach visto.css und hebt alle Grundbausteine systemweit an.
    ========================================================================== */
 
-/* Lumen-Ebenen (WebGL) */
+/* Lumen-Ebenen (WebGL). Die Lichtebene braucht keinen Mischmodus: Ihr Shader gibt vormultipliziertes Licht
+   mit passendem Alpha aus – das wirkt wie „screen“, kostet den Browser aber keine eigene Mischstufe. */
 .vos-back  { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; border-radius: 50%; }
-.vos-light { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 45; pointer-events: none; border-radius: 50%; mix-blend-mode: screen; }
+.vos-light { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 45; pointer-events: none; border-radius: 50%; }
 
 /* ------------------------------------------------------------------ Glas
    Über OLED-Schwarz wirkt Glas durch Licht: obere Lichtkante, weicher Verlauf, feine Kontur.

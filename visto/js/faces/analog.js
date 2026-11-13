@@ -7,6 +7,7 @@
     id: 'analog',
     name: 'Chronos',
     order: 2,
+    horizon: 'travel', horizonR: 428, horizonCapsule: 31,   // der Rand gehört den Minutenstrichen: Horizont nur bei Zeitreise, innen davor
     options: [
       { key: 'color', label: 'Sekundenzeiger', type: 'color', default: 'accent' },
       { key: 'numerals', label: 'Ziffern', type: 'choice', default: 'quarters', values: [{ v: 'none', label: 'Keine' }, { v: 'quarters', label: 'Viertel' }, { v: 'all', label: 'Alle' }] },
@@ -71,7 +72,7 @@
         dateTx.textContent = String(now.getDate());
       }
       style();
-      let amb = false;
+      let amb = false, trv = false;
       return {
         minute,
         frame(dt, now) {
@@ -81,8 +82,10 @@
           const h = (now.getHours() % 12) + m / 60;
           hourG.setAttribute('transform', `rotate(${(h * 30).toFixed(3)} 500 500)`);
           minG.setAttribute('transform', `rotate(${(m * 6).toFixed(3)} 500 500)`);
-          if (!amb) secG.setAttribute('transform', `rotate(${(s * 6).toFixed(3)} 500 500)`);
+          if (!amb && !trv) secG.setAttribute('transform', `rotate(${(s * 6).toFixed(3)} 500 500)`);
         },
+        // Zeitreise: der Sekundenzeiger gehört zum Jetzt – ausblenden, Stunden- und Minutenzeiger laufen mit
+        travel(on) { trv = on; secG.style.transition = 'opacity .3s ease'; secG.style.opacity = on ? '0' : '1'; },
         setOptions() { style(); },
         ambient(on) { amb = on; secG.style.display = on ? 'none' : ''; ticks.style.opacity = on ? 0.5 : 1; },
       };

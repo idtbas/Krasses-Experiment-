@@ -19,7 +19,9 @@
   }
 
   function start() {
-    V.emulator.mount(document.getElementById('emu'));
+    // Wirt: Emulator (index.html) oder das OS allein im Gerätemodus (device.html)
+    if (V.platform.host === 'device' && V.host) V.host.mount(document.getElementById('host') || document.body);
+    else V.emulator.mount(document.getElementById('emu'));
     applyAccent();
     V.on('store:settings.accent', applyAccent);
     V.fx.setup();

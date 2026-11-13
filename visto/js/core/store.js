@@ -1,4 +1,4 @@
-/* VistoOS · core/store.js — dauerhafter Speicher (Browser-Speicher, abgesichert)
+/* VistoOS · core/store.js — dauerhafter Speicher (über V.platform.storage, abgesichert)
  *
  *  V.store.get('settings.accent')            Wert lesen (Punkt-Pfad)
  *  V.store.set('settings.accent', '#fff')    schreiben + Ereignis 'store' {path, value}
@@ -60,7 +60,8 @@
   }
 
   let saved = null;
-  try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { saved = null; }
+  const disk = V.platform.storage;   // Plattformschicht: Browser-Speicher bzw. Gerätespeicher
+  try { saved = JSON.parse(disk.get(KEY) || 'null'); } catch (e) { saved = null; }
   let data = merge(U.clone(DEFAULTS), saved || {});
   if (!/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(data.settings.accent)) data.settings.accent = DEFAULTS.settings.accent;
 
@@ -68,7 +69,7 @@
   function persist() {
     clearTimeout(timer);
     timer = setTimeout(() => {
-      try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* privat/voll: still weiter */ }
+      try { disk.set(KEY, JSON.stringify(data)); } catch (e) { /* privat/voll: still weiter */ }
     }, 150);
   }
 
@@ -118,7 +119,7 @@
     save() { persist(); },
     reset() {
       data = merge(U.clone(DEFAULTS), {});
-      try { localStorage.removeItem(KEY); } catch (e) { /* egal */ }
+      disk.remove(KEY);
       V.emit('store:reset');
     },
   };

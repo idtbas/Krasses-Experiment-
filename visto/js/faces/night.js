@@ -37,6 +37,7 @@
     id: 'night',
     name: 'Nacht',
     order: 8,
+    horizon: 'travel', horizonR: 452,   // nachts bleibt das Display dunkel: Horizont nur bei Zeitreise
     options: [
       { key: 'tone', label: 'Lichtfarbe', type: 'choice', default: 'red', values: [{ v: 'red', label: 'Rot' }, { v: 'amber', label: 'Bernstein' }, { v: 'moon', label: 'Mond' }] },
       { key: 'level', label: 'Helligkeit', type: 'choice', default: 'dusk', values: [{ v: 'glow', label: 'Glimmen' }, { v: 'dusk', label: 'Dämmer' }, { v: 'clear', label: 'Klar' }] },
@@ -98,6 +99,8 @@
         // gleiche Minute (z. B. direkt nach dem Erzeugen): nur still aktualisieren
         if (!colonEl || ctx.preview || key === shownKey) { shownKey = key; render(now); paint(); return; }
         shownKey = key;
+        // Zeitreise: die Ziffern folgen sofort (ohne Wandern und Überblenden)
+        if (V.horizon && V.horizon.active) { clearTimeout(busy); render(now); paint(); wrap.style.opacity = '1'; return; }
         // weich aus- und an neuer Stelle wieder einblenden
         clearTimeout(busy);
         wrap.style.opacity = '0';

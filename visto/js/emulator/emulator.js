@@ -59,7 +59,8 @@
     }
     stats.target.textContent = '90 Hz';
     const lux = U.el('input', { class: 'emu-range', attrs: { type: 'range', min: 0, max: 100, value: Math.round(V.ambient.lux * 100) } });
-    lux.addEventListener('input', () => { V.ambient.lux = lux.value / 100; V.emit('lux'); });
+    lux.addEventListener('input', () => { V.platform.light.set(lux.value / 100); });   // simulierter Sensor der Plattformschicht
+    V.platform.light.onChange((v) => { if (document.activeElement !== lux) lux.value = Math.round(v * 100); });
     const slow = U.el('input', { class: 'emu-range', attrs: { type: 'range', min: 10, max: 100, value: 100 } });
     slow.addEventListener('input', () => { V.loop.slow = slow.value / 100; });
     sheet.append(
@@ -70,11 +71,12 @@
       st,
       claudeRow(),
       cameraRow(),
-      row('90-Hz-Taktung', 'Zeichnet genau wie das echte Display höchstens 90 Bilder pro Sekunde.', switchEl(V.loop.cap90, (v) => { V.loop.cap90 = v; try { localStorage.setItem('vistoos.cap90', v ? '1' : '0'); } catch (e) { /* */ } })),
+      row('90-Hz-Taktung', 'Zeichnet genau wie das echte Display höchstens 90 Bilder pro Sekunde.', switchEl(V.loop.cap90, (v) => { V.loop.cap90 = v; V.platform.storage.set('vistoos.cap90', v ? '1' : '0'); })),
       row('Umgebungslicht', 'Simulierter Lichtsensor für die automatische Helligkeit.', lux),
       row('Zeitlupe', 'Alle Animationen verlangsamt ansehen.', slow),
       row('Ruhemodus jetzt', 'Display dimmt wie nach längerer Pause.', U.el('button', { class: 'emu-btn', text: 'Dimmen', on: { click: () => { toggleSheet(false); V.shell.home(); setTimeout(() => V.ambient.sleep(), 700); } } })),
       row('Nur Display', 'Gerät, Sockel und Eingabe ausblenden.', U.el('button', { class: 'emu-btn', text: 'Vollbild', on: { click: () => { toggleSheet(false); setFull(true); } } })),
+      deviceRow(),
       row('Neu einrichten', 'Setzt Visto auf Werkszustand zurück und startet die Einrichtung.', resetBtn()),
       U.el('div', { class: 'emu-foot', html: `VistoOS ${V.version} · Build ${V.build}<br>Wischen, Tippen, Halten und Drehen am Rand funktionieren wie auf dem Gerät.` }),
     );
@@ -85,6 +87,12 @@
       stats.hz.textContent = V.loop.hz + ' Hz';
       stats.fps.textContent = String(V.loop.fps);
     }, 400);
+  }
+  /** Gerätemodus (device.html): das OS allein, so wie es der Linux-Kiosk startet. Nur wo die Seite daneben liegt
+   *  (nicht in der gebauten Einzeldatei bzw. im Artefakt). */
+  function deviceRow() {
+    if (!document.querySelector('script[src$="js/main.js"]')) return document.createDocumentFragment();
+    return row('Gerätemodus', 'Das OS allein, ohne Emulator – genau so läuft es auf dem Gerät.', U.el('button', { class: 'emu-btn', text: 'Öffnen', on: { click: () => { location.href = 'device.html' + (V.store.get('setupDone') ? '?skip' : ''); } } }));
   }
   /** Claude verbinden: eigener API-Schlüssel der Organisation, bleibt nur in diesem Browser */
   /* ------------------------------------------------------------ Kamera */
@@ -168,7 +176,7 @@
         return;
       }
       V.store.reset();
-      try { localStorage.removeItem('vistoos.v1'); } catch (e) { /* */ }
+      V.platform.storage.remove('vistoos.v1');
       const url = location.href.replace(/[?&](skip|app|face)(=[^&]*)?/g, '');
       location.replace(url);
     });
@@ -189,7 +197,7 @@
   V.emulator = {
     mount(el) {
       host = el;
-      try { V.loop.cap90 = localStorage.getItem('vistoos.cap90') === '1'; } catch (e) { /* */ }
+      V.loop.cap90 = V.platform.storage.get('vistoos.cap90') === '1';
       const page = U.el('div', { class: 'emu' });
       const head = U.el('header', { class: 'emu-head' },
         U.el('div', { class: 'emu-brand', html: logo() + '<b>Visto<i>OS</i></b><small>Emulator</small>' }),

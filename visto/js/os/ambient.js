@@ -2,7 +2,8 @@
  *
  *  Nach Ruhezeit auf dem Zifferblatt: Ruhemodus (abgedunkelt, vereinfacht, Pixel wandern).
  *  Nachts (Einstellung „auto“ 22–7 Uhr oder „an“): warmes Rotlicht im Ruhemodus.
- *  V.ambient.lux (0…1) ist der simulierte Umgebungslichtsensor (Emulator-Regler).
+ *  V.ambient.lux (0…1) ist das Umgebungslicht aus V.platform.light (Emulator-Regler bzw. Sensor am Gerät).
+ *  Die Helligkeit geht an V.platform.display.setBacklight; kann die Hardware nicht regeln, dunkelt das OS selbst ab.
  */
 'use strict';
 (function () {
@@ -14,7 +15,8 @@
   let overrideLvl = null;
 
   const amb = (V.ambient = {
-    lux: 0.7,
+    get lux() { return V.platform.light.value(); },
+    set lux(v) { V.platform.light.set(v); },   // nur Simulation; ein echter Sensor hat das letzte Wort
     get on() { return on; },
     night() {
       const m = V.store.get('settings.night', 'auto');
@@ -57,7 +59,10 @@
     // wahrnehmungsgerechte Kurve: hohe Helligkeit bleibt strahlend, niedrige wird deutlich dunkler
     const target = Math.pow(1 - U.clamp(b, 0.03, 1), 1.7);
     curDim = target;
-    V.display.setDim(on && !V.store.get('settings.alwaysOn', true) ? 1 : target * 0.95);
+    const off = on && !V.store.get('settings.alwaysOn', true);
+    // Plattform: echte Panelhelligkeit, wenn das Gerät sie hat (true) – sonst Software-Abdunklung über die Dimm-Ebene
+    const hw = V.platform.display.setBacklight(off ? 0 : b);
+    V.display.setDim(off ? 1 : hw ? 0 : target * 0.95);
     V.display.setNightTint(on && amb.night() ? 0.92 : amb.night() && V.store.get('settings.night') === 'on' ? 0.5 : 0);
   }
 
@@ -65,6 +70,8 @@
   V.on('store', (e) => { if (/^settings\.(brightness|autoBrightness|night|alwaysOn|nightFrom|nightTo)/.test(e.path)) apply(); });
   V.on('time:minute', apply);
   V.on('lux', apply);
+  V.platform.light.onChange(apply);        // Lichtsensor (Gerät) bzw. Emulator-Regler
+  V.on('platform:bridge', apply);          // Brücke da/weg: zwischen Hardware- und Software-Helligkeit wechseln
   V.on('convo:open', () => amb.poke());
   V.on('notify', () => amb.poke());
   V.on('alert', () => amb.poke());

@@ -36,8 +36,15 @@ jobs:
           mkdir -p _site/lidar
           cp -r lidar/index.html lidar/css lidar/js _site/lidar/
           mkdir -p _site/visto
-          cp -r visto/index.html visto/css visto/js _site/visto/
+          # index.html = Emulator, device.html = das OS allein im Gerätemodus (/visto/device.html)
+          cp -r visto/index.html visto/device.html visto/css visto/js _site/visto/
           touch _site/.nojekyll
+
+      # index.html und device.html müssen dieselben Skripte laden; eine Abweichung erscheint hier als Warnung,
+      # hält die Veröffentlichung der übrigen Seiten aber nicht auf.
+      - name: VistoOS – Skriptlisten von Emulator und Gerätemodus prüfen
+        continue-on-error: true
+        run: node visto/tools/build.js --check
 
       - name: Auf gh-pages veröffentlichen
         working-directory: _site

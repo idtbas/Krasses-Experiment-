@@ -38,6 +38,7 @@
     id: 'rings',
     name: 'Ringe',
     order: 4,
+    horizon: 'travel', horizonR: 490, horizonCapsule: 30,   // die Ringe nutzen den Rand selbst: Horizont nur bei Zeitreise, ganz außen
     options: [
       { key: 'palette', label: 'Farben', type: 'choice', default: 'activity', values: [{ v: 'activity', label: 'Aktiv' }, { v: 'aurora', label: 'Aurora' }, { v: 'accent', label: 'Akzent' }, { v: 'mono', label: 'Graphit' }] },
       { key: 'seconds', label: 'Sekundenring', type: 'toggle', default: true },
@@ -47,6 +48,7 @@
     create(root, ctx) {
       let o = ctx.opts;
       let amb = false;
+      let trv = false, secK = 1;   // Zeitreise: der Sekundenring zieht sich zurück
       const cv = U.el('canvas', { class: 'frg-cv' });
       const g = cv.getContext('2d');
       const mid = U.el('div', { class: 'frg-mid' });
@@ -171,10 +173,11 @@
           { r: RADII[0], w, v0: 0, v1: (h / 12) * t, cols: pal[0], ch: 'H' },
           { r: RADII[1], w, v0: 0, v1: (m / 60) * t, cols: pal[1], ch: 'M' },
         ];
-        if (o.seconds && !amb) {
+        if (o.seconds && !amb && secK > 0.02) {
           // Jagd: in geraden Minuten wächst der Ring, in ungeraden läuft das Ende hinterher
-          const odd = now.getMinutes() % 2 === 1;
-          list.push({ r: RADII[2], w, v0: odd ? s / 60 : 0, v1: odd ? 1 : (s / 60) * t, cols: pal[2], ch: 'S' });
+          const rs = new Date(V.time.ms()), s2 = rs.getSeconds() + rs.getMilliseconds() / 1000;   // Sekunden immer aus dem Jetzt
+          const odd = rs.getMinutes() % 2 === 1;
+          list.push({ r: RADII[2], w: w * secK, v0: odd ? s2 / 60 : 0, v1: odd ? 1 : (s2 / 60) * t, cols: pal[2], ch: secK > 0.8 ? 'S' : '' });
         }
         for (const R of list) drawTrack(R);
         if (!amb) drawGlow(list);
@@ -202,13 +205,17 @@
         minute,
         frame(dt, now) {
           // ohne Sekundenring (oder im Ruhemodus) bewegen sich die Ringe kaum: 10× bzw. 1× je Sekunde reicht
-          if ((amb || !o.seconds) && !intro.moving) {
+          const kT = trv ? 0 : 1;
+          const kMove = Math.abs(kT - secK) > 0.002;
+          if (kMove) secK += (kT - secK) * Math.min(1, dt * 9); else secK = kT;
+          if ((amb || !o.seconds) && !intro.moving && !trv && !kMove) {
             const q = Math.floor(now.getTime() / (amb ? 1000 : 100));
             if (q === lastQ) return;
             lastQ = q;
           }
           draw(now);
         },
+        travel(on) { trv = on; lastQ = -1; },
         setOptions() { style(); },
         ambient(on) { amb = on; mid.style.opacity = on ? '0.7' : '1'; draw(V.time.now()); },
         destroy() { offR(); intro.stop(); },

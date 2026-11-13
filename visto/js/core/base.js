@@ -2,7 +2,7 @@
 'use strict';
 (function () {
   const V = (window.V = window.V || {});
-  V.version = '1.0';
+  V.version = '2.0';
   V.build = '26.11';
   V.device = { name: 'Visto', model: 'V1', display: '7″ OLED · rund · 1080 × 1080 · 90 Hz' };
 

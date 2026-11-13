@@ -82,8 +82,7 @@
     enabled() { return V.store.get('settings.sounds', true); },
     play(name) {
       if (!V.sound.enabled()) return;
-      const ua = navigator.userActivation;
-      if (ua && !ua.hasBeenActive) return;   // Browser erlauben Ton erst nach einer Berührung
+      if (!V.platform.activated()) return;   // Browser erlauben Ton erst nach einer Berührung
       const fn = SOUNDS[name];
       if (fn) try { fn(); } catch (e) { /* stumm */ }
     },
@@ -105,8 +104,6 @@
 
   V.haptic = function (p) {
     if (!V.store.get('settings.haptics', true)) return;
-    const ua = navigator.userActivation;
-    if (ua && !ua.hasBeenActive) return;
-    try { if (navigator.vibrate) navigator.vibrate(p || 8); } catch (e) { /* */ }
+    V.platform.haptics.pulse(p || 8);   // Treiber: Vibration des Handys bzw. Haptikmotor des Geräts
   };
 })();

@@ -3,8 +3,11 @@
  *  V.faces.register({
  *    id, name, order,
  *    options: [ {key, label, type:'color'|'choice'|'toggle', values:[{v, label}], default} ],
- *    create(root, ctx) → { frame(dt, now), minute(now), setOptions(opts), ambient(on), destroy() }
+ *    create(root, ctx) → { frame(dt, now), minute(now), setOptions(opts), ambient(on), travel(on), destroy() }
+ *    horizon: 'rim' | 'travel' | false, horizonR, horizonCapsule     (Horizont am Rand, siehe os/horizon.js)
  *  })
+ *  Zeitreise: frame(dt, now) bekommt V.time.view() (läuft weich mit – für Zeiger), minute(now) die gerastete
+ *  Reisezeit V.horizon.at() (für Ziffern, Datum). travel(on) meldet Beginn/Ende – Sekundenanzeigen ausblenden.
  *  ctx = { opts, color(key='color') → Hex, accent(), preview (bool), onFrame(fn) }
  *
  *  V.faces.show(id, {dir})   V.faces.next(±1)   V.faces.opts(id)   V.faces.setOpt(id, key, v)
@@ -38,6 +41,9 @@
   let cur = null;         // {id, def, inst, root, ctx}
   let ambientOn = false;
   let frameOff = null;
+  let travelOn = false;    // Zeitreise läuft (os/horizon.js)
+  /** Zeit, die das Zifferblatt in Ziffern zeigt: gerastete Reisezeit bzw. jetzt */
+  const shownTime = () => (V.horizon && V.horizon.active ? V.horizon.at() : V.time.now());
 
   function resolveOpts(def, override) {
     const saved = (V.store.get('settings.faceOpts', {}) || {})[def.id] || {};
@@ -81,7 +87,7 @@
   function onFrame(dt) {
     if (!cur || !cur.inst.frame) return;
     if (home && home.style.visibility === 'hidden') return;
-    cur.inst.frame(dt, V.time.now());
+    cur.inst.frame(dt, V.time.view());
   }
 
   const faces = (V.faces = {
@@ -95,7 +101,16 @@
     mountHome(stage) {
       home = U.el('div', { class: 'vos-screen vos-home' });
       stage.appendChild(home);
-      V.on('time:minute', (d) => { if (cur && cur.inst.minute) V.safe(() => cur.inst.minute(d)); });
+      V.on('time:minute', (d) => { if (cur && cur.inst.minute) V.safe(() => cur.inst.minute(travelOn ? shownTime() : d)); });
+      // Zeitreise: Ziffern folgen der gerasteten Reisezeit, Zeiger laufen über frame() weich mit
+      V.on('horizon:travel', (e) => {
+        if (!cur) { travelOn = e.active; return; }
+        if (e.active !== travelOn) {
+          travelOn = e.active;
+          if (cur.inst.travel) V.safe(() => cur.inst.travel(travelOn));
+        }
+        if (cur.inst.minute) V.safe(() => cur.inst.minute(e.active ? e.at : V.time.now()));
+      });
       V.on('store:settings.accent', () => faces.refresh());
       V.on('store:settings.use24h', () => faces.refresh());
       frameOff = V.loop.add(onFrame, 4);
@@ -112,6 +127,7 @@
       const old = cur;
       cur = instantiate(def, root);
       if (ambientOn && cur.inst.ambient) V.safe(() => cur.inst.ambient(true));
+      if (travelOn && cur.inst.travel) V.safe(() => cur.inst.travel(true));
       V.emit('face:changed', def.id);
       if (old && o.dir) {
         // Drehübergang: altes Blatt dreht weg, neues dreht herein
@@ -201,11 +217,18 @@
             const prev = s.ch;
             s.ch = ch;
             const nu = U.el('span', { class: 'rd-ch', style: { display: 'inline-block', willChange: 'transform, opacity, filter' }, text: ch });
-            if (prev === null || o.instant) { s.el.innerHTML = ''; s.el.appendChild(nu); return; }
+            if (prev === null || o.instant) { if (s.sp) { s.sp.stop(); s.sp = null; } s.el.innerHTML = ''; s.el.appendChild(nu); return; }
+            // läuft noch ein Wechsel (schnelles Drehen bei der Zeitreise): den alten sofort abschließen
+            if (s.sp) {
+              s.sp.stop(); s.sp = null;
+              while (s.el.childNodes.length > 1) s.el.firstChild.remove();
+              const keep = s.el.lastChild;
+              if (keep) { keep.style.position = ''; keep.style.transform = ''; keep.style.opacity = ''; keep.style.filter = ''; }
+            }
             const old = s.el.lastChild;
             if (old) { old.style.position = 'absolute'; old.style.left = '0'; old.style.right = '0'; old.style.top = '0'; }
             s.el.appendChild(nu);
-            const sp = V.spring(0, { response: o.response || 0.62, bounce: 0.08 });
+            const sp = (s.sp = V.spring(0, { response: o.response || 0.62, bounce: 0.08 }));
             sp.onUpdate((t) => {
               nu.style.transform = `translateY(${(1 - t) * 42}%) scale(${0.92 + 0.08 * t})`;
               nu.style.opacity = U.clamp(t * 1.3, 0, 1).toFixed(3);
@@ -216,7 +239,7 @@
                 if (o.blur !== false) old.style.filter = `blur(${(t * 0.08).toFixed(3)}em)`;
               }
             });
-            sp.to(1).then(() => { if (old && old.parentNode) old.remove(); nu.style.filter = ''; });
+            sp.to(1).then((ok) => { if (!ok) return; if (s.sp === sp) s.sp = null; if (old && old.parentNode) old.remove(); nu.style.filter = ''; });
           });
         },
       };
@@ -225,18 +248,31 @@
     /** kurzer Text für Komplikationen unter der Uhrzeit */
     complicationText(o = {}) {
       const parts = [];
-      const w = V.info.weather && V.safe(() => V.info.weather());
+      // Zeitreise: die Werte der Reisezeit zeigen (Wetter dann, Restzeit dann, nächster Wecker/Termin danach)
+      const tv = V.horizon && V.horizon.active ? V.horizon.at() : null;
+      const ref = tv || V.time.now();
+      const w = tv && V.weather && V.weather.at ? V.safe(() => V.weather.at(tv)) : V.info.weather && V.safe(() => V.info.weather());
       if (w && o.weather !== false) parts.push({ icon: w.icon || 'sun', text: Math.round(w.temp) + '°' + (o.place && w.place ? ' ' + w.place : '') });
-      const t = V.info.timer && V.safe(() => V.info.timer());
+      let t = V.info.timer && V.safe(() => V.info.timer());
+      if (t && tv) {
+        const left = t.paused ? t.left : t.left - (tv - V.time.now()) / 1000;
+        t = left > 0 && left <= t.total ? { left } : null;
+      }
       if (t && o.timer !== false) parts.push({ icon: 'timer', text: V.fmt.duration(t.left), color: '#FF9F0A' });
-      const al = V.info.alarm && V.safe(() => V.info.alarm());
+      let al = null;
+      if (tv && V.info.alarms) al = V.safe(() => V.info.alarms(tv, new Date(tv.getTime() + 14 * 3600e3))[0]) || null;
+      else if (!tv) al = V.info.alarm && V.safe(() => V.info.alarm());
       if (al && o.alarm !== false && (al.date || al.at)) {
         const d = new Date(al.date || al.at);
-        if (!isNaN(d) && d - V.time.now() < 14 * 3600e3) parts.push({ icon: 'alarm', text: V.fmt.time24(d) });
+        if (!isNaN(d) && d - ref < 14 * 3600e3) parts.push({ icon: 'alarm', text: V.fmt.time24(d) });
       }
-      const ev = V.info.nextEvent && V.safe(() => V.info.nextEvent());
+      let ev = null;
+      if (tv && V.info.events) ev = V.safe(() => V.info.events(tv, new Date(tv.getTime() + 2 * 864e5)).find((e) => e.start > tv)) || null;
+      else if (!tv) ev = V.info.nextEvent && V.safe(() => V.info.nextEvent());
       if (ev && o.event !== false && !t) {
-        const day = V.fmt.relDay(ev.start);
+        // Tag nur nennen, wenn der Termin nicht am gezeigten Tag liegt (bei Zeitreise: am Reisetag)
+        const same = ev.start.getDate() === ref.getDate() && Math.abs(ev.start - ref) < 864e5;
+        const day = same ? 'Heute' : V.fmt.relDay(ev.start);
         parts.push({ icon: 'calendar', text: (day === 'Heute' ? '' : day + ' ') + V.fmt.time24(ev.start) + ' ' + ev.title });
       }
       return parts;

@@ -295,6 +295,15 @@
     city: (n) => cityOf(n).name,
     find: (n) => { const c = findCity(n); return c ? c.name : null; },
     current, hourly, daily, describe,
+    /** Wetter zu einem beliebigen Zeitpunkt (für Horizont und Zeitreise) → {date, temp, code, text, icon, night, precip} */
+    at(date, cityName) {
+      const c = cityOf(cityName);
+      const d = midnight(date), h = date.getHours(), f = date.getMinutes() / 60;
+      const a = hourRec(c, d, h), b = h < 23 ? hourRec(c, d, h + 1) : hourRec(c, addDays(d, 1), 0);
+      const night = daylight(c, d, hoursOf(date)) < 0.5;
+      const dsc = describe(a.code, night);
+      return { date, temp: U.lerp(a.temp, b.temp, f), code: a.code, text: dsc.text, icon: dsc.icon, night, precip: a.precip, place: c.name };
+    },
     sun(date, cityName) { const c = cityOf(cityName); const s = sunTimes(c, midnight(date || V.time.now())); return { rise: s.rise, set: s.set, riseText: fmtH(s.rise), setText: fmtH(s.set) }; },
   };
   V.info = V.info || {};

@@ -9,6 +9,36 @@ const ROOT = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
 let html = read('index.html');
+
+// Gerätemodus: device.html ist dasselbe OS ohne Emulator – Skripte und Stylesheets müssen übereinstimmen.
+// `node visto/tools/build.js --check` prüft nur das (für den Pages-Workflow) und baut nichts.
+(function checkDevice() {
+  if (!fs.existsSync(path.join(ROOT, 'device.html'))) { if (process.argv.includes('--check')) throw new Error('device.html fehlt'); return; }
+  const list = (name, src) => {
+    const b = src.match(/<!-- BUNDLE:START -->([\s\S]*?)<!-- BUNDLE:END -->/);
+    if (!b) throw new Error('BUNDLE-Markierung fehlt in ' + name);
+    return {
+      js: Array.from(b[1].matchAll(/<script src="([^"]+)"><\/script>/g)).map((x) => x[1]),
+      css: Array.from(src.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g)).map((x) => x[1]),
+    };
+  };
+  const a = list('index.html', html), d = list('device.html', read('device.html'));
+  for (const kind of ['js', 'css']) {
+    const what = kind === 'js' ? 'Skriptliste' : 'Stylesheets';
+    const onlyA = a[kind].filter((f) => !d[kind].includes(f)), onlyD = d[kind].filter((f) => !a[kind].includes(f));
+    if (onlyA.length || onlyD.length) {
+      throw new Error(what + ' von index.html und device.html weichen ab.'
+        + (onlyA.length ? '\n  fehlt in device.html: ' + onlyA.join(', ') : '')
+        + (onlyD.length ? '\n  fehlt in index.html:  ' + onlyD.join(', ') : ''));
+    }
+    const i = a[kind].findIndex((f, k) => f !== d[kind][k]);
+    if (i >= 0) throw new Error(what + ': Reihenfolge weicht ab (Stelle ' + (i + 1) + '): index.html „' + a[kind][i] + '“ · device.html „' + d[kind][i] + '“');
+  }
+  for (const f of a.js.concat(a.css)) if (!fs.existsSync(path.join(ROOT, f))) throw new Error('Datei fehlt: ' + f);
+  console.log('Geprüft: index.html und device.html laden dieselben', a.js.length, 'Skripte und', a.css.length, 'Stylesheets');
+})();
+if (process.argv.includes('--check')) process.exit(0);
+
 // alle eigenen Stylesheets einbetten (css/*.css)
 const cssFiles = Array.from(html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g));
 let css = '';

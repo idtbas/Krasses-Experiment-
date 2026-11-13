@@ -24,6 +24,7 @@
     id: 'orbit',
     name: 'Orbit',
     order: 6,
+    horizon: 'rim', horizonR: 472,   // der Horizont als äußerste Umlaufbahn
     options: [
       { key: 'color', label: 'Planet', type: 'color', default: '#7CC8FF' },
       { key: 'ring', label: 'Planetenring', type: 'toggle', default: true },
@@ -32,7 +33,7 @@
     ],
     create(root, ctx) {
       let o = ctx.opts;
-      let amb = false;
+      let amb = false, trv = false;
       const cv = U.el('canvas', { class: 'fob-cv' });
       const g = cv.getContext('2d');
       const mid = U.el('div', { class: 'fob-mid' });
@@ -213,8 +214,8 @@
           sphere(Mo.x, Mo.y, 16, '#E9E7EF', 0.78);
         }
 
-        // Satellit mit Leuchtspur (Sekunde, fließend)
-        if (!amb) {
+        // Satellit mit Leuchtspur (Sekunde, fließend) – gehört zum Jetzt, pausiert bei der Zeitreise
+        if (!amb && !trv) {
           const as = s * 6;
           const satCol = U.mix(col, '#ffffff', 0.55);
           V.rim.tail(g, 500, 500, R_SAT, as - 54, as, satCol, 3, 0.85, 0);
@@ -250,6 +251,7 @@
           draw(dt, now);
         },
         setOptions() { style(); },
+        travel(on) { trv = on; },
         ambient(on) { amb = on; ambQ = -1; mid.style.opacity = on ? '0.6' : '1'; draw(0, V.time.now()); },
         destroy() { offR(); },
       };

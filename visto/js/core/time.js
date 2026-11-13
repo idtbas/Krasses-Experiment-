@@ -15,6 +15,8 @@
     offset() { return V.store.get('settings.timeMode') === 'manual' ? V.store.get('settings.timeOffset', 0) : 0; },
     ms() { return Date.now() + time.offset(); },
     now() { return new Date(time.ms()); },
+    /** angezeigte Zeit: Jetzt + Zeitreise (os/horizon.js ersetzt das; ohne Zeitreise = now()) */
+    view() { return time.now(); },
     setManual(date) {
       V.store.set('settings.timeMode', 'manual');
       V.store.set('settings.timeOffset', date.getTime() - Date.now());

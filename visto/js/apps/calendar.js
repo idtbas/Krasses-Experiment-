@@ -447,6 +447,8 @@
         const e = nextEvent(now(), 2 * DAY);
         return e ? { title: e.title, start: new Date(e.start), end: new Date(e.end), color: e.color } : null;
       };
+      /** Termine im Zeitraum (für Horizont und Zeitreise) → [{id, title, start, end, color, place, cat}] */
+      V.info.events = (from, to) => eventsIn(+from, +to).map((e) => ({ id: e.id, title: e.title, start: new Date(e.start), end: new Date(e.end), color: e.color, place: e.place || '', cat: e.cat }));
       setInterval(bgCheck, 5000);
       V.on('time:minute', bgCheck);
       V.on('time:changed', () => { ensureSeed(); bgCheck(); });

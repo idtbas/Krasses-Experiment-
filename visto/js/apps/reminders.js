@@ -222,6 +222,8 @@
 
     init() {
       if (!st().seeded) seed();
+      /** offene Erinnerungen mit Zeitpunkt im Zeitraum (für Horizont und Zeitreise) → [{id, text, at}] */
+      V.info.reminders = (from, to) => open().filter((i) => i.at && i.at >= +from && i.at < +to).map((i) => ({ id: i.id, text: i.text, at: new Date(i.at) }));
       setInterval(bgCheck, 5000);
       V.on('time:minute', bgCheck);
       V.on('time:changed', bgCheck);

@@ -55,6 +55,7 @@
     id: 'stack',
     name: 'Stapel',
     order: 3,
+    horizon: 'travel', horizonR: 488, horizonCapsule: { y: 50, compact: true, info: true },   // die Ziffern füllen den Kreis: Horizont nur bei Zeitreise, ganz außen
     options: [
       { key: 'color', label: 'Farbe', type: 'color', default: 'accent' },
       { key: 'weight', label: 'Stärke', type: 'choice', default: '250', values: [{ v: '100', label: 'Hauch' }, { v: '250', label: 'Fein' }, { v: '450', label: 'Klar' }, { v: '800', label: 'Kräftig' }] },
@@ -132,6 +133,13 @@
       /** eine Ziffer rollen lassen */
       function roll(sl, ch, delay, instant) {
         if (sl.ch === ch) return;
+        // läuft noch ein Wechsel (schnelles Drehen bei der Zeitreise): den alten sofort abschließen
+        clearTimeout(sl.tm);
+        if (sl.sp) { sl.sp.stop(); sl.sp = null; }
+        if (sl.cur) {
+          for (const n of Array.from(sl.el.children)) if (n !== sl.cur) n.remove();
+          sl.cur.style.transform = ''; sl.cur.style.filter = ''; sl.cur.style.opacity = '';
+        }
         const prev = sl.cur;
         sl.ch = ch;
         const nu = U.el('span', { class: 'fst-ch', text: ch, style: { top: sl.off } });
@@ -139,7 +147,7 @@
         sl.cur = nu;
         if (!prev || instant || ctx.preview) { if (prev) prev.remove(); return; }
         const run = () => {
-          const sp = V.spring(0, { response: 0.7, bounce: 0.14 });
+          const sp = (sl.sp = V.spring(0, { response: 0.7, bounce: 0.14 }));
           sp.onUpdate((t, s) => {
             const blur = Math.min(0.03, Math.abs(s.velocity) * 0.006);
             nu.style.transform = `translateY(${((1 - t) * 1.04).toFixed(4)}em)`;
@@ -149,10 +157,10 @@
             prev.style.filter = blur > 0.002 ? `blur(${blur.toFixed(3)}em)` : '';
           });
           nu.style.transform = 'translateY(1.04em)';
-          sp.to(1).then(() => { prev.remove(); nu.style.filter = ''; nu.style.transform = ''; });
+          sp.to(1).then((ok) => { if (!ok) return; if (sl.sp === sp) sl.sp = null; prev.remove(); nu.style.filter = ''; nu.style.transform = ''; });
         };
         nu.style.transform = 'translateY(1.04em)';
-        if (delay) setTimeout(run, delay); else run();
+        if (delay) sl.tm = setTimeout(run, delay); else run();
       }
 
       function setTime(now, instant) {

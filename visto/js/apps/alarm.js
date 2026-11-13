@@ -158,6 +158,23 @@
     }
     if (dirty) changed();
     sunCheck(t);
+    liveSync(t);
+  }
+  /** Live-Rand: Schlummern (Bogen läuft ab) und die letzten Minuten vor dem Klingeln */
+  function liveSync(t) {
+    if (!V.live) return;
+    const a = upcoming();
+    const left = a ? a.next - t : Infinity;
+    const snz = !!(a && a.snooze && a.next === a.snooze);
+    const span = snz ? SNOOZE_MIN * 60e3 : SUN_MIN * 60e3;
+    if (a && left > 0 && left <= span && !ringing) {
+      V.live.set('alarm', {
+        app: 'alarm', color: COLOR, icon: 'alarm', priority: 40,
+        value: () => U.clamp((a.next - now()) / span, 0, 1),
+        label: snz ? 'Schlummern' : a.label || 'Wecker',
+        sub: () => (snz ? 'bis ' : '') + hm(new Date(a.next).getHours(), new Date(a.next).getMinutes()) + ' · ' + inText(a.next - now()),
+      });
+    } else V.live.clear('alarm');
   }
 
   let ringing = 0;
@@ -497,6 +514,23 @@
         if (!a) return null;
         const d = new Date(a.next);
         return { date: d, h: a.h, m: a.m, label: a.label, in: (a.next - now()) / 1000, sun: a.sun, text: 'Wecker ' + hm(d.getHours(), d.getMinutes()) };
+      };
+      /** alle Weckzeiten im Zeitraum (für Horizont und Zeitreise) → [{date, label, sun}] */
+      V.info.alarms = (from, to) => {
+        const t0 = +from, t1 = +to, out = [];
+        for (const a of st().alarms) {
+          if (!a.on) continue;
+          // einmalige Wecker klingeln genau einmal (a.next); wiederholte an jedem ihrer Tage im Zeitraum
+          if (!a.days.length) { if (a.next && a.next >= t0 && a.next < t1) out.push({ date: new Date(a.next), label: a.label || '', sun: !!a.sun }); continue; }
+          const plain = { h: a.h, m: a.m, days: a.days, at: null, snooze: null };
+          let t = nextOf(plain, t0 - 1000), guard = 0;
+          while (t && t < t1 && guard++ < 16) {
+            out.push({ date: new Date(t), label: a.label || '', sun: !!a.sun });
+            t = nextOf(plain, t + 1000);
+          }
+          if (a.snooze && a.snooze >= t0 && a.snooze < t1) out.push({ date: new Date(a.snooze), label: a.label || '', sun: false });
+        }
+        return out.sort((x, y) => x.date - y.date);
       };
 
       V.actions.register('alarm.set', {

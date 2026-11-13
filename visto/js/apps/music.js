@@ -1720,6 +1720,17 @@
           toggle, next: () => { skip(1); if (!M.playing) play(); }, prev: () => { skip(-1); if (!M.playing) play(); },
         };
       };
+      // Live-Rand: solange Musik läuft, ein atmender Bogen mit dem Titelfortschritt
+      const syncLive = () => {
+        if (!V.live) return;
+        if (!M.playing) { V.live.clear('music'); return; }
+        V.live.set('music', {
+          app: 'music', color: cur().c1, icon: 'music', priority: 10, pulse: true,
+          value: () => position().frac, label: () => info().title, sub: () => cur().name,
+        });
+      };
+      V.on('music:changed', syncLive);
+      syncLive();
       V.on('music:toggle', () => toggle());
       V.on('music:next', () => skip(1));
       V.on('music:prev', () => skip(-1));

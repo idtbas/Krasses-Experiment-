@@ -3,6 +3,8 @@
  *  Zeichnet in logischen Koordinaten (0…1000). Jeder Renderer bekommt zwei Zeichenflächen:
  *    ctx   – scharf, volle Auflösung
  *    g     – Leuchtpuffer in 1/3 Auflösung; wird weich hochskaliert und additiv unter ctx gelegt
+ *  Stellschraube des Leistungsreglers (V.perf.level): Stufe 1 und 0 rechnen den Leuchtpuffer kleiner,
+ *  Stufe 0 begrenzt zusätzlich die Pixeldichte der scharfen Ebene. V.fx.scale() → { glowDiv, dprCap }
  *
  *  const off = V.fx.add({ z: 0, active() → bool, draw(ctx, g, t, dt), bounds() → [x0, y0, x1, y1] | null })
  *  bounds (optional, logisch, inkl. Leuchten): nur dieser Bereich wird neu zusammengesetzt; null = ganze Fläche
@@ -12,7 +14,9 @@
   const V = window.V;
   const renderers = [];
   let cv, ctx, gl, gctx, bl, bctx, W = 0, GW = 0, drewLast = true, canBlur = false;
-  const GLOW_DIV = 3;
+  // je Stufe des Leistungsreglers (0 · 1 · 2): Teiler des Leuchtpuffers, Obergrenze der Pixeldichte
+  const SCALE = [{ glowDiv: 4.5, dprCap: 1.5 }, { glowDiv: 3.75, dprCap: 2 }, { glowDiv: 3, dprCap: 2 }];
+  let scale = SCALE[2];
 
   function setup() {
     cv = V.display.fx;
@@ -25,13 +29,15 @@
     try { bctx.filter = 'blur(2px)'; canBlur = bctx.filter === 'blur(2px)'; bctx.filter = 'none'; } catch (e) { canBlur = false; }
     resize();
     V.on('display:resize', resize);
+    V.on('perf:level', resize);
     V.loop.add(frame, 100);
   }
   function resize() {
-    const dpr = Math.min(V.display.dpr, 2);
+    scale = SCALE[V.perf ? V.perf.level : 2] || SCALE[2];
+    const dpr = Math.min(V.display.dpr, scale.dprCap);
     W = Math.max(64, Math.round(V.display.size * dpr));
     cv.width = cv.height = W;
-    GW = Math.max(32, Math.round(W / GLOW_DIV));
+    GW = Math.max(32, Math.round(W / scale.glowDiv));
     gl.width = gl.height = GW;
     bl.width = bl.height = GW;
     drewLast = true;
@@ -94,7 +100,7 @@
     if (canBlur) {
       bctx.setTransform(1, 0, 0, 1, 0, 0);
       bctx.clearRect(gx0, gy0, gw, gh);
-      bctx.filter = 'blur(' + Math.max(1.5, GW / 260).toFixed(1) + 'px)';
+      bctx.filter = 'blur(' + Math.max(4.5 / scale.glowDiv, GW / 260).toFixed(1) + 'px)';   // gleiche Weichheit bei kleinerem Puffer
       bctx.drawImage(gl, gx0, gy0, gw, gh, gx0, gy0, gw, gh);
       bctx.filter = 'none';
       bctx.globalCompositeOperation = 'lighter';
@@ -118,6 +124,7 @@
       return () => { const i = renderers.indexOf(r); if (i >= 0) renderers.splice(i, 1); drewLast = true; };
     },
     get width() { return W; },
+    scale: () => scale,
     /** Zeichenhilfe: Kreisbogen im Uhrwinkel (Grad) */
     arc(c, cx, cy, r, a0, a1) {
       c.arc(cx, cy, r, ((a0 - 90) * Math.PI) / 180, ((a1 - 90) * Math.PI) / 180, a1 < a0);

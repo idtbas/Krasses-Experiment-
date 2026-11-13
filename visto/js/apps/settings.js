@@ -954,8 +954,8 @@
     setTimeout(async () => {
       await l.done();
       V.store.reset();
-      try { localStorage.removeItem('vistoos.v1'); } catch (e) { /* egal */ }
-      location.reload();
+      V.platform.storage.remove('vistoos.v1');
+      V.platform.power.reboot();   // Browser: Seite neu laden · Gerät: Neustart über vistod
     }, 900);
   }
 

@@ -28,8 +28,12 @@ Maßstab: Stell dir vor, Apple baut ein rundes Gerät für den Schreibtisch.
 ## Dateien
 
 ```
-index.html               lädt alle Skripte (klassische Skripte, Namensraum window.V)
+index.html               lädt alle Skripte (klassische Skripte, Namensraum window.V) – Wirt „Emulator“
+device.html              dieselben Skripte ohne Emulator – Wirt „Gerät“ (siehe Abschnitt „System“)
 css/visto.css            Emulator + Grundbausteine des OS (.vos-*)
+js/sys/    platform (V.platform: Hardware-Treiber web/linux) · kernel (V.sys) · device (Gerätemodus, V.host)
+           perf (V.perf: Leistungsregler)
+js/gfx/    lumen (V.lumen: Licht unter und über der Oberfläche, WebGL – siehe Abschnitt „Lumen“)
 js/core/   base (V.util, V.on/emit, V.css) · anim (V.loop, V.spring, V.tween, V.ease)
            store (V.store) · time (V.time, V.fmt) · sound (V.sound, V.haptic) · gestures (V.gesture)
 js/ui/     icons (V.icon) · kit (V.ui)
@@ -153,6 +157,40 @@ V.faces.register({ id, name, order, options: [{key, label, type:'color'|'choice'
     return { minute(now), frame(dt, now), setOptions(opts), ambient(on), destroy() }; } });
 ```
 Hilfen: `V.faces.rollDigits(el)` (rollende Ziffern), `V.faces.renderComplications(el)`, `V.faces.COLORS`.
+
+## System (js/sys/ · device.html · linux/)
+
+VistoOS ist ein Betriebssystem mit zwei **Wirten**: `index.html` (Emulator um das Gerät herum) und `device.html`
+(Gerätemodus: das OS allein, Kreis = `min(Breite, Höhe)`, schwarzer Grund – das startet der Linux-Kiosk).
+Beide laden **dieselbe Skriptliste**; `node visto/tools/build.js --check` prüft das. Neue Skripte in beide eintragen.
+
+```js
+// Plattformschicht (js/sys/platform.js) – Hardware nie direkt über Browser-Funktionen ansprechen, sondern so:
+V.platform.name 'web'|'linux' · host 'emulator'|'device' · caps {camera, mic, haptics, backlight, lightSensor, wifi, speech}
+V.platform.storage.get/set/remove(key) · keys() · bytes()            // V.store nutzt das; eigene Schlüssel 'vistoos.…'
+V.platform.display.setBacklight(0…1) → bool (false = Software-Abdunklung) · light.value() / onChange(fn) / set(v)
+V.platform.haptics.pulse(muster) (über V.haptic) · camera.open({facing}) / close() · mic.open() / close()
+V.platform.net.online() · net.wifi.current() / scan() / connect(ssid, pass) · power.reboot() / shutdown()
+V.platform.bridge.connected / send(type, data) → Promise / on(type, fn)   // nur linux: WebSocket zu vistod
+Ereignisse: 'platform:bridge' · 'platform:light' · 'platform:camera' · 'platform:mic' · 'platform:net' · 'platform:power'
+
+// Kern (js/sys/kernel.js)
+V.sys.info() → {version, build, platform, host, display, fps, hz, quality, uptime, storageBytes, apps, services, …}
+V.sys.services.register('name', api, {desc, state() → 'running'|'idle'|'off', detail()}) · get(name) · list()
+V.sys.procs.list() → [{id, name, state: 'running' (offen) | 'paused' (Hintergrundarbeit), since, permissions}]
+await V.sys.perm.request(appId, 'camera'|'mic'|'notify') → bool · perm.has(appId, name) · perm.list()
+V.sys.log('info'|'warn'|'error', 'quelle', 'Text') · V.sys.logs(n)     // Ringpuffer; console.warn/error landen mit darin
+Ereignisse: 'sys:log' · 'sys:procs' · 'sys:perm'
+```
+- **Treiber `linux`** (`?platform=linux`): spricht mit dem Dienst `vistod` (ws://127.0.0.1:7707). Ohne Dienst fällt jede
+  Funktion auf den Web-Treiber zurück und verbindet sich später von selbst. Paket und Protokoll: `linux/README.md`
+  (auf Hardware ungetestet; `python3 linux/vistod.py --simulate --www .` zum Ausprobieren).
+- **Gerätemodus-Tastatur** (`js/sys/device.js`): Esc/Home = Sockeltaste · „/“ oder Leertaste = an Visto schreiben
+  (`V.convo.typing(text)` zeigt Getipptes wie Gehörtes unter dem Ring; Enter sendet).
+- **Diagnose** (`js/apps/system.js`, App `system`): Bildrate als Randbogen, Bildzeit-Kranz, Prozesse, Dienste, Speicher,
+  Protokoll, Neu starten. `V.shell.open('system', {page: 'procs'|'services'|'storage'|'log'})`.
+- Im Gerätemodus testen: `VISTO_URL=file://$PWD/visto/device.html node visto/tools/shot.js …`
+  (statt `{"type": …}` dort `{"eval":"V.convo.input('…')"}` – die Emulator-Eingabe gibt es nicht).
 
 ## Testen
 

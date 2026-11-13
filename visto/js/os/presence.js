@@ -43,8 +43,8 @@
         return true;
       }
       try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Keine Kamera verfügbar');
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 24 } }, audio: false });
+        // Kamera über die Plattformschicht (Handy: Frontkamera im Browser · Gerät: Kamera über dem Display)
+        stream = await V.platform.camera.open({ facing: 'user', width: 320, height: 240, fps: 24 });
         video = document.createElement('video');
         video.muted = true; video.playsInline = true; video.setAttribute('playsinline', '');
         video.srcObject = stream;
@@ -65,7 +65,7 @@
 
     stop() {
       if (offLoop) { offLoop(); offLoop = null; }
-      if (stream) stream.getTracks().forEach((t) => t.stop());
+      if (stream) V.platform.camera.close();
       stream = null; video = null; source = null;
       raw.seen = false;
       if (st.present) { st.present = false; V.emit('presence:leave'); }

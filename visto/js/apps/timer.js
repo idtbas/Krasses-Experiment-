@@ -54,12 +54,15 @@
   function bgTick() {
     const s = st();
     for (const t of s.timers.slice()) if (!t.paused && leftOf(t) <= 0) ring(t);
-    // dünner Bogen am Rand, solange die App nicht offen ist
+    // Live-Rand: dünner Bogen mit Symbol, systemweit (V.live blendet ihn aus, solange die App offen ist)
     const a = active();
-    const appOpen = V.shell.app && V.shell.app.def.id === 'timer';
-    if (a && !appOpen && V.shell.mode !== 'setup') {
-      V.rim.arc('timer:bg', { value: leftOf(a) / a.total, from: 0, color: COLOR, width: 6, r: 492, glow: 0.7, alpha: a.paused ? 0.45 : 0.95, smooth: false });
-    } else V.rim.remove('timer:bg');
+    if (a) {
+      V.live.set('timer', {
+        app: 'timer', color: COLOR, icon: 'timer', priority: 30, paused: a.paused,
+        value: () => leftOf(a) / a.total,
+        label: a.label, sub: () => (a.paused ? 'Pausiert · ' : '') + V.fmt.duration(leftOf(a)),
+      });
+    } else V.live.clear('timer');
   }
 
   V.apps.register({
@@ -74,6 +77,8 @@
     init() {
       setInterval(bgTick, 250);
       V.info.timer = () => { const a = active(); return a ? { left: leftOf(a), total: a.total, label: a.label, paused: a.paused } : null; };
+      /** alle Timer mit Endzeit (für Horizont, Blicke …) */
+      V.info.timers = () => st().timers.map((t) => ({ id: t.id, label: t.label, left: leftOf(t), total: t.total, paused: t.paused, end: new Date(now() + leftOf(t) * 1000) }));
 
       V.actions.register('timer.start', {
         desc: 'Startet einen Timer. seconds = Dauer in Sekunden, label = optionaler Name (z. B. „Pizza“).',

@@ -14,6 +14,7 @@
     id: 'monolith',
     name: 'Monolith',
     order: 1,
+    horizon: 'rim', horizonR: 452,   // Horizont zwischen Datum und Sekundenpunkt
     options: [
       { key: 'color', label: 'Farbe', type: 'color', default: '#FFFFFF' },
       { key: 'font', label: 'Schriftart', type: 'choice', default: 'sans', values: [{ v: 'sans', label: 'Grotesk' }, { v: 'round', label: 'Rund' }, { v: 'serif', label: 'Serif' }, { v: 'mono', label: 'Mono' }] },
@@ -92,6 +93,8 @@
           timeEl.style.transition = 'opacity .8s';
           timeEl.style.opacity = on ? '0.8' : '1';
         },
+        // Zeitreise: der Sekundenpunkt gehört zum Jetzt – ausblenden
+        travel(on) { secG.style.transition = 'opacity .35s ease'; secG.style.opacity = on ? '0' : '1'; },
       };
     },
   });

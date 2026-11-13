@@ -193,13 +193,16 @@
       announce(kind, s);
       V.emit('focus:changed', { type: kind });
     }
-    // dünner Bogen am Rand, solange die App nicht offen ist
+    // Live-Rand: dünner Bogen mit Symbol, systemweit (V.live blendet ihn aus, solange die App offen ist)
     const cur = s0.session;
-    if (cur && !isOpen() && V.shell.mode !== 'setup' && V.shell.mode !== 'boot') {
-      const p = progOf(cur);
-      const tm = V.info.timer && V.safe(() => V.info.timer());
-      V.rim.arc('focus:bg', { value: p, from: 0, color: tone(cur.phase, p), width: 6, r: tm ? 479 : 492, glow: 0.7, alpha: cur.paused ? 0.45 : 0.95, smooth: false });
-    } else V.rim.remove('focus:bg');
+    if (cur) {
+      V.live.set('focus', {
+        app: 'focus', color: tone(cur.phase, progOf(cur)), icon: 'focus', priority: 20, paused: cur.paused,
+        value: () => progOf(cur),
+        label: cur.phase === 'focus' ? 'Fokus' : 'Pause',
+        sub: () => (cur.paused ? 'Pausiert · ' : '') + V.fmt.duration(leftOf(cur)) + (cur.phase === 'focus' ? ' · Runde ' + cur.round + '/' + cur.rounds : ''),
+      });
+    } else V.live.clear('focus');
   }
 
   /* ---------------------------------------------------------- Lichtkugel */

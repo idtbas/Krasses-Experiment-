@@ -21,8 +21,9 @@
   ];
   let sdkPromise = null, client = null, clientKey = '';
 
-  function readKey() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
-  function model() { try { return localStorage.getItem(KEY + '.model') || 'claude-sonnet-5-5'; } catch (e) { return 'claude-sonnet-5-5'; } }
+  const disk = V.platform.storage;   // Plattformschicht statt direktem Browser-Speicher
+  function readKey() { return disk.get(KEY) || ''; }
+  function model() { return disk.get(KEY + '.model') || 'claude-sonnet-5-5'; }
 
   async function getClient() {
     const key = readKey();
@@ -71,11 +72,11 @@
     get configured() { return !!readKey(); },
     get model() { return model(); },
     setKey(k) {
-      try { if (k) localStorage.setItem(KEY, k.trim()); else localStorage.removeItem(KEY); } catch (e) { /* */ }
+      if (k) disk.set(KEY, k.trim()); else disk.remove(KEY);
       client = null;
       V.emit('brain:ai', api.configured);
     },
-    setModel(id) { try { localStorage.setItem(KEY + '.model', id); } catch (e) { /* */ } },
+    setModel(id) { disk.set(KEY + '.model', id); },
 
     /** Gespräch mit Werkzeugschleife. messages: [{role, content}] (Text) */
     async ask(messages, o = {}) {

@@ -106,18 +106,18 @@
     };
   }
 
-  /* --------------------------------------------- Hintergrund (Rand) */
-  let bgOff = null;
+  /* --------------------------------------------- Hintergrund (Live-Rand) */
+  // kurzer Lichtschweif, der wie der Sekundenzeiger umläuft; V.live blendet ihn aus, solange die App offen ist
   function appOpen() { return !!(V.shell && V.shell.app && V.shell.app.def.id === 'stopwatch'); }
   function syncBg() {
-    const mode = V.shell && V.shell.mode;
-    const want = st().running && !appOpen() && mode !== 'setup' && mode !== 'boot';
-    if (want && !bgOff) bgOff = V.loop.add(bgFrame, 6);
-    else if (!want && bgOff) { bgOff(); bgOff = null; V.rim.remove('stopwatch:bg'); }
-  }
-  function bgFrame() {
-    const a = ((elapsed() / 1000) % 60) * 6;
-    V.rim.arc('stopwatch:bg', { from: a - 14, value: 14 / 360, color: COLOR, width: 5, r: 478, glow: 0.8, alpha: 0.85, head: true, smooth: false });
+    if (!V.live) return;
+    if (st().running) {
+      if (!V.live.has('stopwatch')) V.live.set('stopwatch', {
+        app: 'stopwatch', color: COLOR, icon: 'stopwatch', priority: 25,
+        value: () => ((elapsed() / 1000) % 60) / 60, span: 16 / 360,
+        label: 'Stoppuhr', sub: () => fmtShort(elapsed()),
+      });
+    } else V.live.clear('stopwatch');
   }
 
   /* ------------------------------------------------------- Befehle */
