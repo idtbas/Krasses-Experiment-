@@ -754,7 +754,7 @@
       tail = i > 0 ? `Gegen ${hourWord(hrs[i])} wird es trockener.` : 'Das bleibt auch noch eine Weile so.';
     } else {
       const i = firstWet(hrs, 1);
-      if (i > 0) tail = `Ab etwa ${hourWord(hrs[i])} ${hrs[i].code === 'snow' ? 'schneit' : hrs[i].code === 'storm' ? 'gewittert' : 'regnet'} es.`;
+      if (i > 0) tail = !WET[hrs[i].code] ? `Ab etwa ${hourWord(hrs[i])} kann es regnen.` : `Ab etwa ${hourWord(hrs[i])} ${hrs[i].code === 'snow' ? 'schneit' : hrs[i].code === 'storm' ? 'gewittert' : 'regnet'} es.`;
     }
     return {
       say: `In ${c.name} sind es gerade ${Math.round(w.temp)} Grad${describe(w.code).wet ? ' und ' : ', '}${describe(w.code, w.night).say}. ${tail}`,
@@ -1123,7 +1123,7 @@
         return j > 0 ? `${w.text} bis etwa ${hrs[j].hour} Uhr.` : `${w.text} hält noch an.`;
       }
       const i = firstWet(hrs, 1, 0.5);
-      if (i > 0) return `Ab etwa ${hrs[i].hour} Uhr ${hrs[i].text.replace('Regenschauer', 'Schauer')}.`;
+      if (i > 0) return `Ab etwa ${hrs[i].hour} Uhr ${WET[hrs[i].code] ? hrs[i].text.replace('Regenschauer', 'Schauer') : 'Regen möglich'}.`;
       if (w.code === 'fog') { const j = hrs.findIndex((r, k) => k > 0 && r.code !== 'fog'); return j > 0 ? `Nebel lichtet sich gegen ${hrs[j].hour} Uhr.` : 'Der Nebel bleibt zäh.'; }
       const h = V.time.now().getHours();
       const tm = data.days[1];
@@ -1405,7 +1405,18 @@
       if (v < 0.999) drawNow(1 - U.smoothstep(0, 0.6, v), t);
       if (v > 0.001) drawDays(U.smoothstep(0.2, 1, v), t);
       if (preview) { previewT -= dt; if (previewT <= 0) clearPreview(); }
+      // Symbole erscheinen, während die Kurve um den Rand wächst
+      const rv = revealS.value;
+      if (rv < 0.999 || markRev) {
+        for (const b of marks) {
+          const q = b._m ? U.clamp((rv - b._m.k / 24 + 0.06) / 0.1, 0, 1) : 1;
+          b.style.opacity = q.toFixed(3);
+          b.style.transform = q < 1 ? `scale(${(0.72 + 0.28 * V.ease.outBack(q)).toFixed(3)})` : '';
+        }
+        markRev = rv < 0.999;
+      }
     });
+    let markRev = true;
 
     function refresh(instant) {
       const old = data && data.hrs[1] && data.hrs[1].date.getTime();

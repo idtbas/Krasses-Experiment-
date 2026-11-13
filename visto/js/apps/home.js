@@ -346,6 +346,7 @@
     }
     let colorName = null;
     const before = ids.map((id) => levelOf(roomState(id)));
+    const toneBefore = roomState(ids[0]).tone;
     for (const id of ids) {
       const r = roomState(id);
       const o = Object.assign({}, parts);
@@ -372,6 +373,8 @@
       return { say, card: lightCard(ids), emotion: anyOn ? 'happy' : undefined };
     }
     const room = ROOM[ids[0]];
+    const relColor = /^(wärmer|kälter|kühler)$/i.test(String(a.color || ''));
+    if (relColor && r0.tone === toneBefore && r0.on) return { say: `${/^w/i.test(a.color) ? 'Wärmer' : 'Kühler'} geht es nicht – das Licht ${room.in} leuchtet schon in ${TONES[r0.tone].name}.`, card: lightCard(ids) };
     if (!r0.on) say = `Das Licht ${room.in} ist aus.`;
     else if (colorName) say = `Das Licht ${room.in} leuchtet jetzt ${r0.tone === 'hue' ? hueEntry(r0.hue).adj : 'in ' + TONES[r0.tone].name}.`;
     else if (parts.bri !== undefined || a.delta) say = `Das Licht ${room.in} ist ${a.delta < 0 || (parts.bri !== undefined && parts.bri < before[0]) ? 'auf ' + pctOf(r0) + ' Prozent gedimmt' : 'jetzt auf ' + pctOf(r0) + ' Prozent'}.`;
@@ -757,7 +760,13 @@
           else if (W('gedimmt|dunkel|schwach|sanft|leise').test(t)) a.brightness = 20;
           else if (W('gemütlich|kuschelig|romantisch').test(t)) a.brightness = 35;
           const c = colorFromText(t, r);
-          if (c) a.color = c.tone === 'hue' ? hueHex(c.hue) : c.tone;
+          if (c) a.color = W('wärmer|gemütlicher').test(t) ? 'wärmer' : W('kälter|kühler|frischer').test(t) ? 'kälter' : c.tone === 'hue' ? hueHex(c.hue) : c.tone;
+          // „Zeig mir das Licht im Wohnzimmer“: nur zeigen, nichts schalten
+          if (RE.show.test(t) && !c && a.brightness === undefined && !a.delta && !RE.off.test(t) && !RE.on.test(t)) {
+            const rid = all ? defaultRoom() : id || defaultRoom();
+            const x = roomState(rid);
+            return opt({ say: x.on ? `Das Licht ${ROOM[rid].in} leuchtet mit ${pctOf(x)} Prozent.` : `Das Licht ${ROOM[rid].in} ist aus.`, card: lightCard([rid]) }, t, rid);
+          }
           if (RE.off.test(t)) a.on = false;
           else if (RE.on.test(t) && a.brightness === undefined && !a.delta) a.on = true;
           if (a.delta === 0) delete a.delta;
@@ -774,7 +783,7 @@
           if (/draußen|wetter|vorhersage|morgen früh|übermorgen/.test(t)) return null;
           if (RE.heat.test(t)) return { k: 'heat' };
           if (/(?<![a-zäöüß])temperatur/.test(t) && (RE.indoor.test(t) || /^(?:stell|setz|dreh|mach)/.test(t))) return { k: 'heat' };
-          if (/^(?:bitte )?(?:mach|stell|dreh|heiz)\w*(?: es| die wohnung| das zimmer| hier)?(?: bitte)?(?: noch)?(?: etwas| ein bisschen| ein wenig| ein paar grad)? (?:wärmer|kälter|kühler)/.test(t)) return { k: 'rel' };
+          if (/^(?:bitte )?(?:mach|stell|dreh|heiz)\w*(?: es| die wohnung| das zimmer| hier)?(?: bitte)?(?: noch)?(?: etwas| ein bisschen| ein wenig| ein paar grad| um)?(?: \d+(?:[.,]\d)? grad)? (?:wärmer|kälter|kühler)/.test(t)) return { k: 'rel' };
           if (/^(?:es ist |mir ist )(?:es )?(?:hier )?(?:zu |so |ziemlich |echt |sehr |etwas )?(?:kalt|warm|heiß|frisch|kühl)(?![a-zäöüß])/.test(t)) return { k: 'feel' };
           if (/^(?:etwas |ein bisschen |ein wenig |noch )?(?:wärmer|kälter|kühler)(?: bitte)?$/.test(t)) return { k: 'rel' };
           return null;
