@@ -19,16 +19,22 @@
   let lastKey = '';            // Zustand des letzten Layouts
 
   function spiral(n) {
-    // axiale Koordinaten spiralförmig von innen nach außen
+    // axiale Koordinaten ringweise von innen nach außen; ein nur teilweise gefüllter Außenring
+    // wird gleichmäßig rundherum verteilt (kein einseitiger Schwerpunkt)
     const out = [[0, 0]];
     const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
     for (let ring = 1; out.length < n; ring++) {
+      const slots = [];
       let q = -ring, r = ring; // Start unten links
-      for (let side = 0; side < 6 && out.length < n; side++) {
-        for (let k = 0; k < ring && out.length < n; k++) {
-          out.push([q, r]);
-          q += dirs[side][0]; r += dirs[side][1];
-        }
+      for (let side = 0; side < 6; side++) for (let k = 0; k < ring; k++) { slots.push([q, r]); q += dirs[side][0]; r += dirs[side][1]; }
+      const need = n - out.length;
+      if (need >= slots.length) { out.push(...slots); continue; }
+      const used = new Set();
+      for (let i = 0; i < need; i++) {
+        let idx = Math.round((i * slots.length) / need + slots.length * 0.25) % slots.length;
+        while (used.has(idx)) idx = (idx + 1) % slots.length;
+        used.add(idx);
+        out.push(slots[idx]);
       }
     }
     return out;
