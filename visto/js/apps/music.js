@@ -9,7 +9,8 @@
  *  Bild    Sich drehende Scheibe mit generativer Cover-Kunst je Titel, Strahlenkranz aus einem
  *          AnalyserNode, Fortschritt am Rand (Kopf ziehen = spulen), Titel und Sender am Bogen,
  *          Sender per Wischen links/rechts oder Drehen am Rand.
- *  Daten   V.info.music() → {title, artist, playing, color, progress, station} · Ereignis 'music:changed'
+ *  Daten   V.info.music() → {title, artist, playing, color, progress, station, started, toggle(), next(), prev()}
+ *          Ereignis 'music:changed' · hört auf 'music:toggle' / 'music:next' / 'music:prev'
  *          V.music.play(station?) · pause() · toggle() · next() · previous() · info()
  *  Aktionen music.play {station?} · music.pause · music.next · music.previous · music.status
  */
@@ -1671,9 +1672,9 @@
       if (!M.playing) play();
       return { say: `Weiter mit „${info().title}“.`, card: card() };
     },
-    previous() {
+    previous(restart) {
       const before = rec(cur().id).track;
-      skip(-1);
+      if (restart) { rec(cur().id).step = 0; emit({ why: 'seek' }); if (M.playing) begin(0.3); } else skip(-1);
       if (!M.playing) play();
       const t = info().title;
       return { say: rec(cur().id).track === before ? `Noch einmal von vorn: „${t}“.` : `Zurück zu „${t}“.`, card: card() };
@@ -1711,11 +1712,17 @@
         _render: render,
       };
       V.info = V.info || {};
+      // immer verfügbar (auch vor dem ersten Abspielen), damit der Mini-Player im Kontrollzentrum starten kann
       V.info.music = () => {
-        if (!M.started) return null;
         const i = info();
-        return { title: i.title, artist: i.artist, playing: i.playing, color: i.color, progress: i.progress, station: i.station };
+        return {
+          title: i.title, artist: i.artist, playing: i.playing, color: i.color, progress: i.progress, station: i.station, started: M.started,
+          toggle, next: () => { skip(1); if (!M.playing) play(); }, prev: () => { skip(-1); if (!M.playing) play(); },
+        };
       };
+      V.on('music:toggle', () => toggle());
+      V.on('music:next', () => skip(1));
+      V.on('music:prev', () => skip(-1));
       V.on('convo:open', () => { if (M.playing) duck(0.28); });
       V.on('convo:close', () => duck(1));
       window.addEventListener('pagehide', () => saveStep());
@@ -1729,6 +1736,7 @@
         run(a) { return API.play(a && a.station); },
       });
       V.actions.register('music.pause', { desc: 'Pausiert die Musik.', run: () => API.pause() });
+      V.actions.register('music.toggle', { desc: 'Schaltet die Musik zwischen Wiedergabe und Pause um.', run: () => (M.playing ? API.pause() : API.play()) });
       V.actions.register('music.next', { desc: 'Springt zum nächsten Titel des aktuellen Senders.', run: () => API.next() });
       V.actions.register('music.previous', { desc: 'Springt zum vorherigen Titel bzw. an den Anfang des aktuellen Titels.', run: () => API.previous() });
       V.actions.register('music.status', { desc: 'Sagt, welcher Titel und Sender gerade läuft.', run: () => API.status() });
@@ -1768,7 +1776,7 @@
       I({
         id: 'music-prev', priority: 10,
         match: [/(?<![a-zäöüß])(vorherige[snrm]?|letzte[snrm]?|vorige[snrm]?) (lied|song|titel|stück|track)/, /(noch ?mal|nochmal|wiederhol\w*) (das |den |dieses |diesen )?(lied|song|titel|stück)/],
-        run() { return API.previous(); },
+        run(m, t) { return API.previous(/noch ?mal|wiederhol/.test(t)); },
       });
       I({
         id: 'music-play', priority: 9,

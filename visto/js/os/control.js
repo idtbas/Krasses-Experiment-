@@ -648,7 +648,7 @@
     const before = Math.round(lampLevel * 10);
     lampLevel = v;
     if (fromDrag) lampShown.set(v); else lampShown.to(v);
-    if (lampOn) V.store.set('settings.brightness', v);
+    if (lampOn) V.ambient.override(v);
     if (Math.round(v * 10) !== before) { V.sound.play('tick'); V.haptic(3); }
   }
   function lamp(on, o = {}) {
@@ -661,10 +661,9 @@
       lampOn = true;
       lampFromPanel = opened;
       lampOrigin = o.from || { x: 500, y: 500 };
-      savedBright = get('settings.brightness', 0.9);
       lampShown.set(lampLevel);
       paintLamp();
-      V.store.set('settings.brightness', lampLevel);
+      V.ambient.override(lampLevel);   // vorübergehend, wird nicht gespeichert
       lampEl.classList.remove('off');
       V.visto && V.visto.setLine(0);
       clearInterval(keepAlive);
@@ -681,8 +680,7 @@
       clearInterval(keepAlive);
       clearTimeout(hintT);
       V.store.set('settings.lampLevel', lampLevel);
-      if (savedBright !== null) V.store.set('settings.brightness', savedBright);
-      savedBright = null;
+      V.ambient.override(null);
       V.visto && V.visto.setLine(1);
       V.sound.play('sleep');
       const backToPanel = lampFromPanel && opened && !o.all;
