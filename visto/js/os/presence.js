@@ -1,8 +1,7 @@
 /* VistoOS · os/presence.js — Kamera: Wo ist das Gesicht?
  *
  *  Visto hat eine Frontkamera über dem Display. Alles wird auf dem Gerät ausgewertet, nichts verlässt es.
- *  Quellen: 'camera' (echte Frontkamera des Handys, Gesichtserkennung lokal im Browser)
- *           'sim'    (Simulation im Emulator: Gesicht neben dem Gerät ziehen)
+ *  Quelle: die Frontkamera des Handys (Gesichtserkennung lokal im Browser). 'sim' nur für Tests.
  *
  *  V.presence.state = { present, x, y (−1…1, aus Sicht der Person: rechts = +x, unten = +y),
  *                       near (0 = weit weg … 1 = ganz nah), looking (schaut aufs Display), since (ms) }
@@ -223,7 +222,6 @@
   // gespeicherte Wahl wiederherstellen (Simulation sofort; echte Kamera erst nach Berührung)
   V.on('boot:home', () => {
     const c = V.store.get('settings.camera', 'off');
-    if (c === 'sim') pres.start('sim');
     if (c === 'camera') {
       const once = () => { window.removeEventListener('pointerdown', once, true); pres.start('camera'); };
       window.addEventListener('pointerdown', once, true);

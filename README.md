@@ -94,7 +94,7 @@ Das Betriebssystem für **Visto**: ein Schreibtischgerät mit exakt rundem 7″-
 
 - **Der Kreis ist das Raster:** Fortschritt läuft am Rand entlang (kein Ladebalken), Text folgt Bögen, Listen und App-Wabe wölben sich zum Rand hin, Antworten füllen den Kreis Zeile für Zeile.
 - **Visto, der Assistent:** ruht als feine Lichtlinie unten am Rand. Antippen oder hochziehen – die Enden rollen sich zu einem lebendigen Lichtring ein, zwei Augen springen auf. Visto hört zu (Spracherkennung, wo der Browser sie hat), denkt, antwortet in Worten und Stimme und steuert das Gerät: Timer, Wecker, Licht, Musik, Rechnen, Umrechnen und mehr. Im Claude-Artefakt beantwortet Claude zusätzlich freie Fragen und führt Geräteaktionen als Werkzeuge aus.
-- **Kamera:** Visto hat eine Frontkamera (im Emulator die Frontkamera des Handys oder eine Simulation). Die Augen folgen deinem Gesicht, Hinschauen weckt das Display, Weggehen dimmt es, aus der Ferne wird die Uhr größer, das Zifferblatt bekommt Tiefe, und nach längerer Abwesenheit begrüßt Visto dich. Die Erkennung läuft nur lokal.
+- **Kamera:** Visto hat eine Frontkamera (im Emulator die Frontkamera des Handys; das Aussehen von Gerät und Visto bleibt unverändert). Die Augen folgen deinem Gesicht, Hinschauen weckt das Display, Weggehen dimmt es, aus der Ferne wird die Uhr größer, das Zifferblatt bekommt Tiefe, und nach längerer Abwesenheit begrüßt Visto dich. Die Erkennung läuft nur lokal.
 - **Gesten:** ↑ Apps · ↓ Kontrollzentrum · ← → Zifferblatt wechseln · Halten = Zifferblatt anpassen · vom linken Rand wischen = zurück · am Rand entlangfahren = Drehkrone · Taste am Sockel = Home.
 - **Zifferblätter, Apps, Einrichtung:** siehe `visto/ARCHITEKTUR.md`.
 

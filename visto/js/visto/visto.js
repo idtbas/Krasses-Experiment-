@@ -94,7 +94,7 @@
     for (let i = 0; i < N; i++) {
       const s = closed ? i / N : i / (N - 1);
       const th2 = U.rad(90 + (s - 0.5) * span);
-      const th = th2 + rot + U.rad(lineRot.value) * (1 - me);
+      const th = th2 + rot;
       // lebendige Verformung
       let w = amp * (5.2 * Math.sin(2 * th2 + time * 1.3 + ph) + 3.4 * Math.sin(3 * th2 - time * 0.9 + 1 + ph) + 2.1 * Math.sin(5 * th2 + time * 2.1 + 2 - ph));
       w += lv * (9 * Math.sin(7 * th2 + time * 7.5 + ph) + 6 * Math.sin(11 * th2 - time * 9.3 + ph * 1.7));
@@ -273,7 +273,6 @@
   }
   let dragLook = false;
   let faceGaze = null, touchT = 0, glanceT = 6, glanceUntil = 0, glanceDir = { x: 0, y: 0 };
-  const lineRot = V.spring(0, { response: 0.9, bounce: 0 });
 
   function draw(ctx, g, t, dt) {
     update(dt);
@@ -415,13 +414,10 @@
     /** Kamera: Blickziel aus Sicht der Person (x, y −1…1) oder null, wenn niemand da ist */
     watch(x, y) {
       if (x === null || x === undefined) {
-        if (faceGaze) { faceGaze = null; lineRot.to(0); hover.to(0); if (isOpen) { lookX.to(0); lookY.to(0); } }
+        if (faceGaze) { faceGaze = null; if (isOpen) { lookX.to(0); lookY.to(0); } }
         return;
       }
       faceGaze = { x, y };
-      // die Ruhelinie rückt ein wenig zur Person hin und leuchtet auf, wenn man hinschaut
-      lineRot.to(U.clamp(-x * 9, -9, 9));
-      if (!isOpen) hover.to(V.presence && V.presence.state.looking ? 0.55 : 0.15);
     },
     get watching() { return !!faceGaze; },
     /** kurze Begrüßung, wenn jemand nach längerer Zeit zurückkommt */

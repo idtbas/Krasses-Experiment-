@@ -577,7 +577,7 @@
       if (/\bkamera\b/.test(t) && /\b(aus|ausschalten|deaktiv|stopp)/.test(t)) { P.off(); return { say: 'Kamera ist aus. Ich sehe jetzt nichts mehr.', emotion: 'sleepy' }; }
       if (/\bkamera\b/.test(t) && /\b(an|ein|einschalten|aktiv|start)/.test(t)) {
         const ok = await P.start('camera');
-        return ok ? { say: 'Kamera ist an. Alles bleibt auf dem Gerät.', emotion: 'surprised' } : { say: 'Die Kamera ließ sich nicht starten. Im Emulator gibt es auch eine Simulation.', emotion: 'sad' };
+        return ok ? { say: 'Kamera ist an. Alles bleibt auf dem Gerät.', emotion: 'surprised' } : { say: 'Die Kamera ließ sich nicht starten. Bitte erlaube den Kamerazugriff im Browser.', emotion: 'sad' };
       }
       if (!P.active) return { say: 'Meine Kamera ist gerade aus. Sag „Kamera an“, dann schaue ich dich an.', emotion: 'sleepy' };
       return P.state.present ? { say: 'Ja, ich sehe dich! ' + (P.state.near < 0.25 ? 'Du bist ziemlich weit weg.' : P.state.near > 0.8 ? 'Du bist ganz schön nah dran.' : 'Schön, dass du da bist.'), emotion: 'happy' } : { say: 'Im Moment sehe ich niemanden.', emotion: 'confused' };

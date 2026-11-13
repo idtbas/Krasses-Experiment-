@@ -309,30 +309,6 @@ body.emu-land .emu-head { grid-column: 2; grid-row: 1; max-width: 560px; align-s
 body.emu-land .emu-talk { grid-column: 2; grid-row: 2; max-width: 560px; align-self: start; margin-top: 0; }
 body.emu-land .talk-chips { margin: 0 -16px 0 0; padding-left: 2px; }
 
-.device-cam {
-  position: absolute; z-index: 6; left: 50%; top: calc(var(--mr) + var(--bz) * .5); width: calc(var(--D) * .022); height: calc(var(--D) * .022);
-  margin: calc(var(--D) * -.011) 0 0 calc(var(--D) * -.011); border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #2a3140, #07090d 60%); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
-  pointer-events: none;
-}
-.device-cam i { position: absolute; left: 50%; top: 50%; width: 3px; height: 3px; margin: -1.5px 0 0 calc(var(--D) * .02); border-radius: 50%; background: #1b1d22; transition: background .3s, box-shadow .3s; }
-.device-cam.on i { background: #32d74b; box-shadow: 0 0 6px #32d74b; }
-.emu-facepad {
-  position: absolute; z-index: 8; right: calc(var(--D) * -.02); bottom: -14px; width: 92px; height: 92px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,255,255,.05), rgba(255,255,255,.02) 70%); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
-  display: grid; place-items: center; transition: opacity .3s;
-}
-.emu-facepad[hidden] { display: none; }
-.emu-facepad small { position: absolute; bottom: -18px; left: 0; right: 0; text-align: center; font-size: 10.5px; color: var(--fg3); letter-spacing: .08em; text-transform: uppercase; }
-.emu-facepad.away { opacity: .45; }
-.emu-face {
-  position: relative; width: 34px; height: 40px;
-  border-radius: 46% 46% 50% 50%; background: radial-gradient(circle at 40% 30%, #f3c9a8, #d39a74);
-  box-shadow: 0 4px 12px rgba(0,0,0,.5), inset 0 -3px 6px rgba(0,0,0,.18); cursor: grab; touch-action: none;
-}
-.emu-face .eye { position: absolute; top: 15px; width: 4px; height: 6px; border-radius: 2px; background: #2b2018; }
-.emu-face .eye.l { left: 10px; } .emu-face .eye.r { right: 10px; }
-.emu-face .mouth { position: absolute; left: 50%; top: 26px; width: 11px; height: 4px; margin-left: -5.5px; border-bottom: 2px solid #8a4e3a; border-radius: 0 0 8px 8px; }
 .emu-seg { display: flex; flex: none; background: rgba(255,255,255,.08); border-radius: 99px; padding: 3px; gap: 2px; }
 .emu-segb { border: 0; background: transparent; color: var(--fg2); font: 600 13px var(--font); height: 32px; padding: 0 11px; border-radius: 99px; cursor: pointer; }
 .emu-segb[aria-checked="true"] { background: #fff; color: #000; }
