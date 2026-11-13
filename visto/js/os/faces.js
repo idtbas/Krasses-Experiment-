@@ -243,7 +243,9 @@
     },
     renderComplications(el, o = {}) {
       const parts = faces.complicationText(o).slice(0, o.max || 2);
-      el.innerHTML = parts.map((p) => `<span class="cx" style="display:inline-flex;align-items:center;gap:1.3cqw;${p.color ? 'color:' + p.color : ''}">${V.icon(p.icon, 'style="width:1.15em;height:1.15em"')}<span>${U.esc(p.text)}</span></span>`).join('<span style="opacity:.35;margin:0 2cqw">·</span>');
+      const html = parts.map((p) => `<span class="cx" style="display:inline-flex;align-items:center;gap:1.3cqw;${p.color ? 'color:' + p.color : ''}">${V.icon(p.icon, 'style="width:1.15em;height:1.15em"')}<span>${U.esc(p.text)}</span></span>`).join('<span style="opacity:.35;margin:0 2cqw">·</span>');
+      // nur bei Änderung neu setzen (wird von Zifferblättern sekündlich aufgerufen)
+      if (el._cxHtml !== html || el.innerHTML === '' && html) { el._cxHtml = html; el.innerHTML = html; }
     },
   });
 })();

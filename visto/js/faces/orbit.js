@@ -65,7 +65,7 @@
           c: rnd() < 0.15 ? '#BFD4FF' : rnd() < 0.1 ? '#FFE2C2' : '#FFFFFF',
         });
       }
-      let t = 0;
+      let t = 0, ambQ = -1;
       let shoot = null, nextShoot = 6 + rnd() * 10;
 
       function sphere(x, y, r, col, dark) {
@@ -244,9 +244,13 @@
 
       return {
         minute,
-        frame(dt, now) { draw(dt, now); },
+        frame(dt, now) {
+          // Ruhemodus: keine Sterne, kein Satellit – einmal je Sekunde zeichnen genügt
+          if (amb) { const q = Math.floor(now.getTime() / 1000); if (q === ambQ) return; ambQ = q; }
+          draw(dt, now);
+        },
         setOptions() { style(); },
-        ambient(on) { amb = on; mid.style.opacity = on ? '0.6' : '1'; draw(0, V.time.now()); },
+        ambient(on) { amb = on; ambQ = -1; mid.style.opacity = on ? '0.6' : '1'; draw(0, V.time.now()); },
         destroy() { offR(); },
       };
     },

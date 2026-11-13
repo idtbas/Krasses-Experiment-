@@ -182,8 +182,10 @@
         if (o.marks && !amb) for (const R of list) drawMark(R, R.ch);
       }
 
+      let lastQ = -1;
       function style() {
         o = ctx.opts;
+        lastQ = -1;
         pal = palette(o.palette, ctx.accent());
         dateEl.style.display = o.date ? '' : 'none';
         dateEl.style.color = U.rgba(pal[1][1], 0.85);
@@ -198,7 +200,15 @@
 
       return {
         minute,
-        frame(dt, now) { draw(now); },
+        frame(dt, now) {
+          // ohne Sekundenring (oder im Ruhemodus) bewegen sich die Ringe kaum: 10× bzw. 1× je Sekunde reicht
+          if ((amb || !o.seconds) && !intro.moving) {
+            const q = Math.floor(now.getTime() / (amb ? 1000 : 100));
+            if (q === lastQ) return;
+            lastQ = q;
+          }
+          draw(now);
+        },
         setOptions() { style(); },
         ambient(on) { amb = on; mid.style.opacity = on ? '0.7' : '1'; draw(V.time.now()); },
         destroy() { offR(); intro.stop(); },
