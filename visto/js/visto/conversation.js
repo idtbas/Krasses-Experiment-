@@ -124,6 +124,7 @@
     } else if (card.type === 'el' && card.el) el = card.el;
     if (!el) return 0;
     cardEl.appendChild(el);
+    cardEl.style.pointerEvents = '';
     cardEl.style.top = '40cqw';
     cardEl.style.opacity = '0';
     cardEl.style.transform = 'translateX(-50%) scale(.85)';
@@ -257,6 +258,7 @@
       V.rim.aurora(0);
       showChips(false);
       scrimOn(false);
+      cardEl.style.pointerEvents = 'none';   // ausblendende Karte darf keine Berührungen schlucken
       setTimeout(() => { if (!active) clearText(); }, 400);
       V.visto.close();
       V.emit('convo:close');

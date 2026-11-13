@@ -311,7 +311,7 @@ body.emu-land .talk-chips { margin: 0 -16px 0 0; padding-left: 2px; }
 
 /* Vollbild: nur das Display */
 body.emu-full .emu-head, body.emu-full .emu-talk, body.emu-full .device-neck, body.emu-full .device-base { display: none; }
-body.emu-full .emu { justify-content: center; }
+body.emu-full .emu { justify-content: center; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 .emu-exitfull {
   position: fixed; top: max(env(safe-area-inset-top), 12px); right: 14px; z-index: 50; display: none;
 }

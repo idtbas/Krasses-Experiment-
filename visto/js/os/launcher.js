@@ -16,6 +16,7 @@
   let reveal = 1;              // 0…1 Einblendung
   let dragging = false, pressed = null;
   let visible = false;
+  let lastKey = '';            // Zustand des letzten Layouts
 
   function spiral(n) {
     // axiale Koordinaten spiralförmig von innen nach außen
@@ -36,6 +37,7 @@
   function build() {
     el.innerHTML = '';
     items = [];
+    lastKey = '';
     const apps = [{ id: '__home', name: 'Zifferblatt', icon: 'clock', color: '#2C2C2E', home: true }].concat(V.apps.list());
     const coords = spiral(apps.length);
     apps.forEach((app, i) => {
@@ -88,6 +90,10 @@
       }
       if (Math.abs(vx) + Math.abs(vy) < 4 && d <= B + 0.5) coasting = false;
     }
+    // nichts bewegt → keine Stilschreibvorgänge (spart 3 × 15 DOM-Schreibvorgänge je Bild, auch unter offenen Apps)
+    const key = ox.toFixed(2) + ',' + oy.toFixed(2) + ',' + rot.toFixed(3) + ',' + reveal.toFixed(4) + ',' + (pressed ? items.indexOf(pressed) : -1) + ',' + items.length;
+    if (key === lastKey) return;
+    lastKey = key;
     const cr = Math.cos(U.rad(rot)), sr = Math.sin(U.rad(rot));
     let best = null, bestD = 1e9;
     for (const it of items) {
@@ -165,6 +171,7 @@
         },
         cancel() { dragging = false; pressed = null; coasting = true; },
         tap(p) {
+          if (p.y > 868 && Math.abs(p.x - 500) < 175) return;   // Visto-Zone: dort ruft Antippen Visto (Shell)
           const it = hit(p);
           if (!it) return;
           V.sound.play('tap'); V.haptic(6);

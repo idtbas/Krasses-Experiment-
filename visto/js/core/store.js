@@ -45,11 +45,16 @@
   };
 
   function isObj(o) { return o && typeof o === 'object' && !Array.isArray(o); }
+  function kind(v) { return v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v; }
+  /** Gespeichertes über Standardwerte legen – kaputte Werte (falscher Typ, NaN) behalten den Standard */
   function merge(base, over) {
     if (!isObj(over)) return base;
     for (const k in over) {
-      if (isObj(base[k]) && isObj(over[k])) merge(base[k], over[k]);
-      else base[k] = over[k];
+      const b = base[k], o = over[k];
+      if (isObj(b)) { if (isObj(o)) merge(b, o); continue; }
+      if (b !== undefined && b !== null && kind(o) !== kind(b)) continue;
+      if (typeof o === 'number' && !isFinite(o)) continue;
+      base[k] = o;
     }
     return base;
   }
@@ -57,6 +62,7 @@
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { saved = null; }
   let data = merge(U.clone(DEFAULTS), saved || {});
+  if (!/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(data.settings.accent)) data.settings.accent = DEFAULTS.settings.accent;
 
   let timer = 0;
   function persist() {
@@ -96,9 +102,17 @@
     update(path, fn) { return this.set(path, fn(this.get(path))); },
     /** eigener Speicherbereich einer App */
     app(id, defaults) {
+      if (!isObj(data.apps)) data.apps = {};
       if (!isObj(data.apps[id])) data.apps[id] = {};
       const o = data.apps[id];
-      if (defaults) for (const k in defaults) if (o[k] === undefined) o[k] = U.clone(defaults[k]);
+      if (defaults) {
+        for (const k in defaults) {
+          const d = defaults[k];
+          // fehlend oder kaputt (falscher Typ) → Standard; Listen ohne leere Einträge
+          if (o[k] === undefined || (d !== null && kind(o[k]) !== kind(d))) o[k] = U.clone(d);
+          else if (Array.isArray(o[k]) && o[k].some((x) => x === null || x === undefined)) o[k] = o[k].filter((x) => x !== null && x !== undefined);
+        }
+      }
       return o;
     },
     save() { persist(); },

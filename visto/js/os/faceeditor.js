@@ -81,6 +81,19 @@
   }
   function colorHex(v) { return !v || v === 'accent' ? V.store.get('settings.accent', '#FF9A4D') : v; }
   function colorLabel(v) { const c = V.faces.COLORS.find((x) => x.v === v); return c ? c.label : 'Eigene'; }
+  /** halbe Winkelbreite (Grad) eines Titels von arcName */
+  let mctx = null;
+  function titleHalfDeg(text) {
+    const s = String(text || '').toUpperCase();
+    let w = s.length * 28 * 0.72;
+    try {
+      mctx = mctx || document.createElement('canvas').getContext('2d');
+      mctx.font = "680 28px 'Inter Tight', system-ui, sans-serif";
+      w = mctx.measureText(s).width;
+    } catch (e) { /* Schätzung */ }
+    w += s.length * 4.6;
+    return ((w / 2) / (461 - 28 * 0.36)) * 180 / Math.PI;
+  }
   function arcName(text, o = {}) {
     const a = V.ui.arcText(Object.assign({ text, r: 461, size: 28, weight: 680, spacing: 4.6, color: 'rgba(255,255,255,.92)' }, o));
     a.el.classList.add('fed-arc');
@@ -264,8 +277,13 @@
     const cols = V.faces.COLORS;
     const ring = U.el('div', { class: 'fed-cring' });
     const n = cols.length;
+    // Oben eine Lücke für den Titel lassen (lange Namen wie „Sekundenzeiger“ lagen sonst unter den Tupfern)
+    const gap = Math.max(RING_SPAN / Math.max(1, n - 1) / 2, titleHalfDeg(P.op.label) + 8);
+    const nL = Math.ceil(n / 2), nR = n - nL;
+    const half = 360 - gap - RING_FROM;   // Länge je Seite in Grad
+    const angOf = (i) => (i < nL ? RING_FROM + (nL > 1 ? (i * half) / (nL - 1) : 0) : gap + (nR > 1 ? ((i - nL) * half) / (nR - 1) : 0));
     P.dotEls = cols.map((c, i) => {
-      const a = RING_FROM + (n > 1 ? (i * RING_SPAN) / (n - 1) : 0);
+      const a = angOf(i);
       const p = V.display.pt(a, RING_R);
       const b = U.el('button', { class: 'fed-cdot' + (c.v === 'accent' ? ' acc' : ''), attrs: { type: 'button', 'aria-label': c.label },
         style: { left: p.x / 10 + 'cqw', top: p.y / 10 + 'cqw', '--c': colorHex(c.v) } }, U.el('i'));

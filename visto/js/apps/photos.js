@@ -1196,7 +1196,11 @@
         ctlT = performance.now();
         ctl.classList.toggle('ph-live', on);
         ctlS.to(on ? 1 : 0, { response: on ? 0.42 : 0.5 });
-        if (on) { renderDots(); titleVis(true); } else if (performance.now() > titleUntil) titleVis(false);
+        if (on) {
+          renderDots(); titleVis(true);
+          // Erst-Hinweis überlagert sonst die Taste „Hinzufügen“
+          const h = root.querySelector('.ph-hint'); if (h) h.classList.remove('ph-on');
+        } else if (performance.now() > titleUntil) titleVis(false);
         ctx.line(on ? 0.6 : 0.3);
       }
       function poke() { ctlT = performance.now(); }
@@ -1351,7 +1355,7 @@
         data.hinted = true; ctx.save();
         const hint = U.el('div', { class: 'ph-hint', text: 'Antippen für Bedienung\nWischen zum Blättern' });
         root.appendChild(hint);
-        ctx.timeout(() => hint.classList.add('ph-on'), 900);
+        ctx.timeout(() => { if (!ctlOn) hint.classList.add('ph-on'); }, 900);
         ctx.timeout(() => hint.classList.remove('ph-on'), 5200);
         ctx.timeout(() => hint.remove(), 6200);
       }

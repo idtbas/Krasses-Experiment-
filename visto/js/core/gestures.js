@@ -119,6 +119,19 @@
     return api;
   };
 
+  /* Geisterklicks verhindern: Bei Touch feuert der Browser den Klick erst nach dem Loslassen an der Stelle,
+   * an der dann womöglich schon etwas Neues liegt (Visto-Schleier, frisch geöffnete App …).
+   * Ein Klick, dessen Ziel nichts mit dem Ziel des Aufsetzens zu tun hat, wird verworfen. */
+  let downT = null, downType = '', downAt = 0;
+  window.addEventListener('pointerdown', (e) => { downT = e.target; downType = e.pointerType; downAt = performance.now(); }, true);
+  window.addEventListener('click', (e) => {
+    const d = downT; downT = null;
+    if (!d || downType === 'mouse' || !e.isTrusted || performance.now() - downAt > 1500) return;
+    const t = e.target;
+    if (!t || !t.closest || !t.closest('.vos-display') || t.closest('label, input, textarea, select')) return;
+    if (d.isConnected && t !== d && !d.contains(t) && !t.contains(d)) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
+
   /** alle laufenden Gesten außer der des Besitzers abbrechen (z. B. Shell übernimmt Zurück-Wischen) */
   const all = new Set();
   V.gesture.claim = function (owner) {

@@ -17,7 +17,8 @@
     showing = true;
     const o = queue.shift();
     const icon = U.el('div', { class: 'vos-icon', style: { '--ic': o.color || V.store.get('settings.accent') }, html: V.icon(o.icon || 'bell') });
-    const el = U.el('div', { class: 'vos-banner' }, icon, U.el('div', null, U.el('b', { text: o.title || '' }), o.body ? U.el('small', { text: o.body }) : null));
+    // data-nogesture: Hochwischen auf dem Hinweis schließt nur ihn (öffnet nicht zusätzlich den Orbit)
+    const el = U.el('div', { class: 'vos-banner', attrs: { 'data-nogesture': 'all' } }, icon, U.el('div', null, U.el('b', { text: o.title || '' }), o.body ? U.el('small', { text: o.body }) : null));
     V.display.overlay.appendChild(el);
     const dnd = V.store.get('settings.dnd');
     if (!dnd && !o.silent) { V.sound.play(o.sound || 'notify'); V.haptic([10, 40, 10]); }
@@ -67,8 +68,9 @@
         V.display.top.appendChild(el);
         V.visto && V.visto.setLine(0);
         requestAnimationFrame(() => el.classList.add('on'));
-        if (o.alarm && !V.store.get('settings.dnd')) stopAlarm = V.sound.alarm(o.alarm);
-        else V.sound.play(o.sound || 'notify');
+        // Wecker und Timer klingeln auch bei „Nicht stören“ (wie bei Apple); sonst nur Hinweiston ohne „Nicht stören“
+        if (o.alarm) stopAlarm = V.sound.alarm(o.alarm);
+        else if (!V.store.get('settings.dnd')) V.sound.play(o.sound || 'notify');
         // Rand pulsiert im Takt
         V.rim.arc('alert', { value: 1, color, width: 12, glow: 1.4, alpha: 1, smooth: false });
         let ph = 0;

@@ -273,10 +273,35 @@
     tail,
   });
 
+  /** Bereich (logisch) eines Bogens inkl. Leuchten/Kopf; null = ganzer Kreis */
+  function arcBox(a, box) {
+    const v = a.smooth ? a.shown : a.value;
+    if (a.track) return null;
+    if (v <= 0.0005) return box;
+    if (v >= 0.9995) return null;
+    const a0 = a.from, a1 = a.from + Math.min(1, v) * 360 * (a.dir || 1);
+    const lo = Math.min(a0, a1), hi = Math.max(a0, a1);
+    const pts = [V.display.pt(lo, a.r), V.display.pt(hi, a.r)];
+    for (let c = Math.ceil(lo / 90) * 90; c <= hi; c += 90) pts.push(V.display.pt(c, a.r));
+    const pad = a.width * 2 + 18;
+    for (const p of pts) {
+      if (!box) box = [p.x - pad, p.y - pad, p.x + pad, p.y + pad];
+      else { box[0] = Math.min(box[0], p.x - pad); box[1] = Math.min(box[1], p.y - pad); box[2] = Math.max(box[2], p.x + pad); box[3] = Math.max(box[3], p.y + pad); }
+    }
+    return box;
+  }
+
   V.on('boot:fx', () => {
     V.fx.add({
       z: 10,
       active: () => arcs.size > 0 || loaders.size > 0 || pulses.length > 0 || aurora > 0 || auroraTarget > 0 || !!level,
+      // nur Bögen (z. B. Stoppuhr/Timer im Hintergrund): kleiner Bereich statt ganzer Fläche
+      bounds() {
+        if (loaders.size || pulses.length || aurora > 0 || auroraTarget > 0 || level) return null;
+        let box;   // undefined = noch leer, null = ganze Fläche
+        for (const a of arcs.values()) { box = arcBox(a, box); if (box === null) return null; }
+        return box || [0, 0, 1, 1];
+      },
       draw(ctx, g, t, dt) {
         // App-Bögen treten zurück, solange eine Systemebene darüber offen ist
         const cover = (V.control && V.control.isOpen) || (V.faceEditor && V.faceEditor.isOpen) || (V.convo && V.convo.active);

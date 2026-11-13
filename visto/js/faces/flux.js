@@ -11,7 +11,7 @@
   const FAMILY = "'Inter Tight', system-ui, sans-serif";
 
   V.css('ffx', `
-    .ffx-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .ffx-cv { position: absolute; left: 0; top: 30%; width: 100%; height: 40%; }
     .ffx-date { transition: opacity .6s ease; }
     .ffx-cx { position: absolute; left: 20%; right: 20%; top: 67.5%; text-align: center; font-size: 3.6cqw; font-weight: 560;
       color: rgba(255,255,255,.55); white-space: nowrap; transition: opacity .6s ease; }
@@ -53,17 +53,22 @@
       const field = document.createElement('canvas'), f = field.getContext('2d');
       const mask = document.createElement('canvas'), mk = mask.getContext('2d');
       const glow = document.createElement('canvas'), gl = glow.getContext('2d');
+      const lo = document.createElement('canvas'), lc = lo.getContext('2d');
       let canBlur = false;
       try { gl.filter = 'blur(2px)'; canBlur = gl.filter === 'blur(2px)'; gl.filter = 'none'; } catch (e) { canBlur = false; }
 
       // Textbox in logischen Einheiten
       const BOX = { x: 40, y: 330, w: 920, h: 340 };
-      let px = 0, k = 1;
+      // Leinwand deckt nur das Band y 300…700 ab (Ziffern + Leuchten) – 40 % der Fläche je Bild hochladen
+      const CV_Y = 300, CV_H = 400;
+      let px = 0, k = 1, maskKey = '';
       function size() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         px = Math.max(200, Math.round((V.display.size || 360) * dpr));
         k = px / 1000;
-        if (cv.width !== px) { cv.width = px; cv.height = px; }
+        const ch = Math.round(CV_H * k);
+        if (cv.width !== px || cv.height !== ch) { cv.width = px; cv.height = ch; }
+        maskKey = '';
         const bw = Math.round(BOX.w * k), bh = Math.round(BOX.h * k);
         if (field.width !== bw || field.height !== bh) { field.width = mask.width = bw; field.height = mask.height = bh; }
         const gw = Math.max(40, Math.round(bw / 4)), gh = Math.max(16, Math.round(bh / 4));
@@ -86,6 +91,7 @@
         const total = 4 * cell + colW;                       // em
         const size = Math.min(320, 860 / total);
         L = { w, size, cell, colW, cap, total };
+        maskKey = '';
       }
 
       // Zeichen mit Übergang: {ch, prev, t (0…1), sp}
@@ -108,6 +114,11 @@
       }
 
       function drawMask() {
+        // Maske nur neu setzen, wenn sich Ziffern, Übergänge oder Satz ändern
+        let key = L.w + '|' + L.size;
+        for (const c of chars) key += '|' + c.ch + (c.prev !== null && c.t < 1 ? c.prev + c.t.toFixed(4) : '');
+        if (key === maskKey) return;
+        maskKey = key;
         const s = k;   // Pixel je logische Einheit
         mk.setTransform(1, 0, 0, 1, 0, 0);
         mk.clearRect(0, 0, mask.width, mask.height);
@@ -139,10 +150,13 @@
 
       let T = Math.random() * 100;
       function drawField(cols) {
-        const s = k;
+        // Farbfeld ist weich → in ¼ Auflösung malen und hochskalieren (spart ~90 % Pixelarbeit je Bild)
+        const lw = Math.max(8, Math.ceil(field.width / 4)), lh = Math.max(4, Math.ceil(field.height / 4));
+        if (lo.width !== lw || lo.height !== lh) { lo.width = lw; lo.height = lh; }
+        const s = lw / BOX.w;
+        const f0 = f;
+        { const f = lc;   // gleiche Zeichenbefehle wie zuvor, nur auf der kleinen Fläche
         f.globalCompositeOperation = 'source-over';
-        f.setTransform(1, 0, 0, 1, 0, 0);
-        f.clearRect(0, 0, field.width, field.height);
         f.setTransform(s, 0, 0, s, -BOX.x * s, -BOX.y * s);
         // Grundton
         f.fillStyle = U.mix(cols[1], '#000000', 0.3);
@@ -167,6 +181,12 @@
         sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,.13)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
         f.fillStyle = sh;
         f.fillRect(BOX.x, BOX.y, BOX.w, BOX.h);
+        }
+        f0.setTransform(1, 0, 0, 1, 0, 0);
+        f0.globalCompositeOperation = 'copy';
+        f0.imageSmoothingEnabled = true;
+        f0.drawImage(lo, 0, 0, lo.width, lo.height, 0, 0, field.width, field.height);
+        f0.globalCompositeOperation = 'source-over';
         // mit der Schrift ausstanzen
         f.setTransform(1, 0, 0, 1, 0, 0);
         f.globalCompositeOperation = 'destination-in';
@@ -180,8 +200,8 @@
         drawMask();
         drawField(cols);
         g.setTransform(1, 0, 0, 1, 0, 0);
-        g.clearRect(0, 0, px, px);
-        const bx = Math.round(BOX.x * k), by = Math.round(BOX.y * k);
+        g.clearRect(0, 0, cv.width, cv.height);
+        const bx = Math.round(BOX.x * k), by = Math.round((BOX.y - CV_Y) * k);
         if (o.glow && !amb) {
           gl.setTransform(1, 0, 0, 1, 0, 0);
           gl.clearRect(0, 0, glow.width, glow.height);

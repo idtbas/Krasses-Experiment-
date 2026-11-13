@@ -27,6 +27,11 @@
   function st() {
     if (!S) S = V.store.app('alarm', { alarms: [], lastH: 7, lastM: 0 });
     if (!Array.isArray(S.alarms)) S.alarms = [];
+    // kaputte Einträge (z. B. alter Speicherstand) verwerfen, Wochentage absichern
+    if (S.alarms.some((a) => !a || !isFinite(a.h) || !isFinite(a.m) || !Array.isArray(a.days))) {
+      S.alarms = S.alarms.filter((a) => a && isFinite(a.h) && isFinite(a.m));
+      for (const a of S.alarms) if (!Array.isArray(a.days)) a.days = [];
+    }
     return S;
   }
   V.on('store:reset', () => { S = null; });

@@ -62,10 +62,12 @@
     }
     return PALETTES[st] || PALETTES.aurora;
   }
-  function palAt(pal, f) {
+  /** Farbe an Stelle f (0…1, umlaufend) der Palette als rgba-Text – ohne Umweg über Hex (läuft ~70× je Bild) */
+  function palRgba(pal, f, alpha) {
     f = U.wrap(f, 1) * pal.length;
     const i = Math.floor(f), k = f - i;
-    return U.mix(pal[i % pal.length], pal[(i + 1) % pal.length], k);
+    const a = U.hexToRgb(pal[i % pal.length]), b = U.hexToRgb(pal[(i + 1) % pal.length]);
+    return 'rgba(' + Math.round(a[0] + (b[0] - a[0]) * k) + ',' + Math.round(a[1] + (b[1] - a[1]) * k) + ',' + Math.round(a[2] + (b[2] - a[2]) * k) + ',' + alpha + ')';
   }
 
   /** Mittellinie für Strang j berechnen. Liefert {cx, cy, R, span, closed} */
@@ -129,12 +131,12 @@
       const f = sh.closed ? 1 : Math.min(0.999, sh.span / 360);
       const n = 10;
       for (let i = 0; i <= n; i++) {
-        gr.addColorStop((i / n) * f, U.rgba(palAt(pal, i / n + phase), alpha));
+        gr.addColorStop((i / n) * f, palRgba(pal, i / n + phase, alpha));
       }
-      if (!sh.closed) gr.addColorStop(Math.min(1, f + 0.001), U.rgba(palAt(pal, phase), alpha));
+      if (!sh.closed) gr.addColorStop(Math.min(1, f + 0.001), palRgba(pal, phase, alpha));
     } else {
       gr = c.createLinearGradient(sh.cx - sh.R, sh.cy, sh.cx + sh.R, sh.cy);
-      for (let i = 0; i <= 4; i++) gr.addColorStop(i / 4, U.rgba(palAt(pal, i / 4 + phase), alpha));
+      for (let i = 0; i <= 4; i++) gr.addColorStop(i / 4, palRgba(pal, i / 4 + phase, alpha));
     }
     return gr;
   }
@@ -407,7 +409,11 @@
   });
 
   V.on('boot:fx', () => {
-    V.fx.add({ z: 20, active: () => lineA.value > 0.01 || morph.value > 0.01, draw });
+    V.fx.add({
+      z: 20, active: () => lineA.value > 0.01 || morph.value > 0.01, draw,
+      // ruhende Linie unten (Bogen ±14°, Wellen, Hüpfer, Leuchten): kleiner Bereich; sonst ganze Fläche
+      bounds: () => (Math.abs(morph.value) < 0.002 && Math.abs(hopS.value) < 1.2 ? [300, 790, 700, 1000] : null),
+    });
   });
   V.on('notify', () => { if (!isOpen) visto.hop(); });
   // Linie je nach Bildschirm

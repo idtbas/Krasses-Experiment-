@@ -140,7 +140,7 @@
       el.style.background = '#000';
       content.style.transform = '';
       content.style.opacity = '';
-      if (under) under.style.visibility = 'hidden';
+      if (under && !(backDrag && backDrag.a === me)) under.style.visibility = 'hidden';
       busy = false;
       if (inst.shown) V.safe(() => inst.shown());
       return app;
@@ -238,6 +238,7 @@
     if (!o.quick) V.sound.play('close');
     const start = o.progress || 0;
     const content = a.content, el = a.el;
+    el.style.pointerEvents = 'none';   // schließende App lässt Berührungen zur Ebene darunter durch
     const fromScale = o.fromScale || 1;
     const fromX = o.fromX || 0;
     content.style.transformOrigin = `${target.x / 10}% ${target.y / 10}%`;
@@ -378,6 +379,7 @@
   function beginBack() {
     if (!app && shell.mode === 'launcher') { backDrag = { launcher: true }; return; }
     if (!app) return;
+    if (app.sp) app.sp.set(1);   // Öffnen noch nicht fertig → sofort abschließen, damit es nicht gegen den Finger arbeitet
     const under = app.from === 'launcher' ? V.launcher.el : homeEl;
     if (app.from === 'launcher' && !V.launcher.visible) V.launcher.show({ instant: true, reset: false });
     under.style.visibility = '';
@@ -386,6 +388,7 @@
   }
   function moveBack(p) {
     if (!backDrag || backDrag.launcher) return;
+    if (backDrag.a !== app) return;   // App wurde inzwischen anderweitig geschlossen
     const k = U.clamp(p.dx / 520, 0, 1);
     const e = 1 - Math.pow(1 - k, 2);
     backDrag.k = k;
@@ -413,8 +416,10 @@
     } else springBack(a, b);
   }
   function springBack(a, b) {
+    if (app !== a) return;   // schon geschlossen: closeApp hat die Ebenen aufgeräumt
     const k0 = b.k || 0;
     V.tween({ duration: 0.35, ease: V.ease.smooth, onUpdate: (t) => {
+      if (app !== a) return;
       const k = k0 * (1 - t);
       const e = 1 - Math.pow(1 - k, 2);
       a.el.style.transform = `scale(${(1 - 0.24 * e).toFixed(4)})`;

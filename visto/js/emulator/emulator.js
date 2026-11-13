@@ -18,7 +18,8 @@
     const w = window.innerWidth, h = window.innerHeight;
     const full = document.body.classList.contains('emu-full');
     // Handy quer: Gerät links, Eingabe rechts (sonst passt das Display nicht auf den Bildschirm)
-    const land = !full && w > h && h <= 600 && w >= 500;
+    const coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);   // Tablet quer ebenso
+    const land = !full && w > h && w >= 500 && (h <= 600 || (coarse && w >= h * 1.15));
     document.body.classList.toggle('emu-land', land);
     const ring = 2 * (0.028 + 0.022);           // Rahmen relativ zu D
     let D;
