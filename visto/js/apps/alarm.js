@@ -101,13 +101,18 @@
   }
   function daysWords(a) {
     const d = a.days;
-    if (!d.length) return a.next ? V.fmt.relDay(new Date(a.next)).toLowerCase().replace(/^(montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)$/, 'am $1') : 'einmalig';
+    if (!d.length) return a.next ? whenWord(a.next) : 'einmalig';
     if (d.length === 7) return 'täglich';
     const key = d.slice().sort().join('');
     if (key === '12345') return 'werktags';
     if (key === '06') return 'am Wochenende';
     const names = d.map((x) => LONG[x] + 's');
     return names.length > 1 ? names.slice(0, -1).join(', ') + ' und ' + names[names.length - 1] : names[0];
+  }
+  /** 'heute' | 'morgen' | 'am Samstag' */
+  function whenWord(ms) {
+    const r = V.fmt.relDay(new Date(ms));
+    return r === 'Heute' ? 'heute' : r === 'Morgen' ? 'morgen' : r === 'Gestern' ? 'gestern' : 'am ' + r;
   }
   /** 'in 9 Std. 12 Min.' */
   function inText(ms) {
@@ -163,7 +168,8 @@
     });
     // Weckbildschirm glüht warm (eigene Ebene im Hinweis, nur dieses Element)
     if (glow && V.display.top) {
-      const el = V.display.top.querySelector('.vos-alert:last-of-type');
+      const all = V.display.top.querySelectorAll('.vos-alert');
+      const el = all[all.length - 1];
       if (el) { el.classList.add('alm-alert'); el.prepend(sunLayers(true)); }
     }
     const v = await p;
@@ -271,14 +277,12 @@
 .alm-dial { pointer-events: none; }
 .alm-dial .mk { transition: opacity .4s; }
 .alm-view { position: absolute; inset: 0; will-change: transform, opacity; }
-.alm .alm-list.vos-rlist { padding: 22cqw 0 36cqw;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 14%, #000 21%, #000 79%, transparent 88%);
-  mask-image: linear-gradient(to bottom, transparent 0, transparent 14%, #000 21%, #000 79%, transparent 88%); }
-.alm-head { display: flex; flex-direction: column; align-items: center; text-align: center; margin: 0 auto 4.2cqw; }
-.alm-head .vos-label { color: ${U.rgba(COLOR, 0.95)}; }
-.alm-next { margin-top: 1.4cqw; font-size: 5.4cqw; font-weight: 600; letter-spacing: -.015em; white-space: nowrap; }
-.alm-in { margin-top: .5cqw; font-size: 3.5cqw; font-weight: 500; color: rgba(255,255,255,.5); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.alm-add { margin-top: 3.4cqw; height: 9.6cqw; padding: 0 5cqw 0 4cqw; background: ${U.rgba(COLOR, 0.18)}; color: ${COLOR}; font-size: 3.7cqw; }
+.alm .alm-list.vos-rlist { padding: 21cqw 0 36cqw;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 16.5%, #000 22.5%, #000 79%, transparent 88%);
+  mask-image: linear-gradient(to bottom, transparent 0, transparent 16.5%, #000 22.5%, #000 79%, transparent 88%); }
+.alm-narc { pointer-events: none; }
+.alm-head { display: flex; flex-direction: column; align-items: center; text-align: center; margin: 0 auto 3cqw; }
+.alm-add { height: 9.6cqw; padding: 0 5cqw 0 4cqw; background: ${U.rgba(COLOR, 0.18)}; color: ${COLOR}; font-size: 3.7cqw; }
 .alm-add svg { width: 4.6cqw; height: 4.6cqw; }
 .alm-row { position: relative; width: 78cqw; margin: 0 auto 2.2cqw; padding: 3.2cqw 4.6cqw 3.2cqw 7cqw; border-radius: 8cqw;
   display: flex; align-items: center; gap: 3cqw; background: rgba(255,255,255,.075); transform-origin: 50% 50%;
@@ -396,7 +400,7 @@
     return cleanDays(out);
   }
   function confirmSay(a) {
-    const when = a.days.length ? daysWords(a) + ' um ' + spokenTime(a.h, a.m) : (V.fmt.relDay(new Date(a.next)) === 'Heute' ? 'heute' : V.fmt.relDay(new Date(a.next)) === 'Morgen' ? 'morgen' : 'am ' + V.fmt.relDay(new Date(a.next))) + ' um ' + spokenTime(a.h, a.m);
+    const when = (a.days.length ? daysWords(a) : whenWord(a.next)) + ' um ' + spokenTime(a.h, a.m);
     return `Wecker gestellt: ${when}${a.label ? ' – „' + a.label + '“' : ''}. Das ist ${inWords(a.next - now())}.`;
   }
   function alarmCard(a) {
@@ -413,21 +417,22 @@
     return { type: 'el', el };
   }
 
-  function actSet(args) {
+  function actSet(args, atOverride) {
     const m = String(args.time || '').match(/(\d{1,2})[:.h ]?(\d{2})?/);
     if (!m) return { say: 'Um wie viel Uhr soll ich dich wecken?', emotion: 'confused' };
     const h = +m[1], mi = m[2] ? +m[2] : 0;
     if (h > 23 || mi > 59) return { say: 'Diese Uhrzeit verstehe ich nicht.', emotion: 'confused' };
     const days = daysFromArg(args.days);
-    let at = null;
-    if (!days.length && args.date) {
+    let at = !days.length && atOverride && atOverride > now() ? atOverride : null;
+    if (!at && !days.length && args.date) {
       const dm = String(args.date).match(/(\d{4})-(\d{2})-(\d{2})/);
       if (dm) { const d = new Date(+dm[1], +dm[2] - 1, +dm[3], h, mi, 0, 0); if (d.getTime() > now()) at = d.getTime(); }
     }
     const label = args.label ? String(args.label).slice(0, 28) : '';
-    const dup = st().alarms.find((x) => x.h === h && x.m === mi && x.days.join() === days.join() && x.on);
-    const a = dup && !at ? dup : add({ h, m: mi, days, label, at });
-    if (dup && !at && label) { dup.label = label; changed(); }
+    const want = at || nextOf({ h, m: mi, days, at: null, snooze: null }, now());
+    const dup = st().alarms.find((x) => x.on && x.h === h && x.m === mi && x.days.join() === days.join() && x.next === want);
+    const a = dup || add({ h, m: mi, days, label, at });
+    if (dup && label) { dup.label = label; changed(); }
     V.sound.play('success');
     return { say: confirmSay(a), card: alarmCard(a), emotion: 'happy' };
   }
@@ -435,7 +440,7 @@
     const list = sorted();
     if (!list.length) return { say: 'Du hast keinen Wecker gestellt.', card: { type: 'icon', icon: 'alarm', color: COLOR, title: 'Keine Wecker', sub: 'Sag „Weck mich um 7“' } };
     const on = list.filter((a) => a.on);
-    const parts = (on.length ? on : list).slice(0, 4).map((a) => (a.days.length ? daysWords(a) : a.next ? V.fmt.relDay(new Date(a.next)).toLowerCase() : 'einmalig') + ' um ' + spokenTime(a.h, a.m));
+    const parts = (on.length ? on : list).slice(0, 4).map((a) => daysWords(a) + ' um ' + spokenTime(a.h, a.m));
     const joined = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' und ' + parts[parts.length - 1] : parts[0];
     let say;
     if (!on.length) say = `Du hast ${list.length === 1 ? 'einen Wecker' : list.length + ' Wecker'}, aber keiner ist an.`;
@@ -527,11 +532,9 @@
           const p = V.brain.parseTime(t);
           if (!p) return { say: 'Um wie viel Uhr soll ich dich wecken?', emotion: 'thinking', open: 'alarm' };
           const days = daysFromText(t) || [];
-          let at = null;
-          if (!days.length && !(/(?<![a-zäöüß])(?:heute)(?![a-zäöüß])/.test(t) && p.date.getTime() <= now())) at = p.date.getTime();
           // Name: „namens Training“, „mit dem Namen Yoga“
           const lm = original.match(/(?:namens|mit dem Namen|Name)\s+„?([A-Za-zÄÖÜäöüß][\wÄÖÜäöüß-]{1,24})/);
-          return actSet({ time: U.pad(p.h) + ':' + U.pad(p.m), days, label: lm ? lm[1] : '', date: null, _at: at }, at);
+          return actSet({ time: U.pad(p.h) + ':' + U.pad(p.m), days, label: lm ? lm[1] : '' }, days.length ? null : p.date.getTime());
         },
       });
     },
@@ -546,7 +549,7 @@
       for (let h = 0; h < 24; h++) {
         const a = angOf(h, 0);
         const major = h % 6 === 0;
-        const nearVisto = Math.abs(a - 180) < 14;
+        const nearVisto = Math.abs(a - 180) < 14 || Math.abs(U.angDiff(a, 0)) < 8;
         const p0 = V.display.pt(a, major ? 452 : 459), p1 = V.display.pt(a, 468);
         dial.appendChild(U.svg('line', { x1: p0.x.toFixed(1), y1: p0.y.toFixed(1), x2: p1.x.toFixed(1), y2: p1.y.toFixed(1), stroke: '#fff', 'stroke-width': major ? 3.4 : 2.2, 'stroke-linecap': 'round', opacity: nearVisto ? 0.1 : major ? 0.42 : 0.2 }));
       }
@@ -554,8 +557,6 @@
         const p = V.display.pt(angOf(h, 0), 428);
         dial.appendChild(U.svg('text', { x: p.x.toFixed(1), y: (p.y + 9).toFixed(1), 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 650, fill: 'rgba(255,255,255,.34)', 'font-family': "'Inter Tight', system-ui, sans-serif", text: txt }));
       }
-      const sunIc = U.svg('g', { transform: 'translate(488 76) scale(1)', opacity: 0.0 });
-      dial.appendChild(sunIc);
       const marks = U.svg('g');
       const nowG = U.svg('g');
       const nowHalo = U.svg('circle', { cx: 500, cy: 500 - R_RING, r: 15, fill: '#fff', opacity: 0.16 });
@@ -594,11 +595,11 @@
       /* ------------------------------------------------------- Liste */
       const listV = U.el('div', { class: 'alm-view' });
       const head = U.el('div', { class: 'alm-head' });
-      const headL = U.el('div', { class: 'vos-label' });
-      const headN = U.el('div', { class: 'alm-next' });
-      const headI = U.el('div', { class: 'alm-in' });
       const addBtn = V.ui.button('Neuer Wecker', { icon: 'plus', cls: 'alm-add', onClick: () => openEdit(null) });
-      head.append(headL, headN, headI, addBtn);
+      head.append(addBtn);
+      // nächster Wecker als Schrift am oberen Bogen
+      const nextArc = V.ui.arcText({ text: '', r: 397, size: 24, weight: 700, spacing: 3.2, color: U.rgba(COLOR, 0.95) });
+      nextArc.el.classList.add('alm-narc');
       const rl = V.ui.roundList({ items: [], header: head });
       rl.el.classList.add('alm-list');
       const empty = U.el('div', { class: 'alm-empty' },
@@ -606,17 +607,18 @@
         U.el('div', { class: 'alm-et', text: 'Noch kein Wecker' }),
         U.el('div', { class: 'alm-es', text: 'Sag „Weck mich um 7“' }),
         V.ui.button('Neuer Wecker', { icon: 'plus', cls: 'alm-add', onClick: () => openEdit(null) }));
-      listV.append(rl.el, empty);
+      listV.append(rl.el, nextArc.el, empty);
       root.appendChild(listV);
 
       function rowEl(a) {
         const sw = U.el('div', { class: 'vos-switch alm-sw' + (a.on ? ' on' : ''), attrs: { role: 'switch', 'aria-checked': String(a.on), 'aria-label': 'Wecker ' + hm(a.h, a.m), 'data-tap': '1' } });
         const dd = U.el('span', { class: 'alm-dd' });
         if (a.days.length) for (const d of ORDER) dd.appendChild(U.el('i', { class: a.days.includes(d) ? 'on' : '', text: SHORT[d][0] }));
+        const txt = a.label ? (a.days.length ? a.label : a.label + ' · ' + daysText(a)) : daysText(a);
         const meta = U.el('div', { class: 'alm-rm' },
           a.sun ? U.frag(V.icon('sunrise')) : null,
-          U.el('span', { class: 'lb', text: a.label || (a.days.length ? daysText(a) : (a.on ? daysText(a) : 'Einmalig')) }),
-          a.days.length && a.label ? dd : a.days.length && !['Täglich', 'Werktags', 'Am Wochenende'].includes(daysText(a)) ? null : a.days.length ? dd : null);
+          U.el('span', { class: 'lb', text: txt }),
+          a.days.length ? dd : null);
         const row = U.el('div', { class: 'alm-row' + (a.on ? '' : ' off'), attrs: { 'data-tap': '1', role: 'button', 'aria-label': 'Wecker ' + hm(a.h, a.m) + ' bearbeiten' } },
           U.el('div', { class: 'alm-rl' }, U.el('div', { class: 'alm-rt', text: hm(a.h, a.m) }), meta), sw);
         V.ui.tap(sw, (e) => {
@@ -632,16 +634,11 @@
         const nx = upcoming();
         empty.style.display = list.length ? 'none' : '';
         rl.el.style.display = list.length ? '' : 'none';
+        nextArc.el.style.display = list.length ? '' : 'none';
         if (nx) {
-          headL.textContent = nx.snooze ? 'Schlummert' : 'Nächster Wecker';
           const d = new Date(nx.next);
-          headN.textContent = V.fmt.relDay(d) + ', ' + hm(d.getHours(), d.getMinutes());
-          headI.textContent = inText(nx.next - now()) + (nx.label ? ' · ' + nx.label : '');
-        } else {
-          headL.textContent = 'Alle Wecker aus';
-          headN.textContent = 'Kein Wecker aktiv';
-          headI.textContent = 'Schalter antippen zum Einschalten';
-        }
+          nextArc.set((nx.snooze ? 'Schlummert bis ' + hm(d.getHours(), d.getMinutes()) : V.fmt.relDay(d) + ' ' + hm(d.getHours(), d.getMinutes())) + ' · ' + inText(nx.next - now()));
+        } else nextArc.set('Alle Wecker aus');
         rl.setItems(list.map((a) => ({ el: rowEl(a) })));
         drawMarks();
         if (mode === 'list') { if (nx) rimArc(nx.next); else ctx.rim.remove('next'); }
@@ -733,7 +730,6 @@
         draft.sun = a ? a.sun : true;
         hw.set(draft.h, false); mw.set(draft.m, false);
         editAng.set(angOf(draft.h, draft.m));
-        V.ui.tap; // (Platzhalter für Lint)
         leftB.innerHTML = V.icon(a ? 'trash' : 'close');
         leftB.classList.toggle('del', !!a);
         leftB.setAttribute('aria-label', a ? 'Löschen' : 'Abbrechen');

@@ -195,28 +195,30 @@
     // Sonne
     glow(c, sx, sy, S * 0.12, '#fff1cf', 0.7);
     disk(c, sx, sy, S * 0.04, '#fffaf0', 'rgba(255,236,200,0)');
-    // Grate
-    const haze = '#cf6f8a';
+    // Grate: hinten hell im Dunst, vorn fast schwarz
+    const tops = ['#e98c98', '#b45f86', '#6e3a6c', '#33203f', '#120b18'];
+    const hazes = ['#f2a0a0', '#d77a92', '#9a4f7c', '#4d2c52'];
     const L = 5;
     for (let k = 0; k < L; k++) {
       const t = k / (L - 1);
-      const side = 1.25 - t * 0.35;
-      const env = (u) => { const d = Math.abs(u - 0.5) * 2; return 0.16 + 0.84 * Math.pow(d, side) + 0.06 * Math.sin(u * 9 + k * 2); };
-      const base = S * (0.6 + t * 0.29), amp = S * (0.3 - t * 0.07);
-      const pts = ridge(n, { base, amp, scale: 2.4 + k * 0.8, sharp: true, oct: 6, env, off: k * 3.1, row: 40 + k * 5 });
-      const top = U.mix(haze, '#120a1c', Math.pow(t, 0.62));
-      const bot = U.mix(top, '#05030a', 0.55);
-      below(c, pts, lg(c, 0, base - amp, 0, base + S * 0.12, [[0, top], [1, bot]]));
+      const side = 1.3 - t * 0.45;
+      const tilt = k % 2 ? 0.08 : -0.06;
+      const env = (u) => { const d = Math.abs(u - 0.5 + tilt * (u - 0.5)) * 2; return 0.13 + 0.87 * Math.pow(d, side) + 0.07 * Math.sin(u * 8 + k * 2.3); };
+      const base = S * (0.6 + t * 0.3), amp = S * (0.31 - t * 0.07);
+      const pts = ridge(n, { base, amp, scale: 2.2 + k * 0.75, sharp: true, oct: 6, env, off: k * 3.1, row: 40 + k * 5 });
+      const top = tops[k], bot = U.mix(top, '#05030a', 0.5);
+      below(c, pts, lg(c, 0, base - amp, 0, base + S * 0.1, [[0, top], [1, bot]]));
       if (k < 3) {
-        // glühende Grate
+        // Alpenglühen auf den Graten
         c.save(); c.globalCompositeOperation = 'lighter';
-        c.strokeStyle = rgba('#ffae86', 0.38 * (1 - t)); c.lineWidth = 2.2;
+        c.strokeStyle = rgba('#ffb48a', 0.5 * (1 - t * 0.7)); c.lineWidth = 2.4 - t;
         strokePts(c, pts);
         c.restore();
       }
       if (k < L - 1) {
-        c.fillStyle = lg(c, 0, base - amp * 0.35, 0, base + S * 0.1, [[0, rgba(haze, 0)], [1, rgba(haze, 0.3 * (1 - t * 0.8))]]);
-        c.fillRect(0, base - amp * 0.35, S, amp * 0.35 + S * 0.1);
+        const hz2 = hazes[k];
+        c.fillStyle = lg(c, 0, base - amp * 0.45, 0, base + S * 0.1, [[0, rgba(hz2, 0)], [0.7, rgba(hz2, 0.38)], [1, rgba(hz2, 0.5)]]);
+        c.fillRect(0, base - amp * 0.45, S, amp * 0.45 + S * 0.1);
       }
     }
     grain(c, 0.07);
@@ -284,7 +286,7 @@
   /** 3 · Polarlicht über Fichten, gespiegelt im See */
   function sAurora(c, R, n) {
     const hz = S * 0.7;
-    c.fillStyle = lg(c, 0, 0, 0, hz, [[0, '#01020a'], [0.45, '#03101e'], [0.8, '#08242e'], [1, '#0f3a40']]);
+    c.fillStyle = lg(c, 0, 0, 0, hz, [[0, '#010208'], [0.5, '#020a16'], [0.85, '#03141c'], [1, '#062028']]);
     c.fillRect(0, 0, S, S);
     stars(c, R, 1500, 0, hz, { fade: 0.6, maxR: 1.3 });
     for (let i = 0; i < 22; i++) brightStar(c, R() * S, R() * hz * 0.6, 0.9 + R() * 0.8, '#cfe2ff', false);
@@ -292,18 +294,21 @@
     const Q = 4, A = cv(S / Q), a = A.getContext('2d');
     a.globalCompositeOperation = 'lighter';
     const curtains = [
-      { y: 0.36, amp: 0.1, len: 0.3, f: 1.7, ph: 0.3, a: 1 },
-      { y: 0.27, amp: 0.07, len: 0.22, f: 2.6, ph: 4.1, a: 0.55 },
+      { y: 0.5, amp: 0.07, len: 0.34, f: 1.25, ph: 0.6, a: 1, tilt: -0.1 },
+      { y: 0.36, amp: 0.05, len: 0.24, f: 2.2, ph: 4.1, a: 0.5, tilt: 0.06 },
     ];
-    const baseOf = (cu, u) => S * (cu.y + cu.amp * (Math.sin(u * TAU * cu.f * 0.5 + cu.ph) * 0.6 + (n(u * 3 + cu.ph, 50) - 0.5) * 1.2)) + S * 0.08 * Math.pow(Math.abs(u - 0.5) * 2, 2);
+    const baseOf = (cu, u) => S * (cu.y + cu.tilt * (u - 0.5) + cu.amp * (Math.sin(u * TAU * cu.f * 0.5 + cu.ph) * 0.7 + (n(u * 3 + cu.ph, 50) - 0.5) * 1.1));
     for (const cu of curtains) {
       for (let x = 0; x < S / Q; x++) {
         const u = x / (S / Q);
         const by = baseOf(cu, u) / Q;
-        const I = cu.a * Math.pow(fbm(n, u * 14 + cu.ph, 3, 3), 2.2) * 2.6 * (0.55 + 0.45 * Math.sin(u * Math.PI));
+        const I = cu.a * (0.25 + Math.pow(fbm(n, u * 12 + cu.ph, 3, 3), 2) * 2.4) * (0.45 + 0.55 * Math.sin(u * Math.PI));
         const H = (S * cu.len * (0.6 + 0.8 * n(u * 5 + 9, cu.ph))) / Q;
-        a.fillStyle = lg(a, 0, by, 0, by - H, [[0, 'rgba(120,255,170,0)'], [0.04, `rgba(140,255,180,${0.9 * I})`], [0.22, `rgba(60,235,160,${0.6 * I})`], [0.6, `rgba(70,170,200,${0.25 * I})`], [0.85, `rgba(170,90,255,${0.16 * I})`], [1, 'rgba(170,90,255,0)']]);
+        a.fillStyle = lg(a, 0, by, 0, by - H, [[0, 'rgba(120,255,170,0)'], [0.05, `rgba(150,255,185,${0.85 * I})`], [0.24, `rgba(60,235,160,${0.55 * I})`], [0.6, `rgba(60,170,200,${0.22 * I})`], [0.86, `rgba(170,90,255,${0.15 * I})`], [1, 'rgba(170,90,255,0)']]);
         a.fillRect(x, by - H, 1.4, H + 3);
+        // diffuser Schein unter der Kante
+        a.fillStyle = lg(a, 0, by - 1, 0, by + H * 0.22, [[0, `rgba(90,255,170,${0.22 * I})`], [1, 'rgba(90,255,170,0)']]);
+        a.fillRect(x, by - 1, 1.4, H * 0.22 + 1);
       }
     }
     c.save(); c.globalCompositeOperation = 'lighter';
@@ -321,11 +326,11 @@
         c.fillRect(x, by - H, 1, H);
       }
     }
-    glow(c, S * 0.5, S * 0.42, S * 0.6, '#38e0a0', 0.12);
+    glow(c, S * 0.5, S * 0.52, S * 0.62, '#38e0a0', 0.13);
     c.restore();
     // ferne Hügel und Ufer
-    const hill = ridge(n, { base: hz, amp: S * 0.06, scale: 2, oct: 5, off: 7, row: 20 });
-    below(c, hill, '#06121a', hz + 6);
+    const hill = ridge(n, { base: hz, amp: S * 0.055, scale: 2, oct: 5, off: 7, row: 20 });
+    below(c, hill, '#030a10', hz + 6);
     c.fillStyle = '#020609';
     c.fillRect(0, hz - 1, S, 7);
     // Fichten am Ufer (am Rand größer: rahmt den Kreis)
@@ -373,17 +378,16 @@
     disk(c, sx, sy, S * 0.034, '#fff8ea', 'rgba(255,230,200,0)');
     c.fillStyle = lg(c, 0, hz - S * 0.09, 0, hz + S * 0.03, [[0, 'rgba(255,205,165,0)'], [1, 'rgba(255,205,165,.45)']]);
     c.fillRect(0, hz - S * 0.09, S, S * 0.12);
-    const haze = '#f2b694';
     const layers = [
-      { base: 0.625, amp: 0.06, peaks: [[0.12, 0.8], [0.55, 1], [0.86, 0.7]], w: 0.16, d: 0 },
-      { base: 0.68, amp: 0.09, peaks: [[0.3, 1], [0.78, 0.85]], w: 0.2, d: 0.2 },
-      { base: 0.76, amp: 0.12, peaks: [[0.08, 0.7], [0.58, 1]], w: 0.24, d: 0.45 },
-      { base: 0.88, amp: 0.15, peaks: [[0.32, 1], [0.95, 0.8]], w: 0.28, d: 0.7 },
-      { base: 1.02, amp: 0.17, peaks: [[0.7, 1]], w: 0.36, d: 1 },
+      { base: 0.625, amp: 0.06, peaks: [[0.12, 0.8], [0.55, 1], [0.86, 0.7]], w: 0.16, d: 0, lit: '#efab8c', sh: '#b97a92' },
+      { base: 0.69, amp: 0.1, peaks: [[0.3, 1], [0.8, 0.85]], w: 0.2, d: 0.25, lit: '#f6a878', sh: '#99566e' },
+      { base: 0.78, amp: 0.13, peaks: [[0.06, 0.75], [0.6, 1]], w: 0.24, d: 0.5, lit: '#faa864', sh: '#7a3846' },
+      { base: 0.9, amp: 0.16, peaks: [[0.34, 1], [0.97, 0.8]], w: 0.29, d: 0.75, lit: '#f79a4e', sh: '#5a2430' },
+      { base: 1.04, amp: 0.19, peaks: [[0.74, 1]], w: 0.38, d: 1, lit: '#ee8a3e', sh: '#3e161c' },
     ];
     for (const L of layers) {
-      const lit = U.mix(haze, '#f39a52', L.d), lit2 = U.mix(haze, '#c4683a', L.d);
-      const sh = U.mix('#c98a96', '#4a1e22', L.d);
+      const lit = L.lit, lit2 = U.mix(L.lit, '#7a2e22', 0.35 + 0.2 * L.d);
+      const sh = L.sh;
       const base = S * L.base, amp = S * L.amp;
       const bump = (dx, w) => (dx < 0 ? Math.exp(-Math.pow(-dx / (w * 1.15), 1.25)) : Math.exp(-Math.pow(dx / (w * 0.52), 1.25)));
       const yAt = (x) => {
@@ -422,7 +426,7 @@
         c.lineTo(xr, py + depth);
         for (let x = xr; x >= px; x -= 4) c.lineTo(x, yAt(x));
         c.closePath();
-        c.fillStyle = lg(c, px, py, px + S * L.w, py + depth * 0.6, [[0, U.mix(sh, lit, 0.15)], [1, U.mix(sh, '#000000', 0.25)]]);
+        c.fillStyle = lg(c, px, py, px + S * L.w, py + depth * 0.6, [[0, U.mix(sh, lit, 0.12)], [0.5, sh], [1, U.mix(sh, '#000000', 0.3)]]);
         c.fill();
         // Messerkante im Licht
         c.strokeStyle = rgba('#ffe2c4', 0.45 * (1 - L.d * 0.4));
@@ -464,11 +468,11 @@
       const pts = [];
       for (let x = -20; x <= S + 20; x += 8) pts.push([x, gy(x) - 1]);
       below(c, pts, col);
-      // Nebel sammelt sich unten
-      const ft = S * (0.32 + t * 0.3), fb = gy(S / 2) + S * 0.04;
-      c.fillStyle = lg(c, 0, ft, 0, fb, [[0, rgba(fog, 0)], [1, rgba(fog, 0.42 - t * 0.12)]]);
-      c.fillRect(0, ft, S, S - ft);
       if (k < L - 1) {
+        // Nebel sammelt sich zwischen den Reihen
+        const ft = S * (0.32 + t * 0.3), fb = gy(S / 2) + S * 0.04;
+        c.fillStyle = lg(c, 0, ft, 0, fb, [[0, rgba(fog, 0)], [1, rgba(fog, 0.42 - t * 0.12)]]);
+        c.fillRect(0, ft, S, S - ft);
         const mist = field(128, 64, (x, y, o) => {
           const v = fbm(n, x / 128 * 5 + k * 3, y / 64 * 3 + k, 4);
           o[0] = 222; o[1] = 230; o[2] = 224; o[3] = U.smoothstep(0.45, 0.75, v) * Math.sin((y / 64) * Math.PI) * 150;
@@ -495,7 +499,13 @@
     spruce(c, S * 0.12, S * 1.02, S * 0.8, R, 0.9);
     spruce(c, S * 0.88, S * 1.03, S * 0.72, R, 0.9);
     spruce(c, S * 0.02, S * 1.02, S * 0.6, R, 0.9);
-    c.fillStyle = lg(c, 0, S * 0.84, 0, S, [[0, 'rgba(6,14,12,0)'], [1, 'rgba(6,14,12,.9)']]);
+    // Bodennebel vorn
+    const low = field(128, 32, (x, y, o) => {
+      const v = fbm(n, x / 128 * 6 + 40, y / 32 * 2, 4);
+      o[0] = 200; o[1] = 214; o[2] = 208; o[3] = U.smoothstep(0.4, 0.7, v) * Math.sin((y / 32) * Math.PI) * 120;
+    });
+    c.drawImage(low, -S * 0.1, S * 0.74, S * 1.2, S * 0.14);
+    c.fillStyle = lg(c, 0, S * 0.84, 0, S, [[0, 'rgba(6,14,12,0)'], [1, 'rgba(6,14,12,.92)']]);
     c.fillRect(0, S * 0.84, S, S * 0.16);
     grain(c, 0.07);
   }
@@ -504,29 +514,33 @@
   function sStars(c, R, n) {
     c.fillStyle = lg(c, 0, 0, 0, S, [[0, '#020309'], [0.5, '#060a1c'], [0.78, '#12153a'], [0.88, '#291f40'], [1, '#3a2832']]);
     c.fillRect(0, 0, S, S);
-    glow(c, S * 0.5, S * 0.98, S * 0.62, '#ff8a5a', 0.16);
+    glow(c, S * 0.5, S * 0.88, S * 0.6, '#ff8a5a', 0.15);
     // Band von unten links nach oben rechts
     const ax = 0.12, ay = 0.98, bx = 0.92, by = 0.04;
     const dxL = bx - ax, dyL = by - ay, len = Math.hypot(dxL, dyL);
     const distTo = (u, v) => Math.abs((u - ax) * dyL - (v - ay) * dxL) / len;
     const along = (u, v) => ((u - ax) * dxL + (v - ay) * dyL) / (len * len);
     const N = 320;
+    const sgn = (u, v) => ((u - ax) * dyL - (v - ay) * dxL) / len;
     const mw = field(N, N, (x, y, o) => {
       const u = x / N, v = y / N;
-      const d = distTo(u, v), s = along(u, v);
-      const band = Math.exp(-Math.pow(d / 0.14, 2));
+      const d = sgn(u, v), s = along(u, v);
+      const wid = 0.1 + 0.05 * Math.exp(-Math.pow((s - 0.3) / 0.2, 2));
+      const band = Math.exp(-Math.pow(d / wid, 2));
       if (band < 0.01) { o[3] = 0; return; }
-      const cl = fbm(n, u * 6, v * 6, 5);
-      const lump = fbm(n, u * 16 + 5, v * 16 + 2, 3);
-      const dust = U.smoothstep(0.5, 0.66, fbm(n, u * 8 + 11, v * 8 + 4, 5)) * Math.exp(-Math.pow(d / 0.055, 2));
-      const core = Math.exp(-Math.pow((s - 0.3) / 0.22, 2));
-      let I = band * (0.25 + 1.5 * Math.pow(cl, 2.2)) * (0.65 + 0.7 * core) * (1 - 0.88 * dust);
-      I = U.clamp(I * 1.1, 0, 1);
-      const warm = core * 0.85;
-      const pink = U.smoothstep(0.62, 0.75, lump) * band * 0.8;
-      o[0] = U.lerp(U.lerp(140, 255, warm), 255, pink) * I;
-      o[1] = U.lerp(U.lerp(150, 214, warm), 120, pink) * I;
-      o[2] = U.lerp(U.lerp(255, 170, warm), 190, pink) * I;
+      // Struktur entlang des Bandes gestreckt
+      const cl = fbm(n, s * 7, d * 26, 5);
+      const fine = fbm(n, s * 26 + 3, d * 60 + 9, 3);
+      const rift = 0.018 * Math.sin(s * 10) + 0.03 * (fbm(n, s * 4 + 20, 1, 3) - 0.5);
+      const dust = Math.exp(-Math.pow((d - rift) / (0.022 + 0.02 * fbm(n, s * 9, 7, 3)), 2)) * U.smoothstep(0.08, 0.3, s) * (0.55 + 0.45 * fine);
+      const core = Math.exp(-Math.pow((s - 0.3) / 0.16, 2));
+      let I = band * (0.18 + 1.25 * Math.pow(cl, 2.4) + 0.25 * fine) * (0.55 + 0.75 * core) * (1 - 0.92 * dust);
+      I = U.clamp(I * 0.95, 0, 1);
+      const warm = U.clamp(core * 0.9 + 0.1, 0, 1);
+      const pink = U.smoothstep(0.66, 0.74, fbm(n, s * 18 + 40, d * 40, 3)) * band * 0.45;
+      o[0] = U.lerp(U.lerp(150, 255, warm), 255, pink) * I;
+      o[1] = U.lerp(U.lerp(166, 222, warm), 130, pink) * I;
+      o[2] = U.lerp(U.lerp(255, 186, warm), 196, pink) * I;
       o[3] = 255 * I;
     });
     c.save(); c.globalCompositeOperation = 'lighter';
@@ -545,13 +559,16 @@
     c.globalAlpha = 1;
     for (let i = 0; i < 26; i++) brightStar(c, R() * S, R() * S * 0.78, 0.9 + R(), R() < 0.3 ? '#ffd9b0' : '#d6e4ff', i < 5);
     // Hügel, Baum, Zelt
-    const hill = ridge(n, { base: S * 0.9, amp: S * 0.12, scale: 1.4, oct: 5, off: 3, row: 60, env: (u) => 0.4 + 0.6 * Math.exp(-Math.pow((u - 0.66) / 0.3, 2)) });
-    below(c, hill, '#03030a');
+    const far = ridge(n, { base: S * 0.83, amp: S * 0.07, scale: 2.4, oct: 6, sharp: true, off: 13, row: 70 });
+    below(c, far, lg(c, 0, S * 0.76, 0, S * 0.86, [[0, '#0b0b1c'], [1, '#07070f']]));
+    const hill = ridge(n, { base: S * 0.86, amp: S * 0.13, scale: 1.3, oct: 5, off: 3, row: 60, env: (u) => 0.3 + 0.7 * Math.exp(-Math.pow((u - 0.68) / 0.26, 2)) });
+    below(c, hill, '#020207');
     const hy = (x) => { const i = U.clamp(Math.round((x + 24) / 3), 0, hill.length - 1); return hill[i][1]; };
-    c.fillStyle = '#03030a';
-    spruce(c, S * 0.7, hy(S * 0.7) + 4, S * 0.16, R, 0.85);
-    spruce(c, S * 0.745, hy(S * 0.745) + 4, S * 0.1, R, 0.85);
-    const tx = S * 0.42, ty = hy(S * 0.42) + 3;
+    c.fillStyle = '#020207';
+    spruce(c, S * 0.69, hy(S * 0.69) + 4, S * 0.17, R, 0.85);
+    spruce(c, S * 0.735, hy(S * 0.735) + 4, S * 0.11, R, 0.85);
+    spruce(c, S * 0.765, hy(S * 0.765) + 4, S * 0.07, R, 0.85);
+    const tx = S * 0.37, ty = hy(S * 0.37) + 3;
     glow(c, tx, ty - 12, S * 0.12, '#ff9a48', 0.32);
     c.fillStyle = lg(c, tx, ty - 34, tx, ty, [[0, '#ffd08a'], [1, '#ff8a3a']]);
     c.beginPath(); c.moveTo(tx - 30, ty); c.lineTo(tx, ty - 34); c.lineTo(tx + 30, ty); c.closePath(); c.fill();

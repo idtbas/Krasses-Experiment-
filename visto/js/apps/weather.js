@@ -35,7 +35,7 @@
     { id: 'koeln', name: 'Köln', lat: 50.94, lon: 6.96, mean: 10.9, amp: 8.3, wet: 1.0, fog: 1.0, storm: 1.0, wind: 1.0, cont: 0.35 },
     { id: 'frankfurt', name: 'Frankfurt', lat: 50.11, lon: 8.68, mean: 10.6, amp: 9.5, wet: 0.9, fog: 1.05, storm: 1.1, wind: 0.9, cont: 0.5 },
     { id: 'wien', name: 'Wien', lat: 48.21, lon: 16.37, mean: 11.0, amp: 10.6, wet: 0.85, fog: 1.0, storm: 1.2, wind: 1.25, cont: 0.85 },
-    { id: 'zuerich', name: 'Zürich', lat: 47.37, lon: 8.54, mean: 9.3, amp: 9.0, wet: 1.25, fog: 1.5, storm: 1.2, wind: 0.8, cont: 0.55 },
+    { id: 'zuerich', name: 'Zürich', lat: 47.37, lon: 8.54, mean: 9.3, amp: 9.0, wet: 1.25, fog: 1.3, storm: 1.2, wind: 0.8, cont: 0.55 },
   ];
   const ALIAS = { munich: 'muenchen', munchen: 'muenchen', zurich: 'zuerich', vienna: 'wien', cologne: 'koeln', koln: 'koeln', 'frankfurt am main': 'frankfurt' };
   const keyOf = (s) => String(s || '').toLowerCase().trim().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
@@ -114,6 +114,11 @@
     snow: { text: ['Schneefall', 'Schneefall'], icon: ['snow', 'snow'], say: ['es schneit', 'es schneit'], fc: 'Schnee', color: '#DDEBFF' },
   };
   const WET = { drizzle: 1, rain: 1, heavy: 1, showers: 1, storm: 1, sleet: 1, snow: 1 };
+  /** Zustand als Satzteil: Adjektive klein („teils bewölkt“), Nomen groß („Regen“) */
+  function phrase(code, night) {
+    const d = describe(code, night);
+    return d.wet || code === 'fog' ? d.text.replace('Regenschauer', 'Schauer') : d.text.toLowerCase();
+  }
   function describe(code, night) {
     const d = DESC[code] || DESC.partly;
     const i = night ? 1 : 0;
@@ -165,7 +170,8 @@
     const aft = U.smoothstep(11, 14.5, h) * (1 - U.smoothstep(19, 22.5, h));
     const conv = U.clamp((S.conv - 0.6) / 0.4, 0, 1) * aft * U.clamp((sum - 0.45) * 2.5, 0, 1);
     // Bewölkung
-    let C = 0.5 - 0.32 * S.p + 0.17 * win - 0.06 * sum + 0.2 * n1 + 0.1 * (S.h - 0.5) + conv * 0.45;
+    let C = 0.5 - 0.32 * S.p + 0.22 * win - 0.06 * sum + 0.2 * n1 + 0.1 * (S.h - 0.5) + conv * 0.45;
+    C += win * Math.max(0, S.p) * (0.3 + 0.5 * S.h) * c.fog * 0.55;      // Hochnebel bei winterlichem Hochdruck
     C = U.clamp(C, 0.02, 1);
     // Temperatur: Jahresgang + Lage + Tagesgang (Minimum vor Sonnenaufgang, Maximum am Nachmittag)
     const mean = c.mean + c.amp * s + S.t * (2.2 + 1.4 * win * (0.6 + c.cont)) + n3 * 0.8;
@@ -177,19 +183,19 @@
     let T = mean + (range / 2) * shape;
     if (shape < 0) T -= (1 - C) * (0.6 + 2.2 * win) * c.cont * -shape;   // klare Nächte kühlen aus
     // Niederschlag
-    let pot = U.clamp((C - 0.6) / 0.4, 0, 1) * U.clamp(0.5 - 0.5 * S.p + 0.3 * n2, 0, 1.3) * c.wet;
+    let pot = U.clamp((C - 0.62) / 0.38, 0, 1) * U.clamp(0.36 - 0.6 * S.p + 0.3 * n2, 0, 1.3) * c.wet;
     pot = Math.max(pot, conv * (0.65 + 0.35 * n2) * c.storm);
     T -= Math.max(0, pot - 0.3) * 2 * sum;
     const wet = pot > 0.32;
-    const inten = wet ? U.clamp((pot - 0.32) / 0.6, 0.04, 1) : 0;
+    const inten = wet ? U.clamp((pot - 0.32) / 0.6, 0.04, 1) * (conv > 0.3 ? 1 : 0.62 + 0.38 * sum) : 0;
     const prob = U.smoothstep(0.1, 0.5, pot);
     // Wind und Feuchte
     const wind = Math.max(2, (6 + 13 * S.w + 9 * Math.max(0, -S.p) + 4 * n2) * c.wind + conv * 18 + 3 * Math.sin(Math.PI * U.clamp((h - 8) / 12, 0, 1)));
     const hum = U.clamp(52 + 34 * C + 9 * win - 12 * sum * (1 - C) + (wet ? 12 : 0) - 8 * Math.max(0, shape), 28, 99);
     // Nebel: Herbst/Winter, Hochdruck, früh am Morgen, wenig Wind
     const tod = h < 12 ? 1 - U.smoothstep(7, 11.5, h) : U.smoothstep(18.5, 23.5, h);
-    const fogPot = c.fog * U.clamp((win - 0.25) * 1.6, 0, 1) * (0.45 + 0.55 * S.fog) * U.clamp(0.5 + 0.45 * S.p, 0, 1.2) * tod * U.clamp(1.3 - wind / 22, 0, 1) * 1.7;
-    const fog = !wet && fogPot > 0.55;
+    const fogPot = c.fog * U.clamp((win - 0.25) * 1.6, 0, 1) * (0.45 + 0.55 * S.fog) * U.clamp(0.5 + 0.45 * S.p, 0, 1.2) * tod * U.clamp(1.3 - wind / 22, 0, 1) * 1.3;
+    const fog = !wet && fogPot > 0.6;
     const storm = conv > 0.5 && pot > 0.62 && T > 14;
     const night = daylight(c, d0, h + 0.5) < 0.5;
     let code;
@@ -199,7 +205,7 @@
       else if (T <= 2.6) code = 'sleet';
       else if (conv > 0.3) code = 'showers';
       else if (inten < 0.22) code = 'drizzle';
-      else if (inten > 0.72) code = 'heavy';
+      else if (inten > 0.8) code = 'heavy';
       else code = 'rain';
     } else if (fog) code = 'fog';
     else if (C < 0.16) code = 'clear';
@@ -236,11 +242,11 @@
         const sn = counts.snow || 0, sl = counts.sleet || 0;
         if (sn >= Math.max(2, wetH.length / 2)) code = 'snow';
         else if (sn + sl >= wetH.length / 2) code = 'sleet';
-        else if (wetH.length >= 5) code = counts.heavy ? 'heavy' : 'rain';
+        else if (wetH.length >= 5) code = (counts.heavy || 0) >= 3 ? 'heavy' : 'rain';
         else if (wetH.length >= 2 || counts.showers) code = 'showers';
         else code = counts.drizzle ? 'drizzle' : 'showers';
       } else if ((counts.fog || 0) >= 5) code = 'fog';
-      else code = cl < 0.16 ? 'clear' : cl < 0.4 ? 'fair' : cl < 0.66 ? 'partly' : cl < 0.86 ? 'cloudy' : 'overcast';
+      else code = cl < 0.16 ? 'clear' : cl < 0.4 ? 'fair' : cl < 0.64 ? 'partly' : cl < 0.8 ? 'cloudy' : 'overcast';
       let precip = 0;
       for (const r of hrs.slice(6)) precip = Math.max(precip, r.precip);
       const sun = sunTimes(c, d0);
@@ -743,7 +749,7 @@
       if (i > 0) tail = `Ab etwa ${hourWord(hrs[i])} ${hrs[i].code === 'snow' ? 'schneit' : hrs[i].code === 'storm' ? 'gewittert' : 'regnet'} es.`;
     }
     return {
-      say: `In ${c.name} sind es gerade ${Math.round(w.temp)} Grad, ${w.text.toLowerCase().replace(/^regenschauer$/, 'mit Schauern')}. ${tail}`,
+      say: `In ${c.name} sind es gerade ${Math.round(w.temp)} Grad${describe(w.code).wet ? ' und ' : ', '}${describe(w.code, w.night).say}. ${tail}`,
       card: wxCard({ code: w.code, night: w.night, big: deg(w.temp), title: w.text, sub: `H ${deg(w.hi)}  T ${deg(w.lo)} · ${c.name}` }),
       emotion: emotionFor(w.code, w.temp),
     };
@@ -754,7 +760,7 @@
       const w = current(c.id);
       const later = d.precip >= 0.45 && !WET[d.code] ? ` Regenrisiko ${Math.round(d.precip * 10) * 10} Prozent.` : '';
       return {
-        say: `Heute in ${c.name}: ${d.fc || describe(d.code).fc}, ${Math.round(d.lo)} bis ${Math.round(d.hi)} Grad. Gerade sind es ${Math.round(w.temp)} Grad.${later}`.replace(': undefined', ':'),
+        say: `Heute in ${c.name}: ${describe(d.code).fc}, ${Math.round(d.lo)} bis ${Math.round(d.hi)} Grad. Gerade sind es ${Math.round(w.temp)} Grad.${later}`,
         card: wxCard({ code: d.code, big: deg(d.hi), title: d.text, sub: `H ${deg(d.hi)}  T ${deg(d.lo)} · Heute` }),
         emotion: emotionFor(d.code, d.hi),
       };
@@ -990,7 +996,7 @@
     }
 
     /* ---------------------------------------------------- Himmel-Ziel */
-    function sceneFor(rec, date, temp) {
+    function sceneFor(rec, date) {
       const d0 = midnight(date), h = hoursOf(date);
       const s = sunTimes(city, d0);
       const code = rec.code;
@@ -1008,7 +1014,6 @@
         sunF: (h - s.rise) / (s.set - s.rise),
         moonF: U.wrap(h - s.set, 24) / nightLen,
         phase: moonPhase(date.getTime()),
-        _t: temp,
       };
     }
     function updateScene(instant) {
@@ -1055,7 +1060,7 @@
       if (w.code === 'fog') { const j = hrs.findIndex((r, k) => k > 0 && r.code !== 'fog'); return j > 0 ? `Nebel lichtet sich gegen ${hrs[j].hour} Uhr.` : 'Der Nebel bleibt zäh.'; }
       const h = V.time.now().getHours();
       const tm = data.days[1];
-      if (h >= 17 && tm) return `Morgen ${tm.text.toLowerCase().replace(/^(heiter|sonnig|bedeckt)$/, (m) => m)}, bis ${deg(tm.hi)}.`.replace('Morgen regen', 'Morgen Regen').replace('Morgen nebel', 'Morgen Nebel').replace('Morgen schneefall', 'Morgen Schneefall').replace('Morgen gewitter', 'Morgen Gewitter').replace('Morgen nieselregen', 'Morgen Nieselregen').replace('Morgen starkregen', 'Morgen Starkregen').replace('Morgen regenschauer', 'Morgen Schauer').replace('Morgen schneeregen', 'Morgen Schneeregen');
+      if (h >= 17 && tm) return `Morgen ${phrase(tm.code)}, bis ${deg(tm.hi)}.`;
       return 'Heute bleibt es trocken.';
     }
     const marks = [];
@@ -1138,9 +1143,7 @@
       dcCd.textContent = d.text;
       dcDl.innerHTML = `<span>${V.icon('drop')}${Math.round(d.precip * 10) * 10} %</span><span>${V.icon('wind')}${Math.round(d.wind)} km/h</span><span>${V.icon('sunrise')}${fmtH(d.sunrise)}</span>`;
       dayEls.forEach((e, i) => e.tx.setAttribute('fill', i === sel ? '#ffffff' : 'rgba(255,255,255,.55)'));
-      if (!instant) {
-        V.tween({ duration: 0.45, ease: V.ease.outCubic, onUpdate: (v) => { dc.style.opacity = (0.25 + 0.75 * v).toFixed(3); dc.style.transform = `scale(${(0.97 + 0.03 * v).toFixed(4)})`; } });
-      }
+      if (!instant) V.tween({ duration: 0.45, ease: V.ease.outCubic, onUpdate: (v) => { dc.style.opacity = (0.2 + 0.8 * v).toFixed(3); } });
       updateScene();
     }
     function selectDay(i, fromUser) {
@@ -1453,6 +1456,7 @@
         id: 'weather', priority: 7,
         match: (t) => {
           if (/^(spiel|spiele|play)\b/.test(t) || NOT_HERE.test(t)) return null;
+          if (/(?<![a-zäöüß])(öffne|öffnen|starte|app)(?![a-zäöüß])/.test(t)) return null;   // „Öffne Wetter“ öffnet die App
           const w = /(?<![a-zäöüß])(wetter|wetterbericht|wettervorhersage|vorhersage)(?![a-zäöüß])/.test(t);
           const umbrella = /(?<![a-zäöüß])(regen)?schirm(?![a-zäöüß])/.test(t);
           const rain = /(?<![a-zäöüß])(regnet|regnen|regen|nass|niederschlag|nieselt)(?![a-zäöüß])/.test(t);

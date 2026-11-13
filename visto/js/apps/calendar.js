@@ -574,6 +574,17 @@
       if (document.fonts && document.fonts.load) document.fonts.load(LABEL_FONT).then(() => { wcache.clear(); cur = layout(cur.view); mark(); }).catch(() => {});
 
       function rebuild() { cur = layout(makeView(viewDay, mode, half)); mark(); }
+      /** Datum am Bogen – kurz ausblenden, Text tauschen, einblenden */
+      let dateT = 0;
+      function setDate(text, color) {
+        const fill = color || 'rgba(255,255,255,.62)';
+        if (date.tp.textContent === String(text).toUpperCase() && date.text.getAttribute('fill') === fill) return;
+        clearTimeout(dateT);
+        if (!date.tp.textContent) { date.set(text); date.text.setAttribute('fill', fill); return; }
+        date.el.style.opacity = '0';
+        dateT = setTimeout(() => { date.set(text); date.text.setAttribute('fill', fill); date.el.style.opacity = '1'; }, 160);
+      }
+      ctx.cleanup(() => clearTimeout(dateT));
 
       /* -------- Zeichnen */
       function grow(i) { return V.ease.smooth(U.clamp((growClock - 0.12 - i * 0.07) / 0.7, 0, 1)); }
@@ -877,8 +888,6 @@
 
       function addPage() {
         const pg = U.el('div', { class: 'cal-page cal-addp' });
-        pg._kick = el('cal-kick', 'Neuer Termin · ' + V.fmt.relDay(new Date(viewDay)));
-        pg._kick.style.color = soft(COLOR, 0.2);
         pg._big = el('cal-big vos-num');
         pg._ttl = el('cal-ttl');
         pg._sub = el('cal-sub', '');
@@ -903,7 +912,7 @@
           dots.appendChild(b);
           return b;
         });
-        pg.append(pg._kick, pg._big, pg._ttl, row, dots);
+        pg.append(pg._big, pg._ttl, row, dots);
         fillAdd(pg);
         return pg;
       }
@@ -928,7 +937,7 @@
         transDir = dir;
         trans.set(0);
         trans.to(1).then((done) => { if (done) { prev = null; mark(); } });
-        date.set(dayTitle(viewDay));
+        setDate(dayTitle(viewDay));
         if (state !== 'day') { state = 'day'; selId = null; selK.to(0); focus.set(0); draft = null; }
         swapPage(dayPage(), dir, o.fromX);
         if (!o.silent) { V.sound.play('tick'); V.haptic(4); }
@@ -991,11 +1000,13 @@
         state = 'add';
         selId = null;
         selK.to(1);
+        setDate('Neuer Termin · ' + V.fmt.relDay(new Date(viewDay)), soft(COLOR, 0.15));
         swapPage(addPage(), 0);
       }
       function closeAdd() {
         state = 'day';
         selK.to(0).then((done) => { if (done && state !== 'add') { draft = null; mark(); } });
+        setDate(dayTitle(viewDay));
         swapPage(dayPage(), 0);
       }
       function saveDraft() {
@@ -1005,6 +1016,7 @@
         draft = null;
         state = 'day';
         selK.set(0);
+        setDate(dayTitle(viewDay));
         swapPage(dayPage(), 0);
         V.sound.play('success');
         V.notify.toast('Eingetragen · ' + tm(e.start), 'check');
@@ -1105,7 +1117,7 @@
       }, { slop: 8 });
 
       /* -------- Start */
-      date.set(dayTitle(viewDay));
+      setDate(dayTitle(viewDay));
       swapPage(dayPage(), 0);
       function applyParams(pr) {
         if (pr && pr.event) {
@@ -1137,7 +1149,7 @@
     .cal-now { pointer-events: none; transition: opacity .3s; }
     .cal-now .cal-halo { transform-box: fill-box; transform-origin: center; animation: calBreathe 2.8s ease-in-out infinite; }
     @keyframes calBreathe { 0%, 100% { opacity: .55; transform: scale(.78); } 50% { opacity: 1; transform: scale(1.12); } }
-    .cal-date { pointer-events: none; }
+    .cal-date { pointer-events: none; transition: opacity .16s ease; }
     .cal-mid { position: absolute; inset: 0; pointer-events: none; }
     .cal-page { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; text-align: center;
       padding-top: 23.5cqw; will-change: transform, opacity; }
@@ -1165,7 +1177,7 @@
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .cal-dtime { font-size: 8.4cqw; font-weight: 230; letter-spacing: -.035em; margin-top: 2.2cqw; line-height: 1; }
     .cal-detail .cal-sub { margin-top: 2cqw; }
-    .cal-addp { padding-top: 19.5cqw; }
+    .cal-addp { padding-top: 20cqw; }
     .cal-addp .cal-big { font-size: 14.5cqw; margin-top: 1.4cqw; }
     .cal-addp .cal-ttl { font-size: 5cqw; margin-top: 1.4cqw; }
     .cal-arow { top: 46.5cqw; }
