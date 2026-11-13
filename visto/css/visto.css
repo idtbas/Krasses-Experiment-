@@ -1,0 +1,547 @@
+/* ==========================================================================
+   VistoOS · Gestaltung
+   Teil 1: Emulator-Seite (Handy)   Teil 2: Betriebssystem auf dem runden Display
+   Im Display gilt: 1cqw = 1 % des Durchmessers. Alle Maße darin in cqw.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+  --accent: #FF9A4D;
+  --accent-rgb: 255, 154, 77;
+  --accent-ink: #1a0d02;
+
+  --fg: #ffffff;
+  --fg2: rgba(255, 255, 255, .64);
+  --fg3: rgba(255, 255, 255, .40);
+  --fg4: rgba(255, 255, 255, .22);
+  --line: rgba(255, 255, 255, .12);
+  --card: rgba(255, 255, 255, .075);
+  --card2: rgba(255, 255, 255, .13);
+  --card3: rgba(255, 255, 255, .2);
+
+  --red: #FF453A;
+  --orange: #FF9F0A;
+  --yellow: #FFD60A;
+  --green: #32D74B;
+  --mint: #63E6BE;
+  --teal: #64D2FF;
+  --blue: #0A84FF;
+  --indigo: #5E5CE6;
+  --purple: #BF5AF2;
+  --pink: #FF375F;
+
+  --v1: #46E6FF;
+  --v2: #6F7BFF;
+  --v3: #B46BFF;
+  --v4: #FF6FB5;
+  --v5: #FFB86B;
+
+  --font: 'Inter Tight', 'SF Pro Display', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-round: 'Nunito', 'SF Pro Rounded', var(--font);
+  --font-serif: 'Instrument Serif', 'New York', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --ease-io: cubic-bezier(.65, 0, .35, 1);
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+
+  --D: 360px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; min-height: 100%; background: #000; color: var(--fg); }
+/* iOS/Android vergrößern Text im Querformat sonst eigenmächtig (Zeilen in Listen werden zu hoch) */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+  background:
+    radial-gradient(110% 70% at 50% 18%, #171a21 0%, #0a0b0e 52%, #000 100%) fixed;
+  min-height: 100dvh;
+}
+button { font: inherit; color: inherit; }
+
+/* ---------------------------------------------------------------- Emulator */
+
+.emu {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: max(env(safe-area-inset-top), 10px);
+  padding-bottom: max(env(safe-area-inset-bottom), 18px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  gap: 12px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.emu-head {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+}
+.emu-brand { display: flex; align-items: center; gap: 9px; }
+.emu-brand b { font-weight: 650; letter-spacing: -.01em; font-size: 17px; }
+.emu-brand b i { font-style: normal; font-weight: 300; color: var(--fg2); }
+.emu-brand small {
+  font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--fg3);
+  border: 1px solid var(--line); border-radius: 99px; padding: 3px 8px; font-weight: 600;
+}
+.emu-logo { width: 24px; height: 24px; }
+.emu-iconbtn {
+  width: 38px; height: 38px; border-radius: 50%; border: 0; display: grid; place-items: center;
+  background: rgba(255,255,255,.07); color: var(--fg2); cursor: pointer;
+  transition: background .2s, transform .2s var(--spring);
+}
+.emu-iconbtn:active { transform: scale(.9); background: rgba(255,255,255,.14); }
+.emu-iconbtn svg { width: 19px; height: 19px; }
+
+.emu-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 6px;
+}
+
+/* Das Gerät: Metallring, Glas, Display */
+.device {
+  --bz: calc(var(--D) * .028);   /* schwarzer Glasrand */
+  --mr: calc(var(--D) * .022);   /* Metallring */
+  position: relative;
+  width: calc(var(--D) + 2 * (var(--bz) + var(--mr)));
+  height: calc(var(--D) + 2 * (var(--bz) + var(--mr)));
+  border-radius: 50%;
+  padding: var(--mr);
+  background:
+    conic-gradient(from 210deg, #5d6169, #c9ccd3 9%, #6b6f77 20%, #2a2c31 34%, #8e929a 47%, #e4e6ea 55%, #777b83 66%, #2b2d32 80%, #9da1a8 92%, #5d6169);
+  box-shadow:
+    0 calc(var(--D) * .09) calc(var(--D) * .16) rgba(0,0,0,.65),
+    0 calc(var(--D) * .02) calc(var(--D) * .04) rgba(0,0,0,.6),
+    inset 0 0 0 1px rgba(255,255,255,.18);
+  z-index: 2;
+}
+.device-glass {
+  position: relative;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  padding: var(--bz);
+  background: #020203;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.9), inset 0 0 calc(var(--D)*.02) rgba(255,255,255,.04);
+}
+.device-glare {
+  position: absolute; inset: var(--mr); border-radius: 50%; pointer-events: none; z-index: 5;
+  background:
+    radial-gradient(120% 70% at 28% 6%, rgba(255,255,255,.085) 0%, rgba(255,255,255,.02) 32%, transparent 48%),
+    radial-gradient(60% 30% at 80% 96%, rgba(255,255,255,.03), transparent 70%);
+  mix-blend-mode: screen;
+}
+.device-neck {
+  position: relative;
+  width: calc(var(--D) * .17);
+  height: calc(var(--D) * .075);
+  margin-top: calc(var(--D) * -.012);
+  background: linear-gradient(90deg, #1b1c20, #4a4d54 30%, #6c7078 50%, #43464c 70%, #18191c);
+  border-radius: 0 0 calc(var(--D)*.012) calc(var(--D)*.012);
+  z-index: 1;
+}
+.device-base {
+  position: relative;
+  width: calc(var(--D) * .66);
+  height: calc(var(--D) * .135);
+  margin-top: calc(var(--D) * -.02);
+}
+.device-base::before {   /* Oberseite (Ellipse) */
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--D) * .075);
+  border-radius: 50%;
+  background: radial-gradient(70% 90% at 50% 35%, #50545b 0%, #2d2f34 55%, #17181b 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+  z-index: 2;
+}
+.device-base::after {    /* Seitenfläche */
+  content: ''; position: absolute; left: 0; right: 0; top: calc(var(--D) * .0375); bottom: 0;
+  border-radius: 0 0 50% 50% / 0 0 calc(var(--D)*.0375) calc(var(--D)*.0375);
+  background: linear-gradient(90deg, #0d0e10, #2a2c31 18%, #3b3e44 50%, #24262a 82%, #0c0d0f);
+  box-shadow: 0 calc(var(--D)*.05) calc(var(--D)*.08) rgba(0,0,0,.7);
+  z-index: 1;
+}
+.base-light {
+  position: absolute; z-index: 3;
+  left: 50%; bottom: calc(var(--D) * .028);
+  width: calc(var(--D) * .16); height: 3px; margin-left: calc(var(--D) * -.08);
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent);
+  transition: opacity .4s, box-shadow .4s;
+}
+.base-light.on {
+  background: linear-gradient(90deg, transparent, var(--v1), var(--v3), var(--v4), transparent);
+  box-shadow: 0 0 10px rgba(180,107,255,.7), 0 0 22px rgba(70,230,255,.35);
+}
+.base-btn {
+  position: absolute; z-index: 4; left: 50%; top: calc(var(--D) * .012);
+  width: calc(var(--D) * .2); height: calc(var(--D) * .05); margin-left: calc(var(--D) * -.1);
+  border-radius: 50%; border: 0; background: transparent; cursor: pointer;
+}
+.base-btn::after {
+  content: ''; position: absolute; inset: 30% 30%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255,255,255,.12), transparent);
+  transition: background .2s;
+}
+.base-btn:active::after { background: radial-gradient(closest-side, rgba(255,255,255,.35), transparent); }
+
+/* Sprechen / Eingabe */
+.emu-talk { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.talk-field {
+  display: flex; align-items: center; gap: 6px; padding: 5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.07);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+  transition: box-shadow .3s;
+}
+.talk-field:focus-within { box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 0 0 4px rgba(150,120,255,.12); }
+.talk-field input {
+  flex: 1; min-width: 0; height: 42px; border: 0; outline: 0; background: transparent; color: #fff;
+  font: 500 16px var(--font); padding: 0 4px;
+}
+.talk-field input::placeholder { color: var(--fg3); }
+.talk-btn {
+  flex: none; width: 42px; height: 42px; border-radius: 50%; border: 0; display: grid; place-items: center;
+  background: rgba(255,255,255,.1); color: #fff; cursor: pointer;
+  transition: transform .25s var(--spring), background .2s, opacity .2s;
+}
+.talk-btn:active { transform: scale(.88); }
+.talk-btn svg { width: 20px; height: 20px; }
+.talk-btn.send { background: #fff; color: #000; }
+.talk-btn.send:disabled { opacity: .25; }
+.talk-btn.mic.live { background: linear-gradient(135deg, var(--v1), var(--v3) 55%, var(--v4)); animation: micpulse 1.4s ease-in-out infinite; }
+@keyframes micpulse { 50% { box-shadow: 0 0 0 7px rgba(180,107,255,.18); } }
+.talk-chips {
+  display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 4px; margin: 0 -16px; padding-left: 16px; padding-right: 16px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 22px), transparent);
+}
+.talk-chips::-webkit-scrollbar { display: none; }
+.talk-chip {
+  flex: none; height: 34px; padding: 0 13px; border-radius: 999px; border: 0; cursor: pointer;
+  background: rgba(255,255,255,.06); color: var(--fg2); font: 550 13.5px var(--font);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+  transition: transform .2s var(--spring), background .2s;
+}
+.talk-chip:active { transform: scale(.94); background: rgba(255,255,255,.13); }
+.talk-hint { font-size: 12px; color: var(--fg3); text-align: center; line-height: 1.45; margin: 2px 6px 0; }
+
+/* Emulator-Bedienfeld */
+.emu-sheet-back {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; opacity: 0; pointer-events: none; transition: opacity .3s;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.emu-sheet-back.on { opacity: 1; pointer-events: auto; }
+.emu-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 101; margin: 0 auto; max-width: 560px;
+  background: #121317; border-radius: 26px 26px 0 0;
+  padding: 10px 18px max(env(safe-area-inset-bottom), 20px);
+  transform: translateY(105%); transition: transform .45s var(--ease);
+  box-shadow: 0 -10px 40px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08);
+  max-height: 86dvh; overflow-y: auto;
+}
+.emu-sheet.on { transform: none; }
+.emu-sheet .grab { width: 38px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.2); margin: 0 auto 12px; }
+.emu-sheet h3 { margin: 6px 2px 4px; font-size: 20px; letter-spacing: -.01em; }
+.emu-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.emu-sheet-head .emu-iconbtn { width: 32px; height: 32px; flex: none; }
+.emu-sheet-head .emu-iconbtn svg { width: 16px; height: 16px; }
+.emu-sheet p.sub { margin: 0 2px 14px; color: var(--fg3); font-size: 13px; line-height: 1.45; }
+.emu-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.emu-stat { background: rgba(255,255,255,.05); border-radius: 16px; padding: 10px 12px; }
+.emu-stat b { display: block; font-size: 21px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.emu-stat span { font-size: 11.5px; color: var(--fg3); }
+.emu-row {
+  display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 2px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.emu-row > div { flex: 1; min-width: 0; }
+.emu-row b { display: block; font-weight: 600; font-size: 15px; }
+.emu-row small { display: block; color: var(--fg3); font-size: 12.5px; line-height: 1.35; margin-top: 2px; }
+.emu-switch { position: relative; width: 50px; height: 30px; flex: none; }
+.emu-switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; z-index: 2; }
+.emu-switch i { position: absolute; inset: 0; border-radius: 99px; background: rgba(255,255,255,.16); transition: background .25s; }
+.emu-switch i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform .3s var(--spring); box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.emu-switch input:checked + i { background: var(--green); }
+.emu-switch input:checked + i::after { transform: translateX(20px); }
+.emu-btn {
+  height: 38px; padding: 0 14px; border-radius: 99px; border: 0; cursor: pointer; flex: none;
+  background: rgba(255,255,255,.1); font-weight: 600; font-size: 14px;
+}
+.emu-btn.danger { color: #ff6b62; }
+.emu-range { width: 120px; accent-color: #fff; flex: none; }
+.emu-foot { margin-top: 14px; font-size: 11.5px; color: var(--fg4); text-align: center; line-height: 1.5; }
+
+.emu-claude-panel { display: grid; gap: 8px; padding: 4px 2px 14px; }
+.emu-claude-panel[hidden] { display: none; }
+.emu-claude-panel label { font-size: 12.5px; color: var(--fg3); font-weight: 600; margin-top: 4px; }
+.emu-claude-panel input, .emu-claude-panel select {
+  height: 44px; border-radius: 12px; border: 0; padding: 0 12px; width: 100%; min-width: 0;
+  background: rgba(255,255,255,.08); color: #fff; font: 500 15px var(--font); outline: none;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+.emu-claude-panel input:focus, .emu-claude-panel select:focus { box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+.emu-claude-panel option { background: #1b1c21; }
+.emu-claude-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.emu-btn.primary { background: #fff; color: #000; }
+.emu-btn:disabled { opacity: .5; }
+.emu-claude-msg { margin: 2px 0 0; font-size: 13px; color: var(--fg2); min-height: 1em; }
+.emu-claude-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--fg3); }
+
+/* Handy quer: Gerät links, Kopf und Eingabe rechts (Klasse setzt emulator.js) */
+body.emu-land .emu {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto;
+  column-gap: 20px; row-gap: 10px; align-items: center; align-content: center; justify-content: center;
+  padding-top: max(env(safe-area-inset-top), 10px); padding-bottom: max(env(safe-area-inset-bottom), 10px);
+}
+body.emu-land .emu-stage { grid-column: 1; grid-row: 1 / span 2; margin-top: 0; align-self: center; }
+body.emu-land .emu-head { grid-column: 2; grid-row: 1; max-width: 560px; align-self: end; }
+body.emu-land .emu-talk { grid-column: 2; grid-row: 2; max-width: 560px; align-self: start; margin-top: 0; }
+body.emu-land .talk-chips { margin: 0 -16px 0 0; padding-left: 2px; }
+
+.emu-seg { display: flex; flex: none; background: rgba(255,255,255,.08); border-radius: 99px; padding: 3px; gap: 2px; }
+.emu-segb { border: 0; background: transparent; color: var(--fg2); font: 600 13px var(--font); height: 32px; padding: 0 11px; border-radius: 99px; cursor: pointer; }
+.emu-segb[aria-checked="true"] { background: #fff; color: #000; }
+@media (max-width: 400px) { .emu-segb { padding: 0 8px; font-size: 12px; } }
+
+/* Vollbild: nur das Display */
+body.emu-full .emu-head, body.emu-full .emu-talk, body.emu-full .device-neck, body.emu-full .device-base { display: none; }
+body.emu-full .emu { justify-content: center; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.emu-exitfull {
+  position: fixed; top: max(env(safe-area-inset-top), 12px); right: 14px; z-index: 50; display: none;
+}
+body.emu-full .emu-exitfull { display: grid; }
+
+/* ======================================================================
+   Teil 2 · Betriebssystem
+   ====================================================================== */
+
+.vos-display {
+  position: relative;
+  width: var(--D);
+  height: var(--D);
+  border-radius: 50%;
+  clip-path: circle(50% at 50% 50%);
+  overflow: hidden;
+  background: #000;
+  container-type: size;
+  isolation: isolate;
+  touch-action: none;
+  color: var(--fg);
+  font-family: var(--font);
+  /* cqw am Container selbst bezöge sich auf das Fenster (Querformat: riesige Grundschrift) –
+     daher an --D koppeln; 0.052·D entspricht dem bisherigen Wert am Referenz-Handy (390 px, D 300) */
+  font-size: calc(var(--D) * .052);
+  line-height: 1.25;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  cursor: default;
+}
+.vos-display * { -webkit-user-select: none; user-select: none; }
+.vos-display input, .vos-display textarea { -webkit-user-select: text; user-select: text; }
+
+.vos-stage   { position: absolute; inset: 0; z-index: 10; }
+.vos-scrim   { position: absolute; inset: 0; z-index: 20; background: #000; opacity: 0; pointer-events: none; }
+.vos-convo   { position: absolute; inset: 0; z-index: 25; pointer-events: none; }
+.vos-overlay { position: absolute; inset: 0; z-index: 40; pointer-events: none; }
+.vos-overlay > * { pointer-events: auto; }
+.vos-fx      { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; }
+.vos-top     { position: absolute; inset: 0; z-index: 60; pointer-events: none; }
+.vos-top > * { pointer-events: auto; }
+.vos-dim     { position: absolute; inset: 0; z-index: 90; background: #000; pointer-events: none; opacity: 0; transition: opacity .6s ease; }
+.vos-night   { position: absolute; inset: 0; z-index: 89; pointer-events: none; opacity: 0; transition: opacity 1.2s ease;
+               background: #ff3b1f; mix-blend-mode: multiply; }
+
+.vos-screen {
+  position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
+  transform-origin: 50% 50%;
+}
+.vos-hidden { visibility: hidden; }
+/* Ebenen selbst rund beschneiden (Chrome clippt deckende Ebenen sonst nicht immer) */
+.vos-scrim, .vos-dim, .vos-night, .vos-overlay, .vos-top, .vos-convo, .vos-stage { border-radius: 50%; overflow: hidden; }
+.vos-rlist { -webkit-mask-image: linear-gradient(transparent 0, #000 16%, #000 80%, transparent 100%); mask-image: linear-gradient(transparent 0, #000 16%, #000 80%, transparent 100%); }
+
+/* Sicherer Bereich (einbeschriebenes Quadrat ≈ 70.7 %) */
+.vos-safe { position: absolute; inset: 14.6%; }
+.vos-center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.vos-fill { position: absolute; inset: 0; }
+.vos-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+
+/* Typografie */
+.vos-hero  { font-size: 24cqw; font-weight: 200; letter-spacing: -.045em; line-height: .9; font-variant-numeric: tabular-nums; }
+.vos-h1    { font-size: 7.6cqw; font-weight: 650; letter-spacing: -.02em; line-height: 1.05; }
+.vos-h2    { font-size: 5.6cqw; font-weight: 600; letter-spacing: -.012em; line-height: 1.12; }
+.vos-body  { font-size: 4.2cqw; font-weight: 450; color: var(--fg2); line-height: 1.32; }
+.vos-small { font-size: 3.4cqw; font-weight: 500; color: var(--fg3); }
+.vos-label { font-size: 2.9cqw; font-weight: 650; letter-spacing: .16em; text-transform: uppercase; color: var(--fg3); }
+.vos-num   { font-variant-numeric: tabular-nums; }
+.vos-accent { color: var(--accent); }
+
+/* Knöpfe */
+.vos-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 1.6cqw;
+  height: 11.5cqw; padding: 0 6cqw; border-radius: 99cqw; border: 0; cursor: pointer;
+  background: var(--card2); color: var(--fg);
+  font: 600 4.2cqw/1 var(--font); letter-spacing: -.005em; white-space: nowrap;
+  transition: transform .28s var(--spring), background .2s, opacity .2s, color .2s;
+}
+.vos-btn svg { width: 5cqw; height: 5cqw; flex: none; }
+.vos-btn:active, .vos-btn.is-pressed { transform: scale(.93); }
+.vos-btn.primary { background: var(--accent); color: var(--accent-ink); }
+.vos-btn.white { background: #fff; color: #000; }
+.vos-btn.danger { background: rgba(255,69,58,.2); color: #ff6b62; }
+.vos-btn.ghost { background: transparent; color: var(--fg2); }
+.vos-btn.sm { height: 9cqw; padding: 0 4.4cqw; font-size: 3.6cqw; }
+.vos-btn[disabled] { opacity: .35; pointer-events: none; }
+.vos-round {
+  width: 17cqw; height: 17cqw; padding: 0; border-radius: 50%;
+}
+.vos-round svg { width: 7cqw; height: 7cqw; }
+.vos-round.lg { width: 22cqw; height: 22cqw; }
+.vos-round.lg svg { width: 9cqw; height: 9cqw; }
+.vos-round.sm { width: 12cqw; height: 12cqw; }
+.vos-round.sm svg { width: 5.4cqw; height: 5.4cqw; }
+
+/* Karten, Chips, Listen */
+.vos-card { background: var(--card); border-radius: 6cqw; padding: 4cqw 5cqw; }
+.vos-chip {
+  display: inline-flex; align-items: center; gap: 1.4cqw; height: 8.4cqw; padding: 0 3.6cqw; border-radius: 99cqw;
+  background: var(--card2); font-size: 3.4cqw; font-weight: 600; color: var(--fg); border: 0; cursor: pointer;
+  transition: transform .25s var(--spring), background .2s;
+}
+.vos-chip svg { width: 4cqw; height: 4cqw; }
+.vos-chip.on { background: var(--accent); color: var(--accent-ink); }
+.vos-chip:active { transform: scale(.93); }
+
+/* Runde Liste (Breite folgt dem Kreis, Fischaugen-Skalierung) */
+.vos-rlist {
+  position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 36cqw 0 40cqw;
+}
+.vos-rlist::-webkit-scrollbar { display: none; }
+.vos-rrow {
+  position: relative; margin: 0 auto 2.2cqw; min-height: 14cqw; width: 76cqw;
+  display: flex; align-items: center; gap: 3.4cqw; padding: 2.6cqw 4.6cqw;
+  border-radius: 7cqw; background: var(--card);
+  transform-origin: 50% 50%; will-change: transform, opacity;
+  cursor: pointer; transition: background .2s;
+}
+.vos-rrow:active { background: var(--card2); }
+.vos-rrow .ic { flex: none; width: 9cqw; height: 9cqw; border-radius: 50%; display: grid; place-items: center; background: var(--card2); }
+.vos-rrow .ic svg { width: 5cqw; height: 5cqw; }
+.vos-rrow .tx { flex: 1; min-width: 0; }
+.vos-rrow .tx b { display: block; font-size: 4.2cqw; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vos-rrow .tx small { display: block; font-size: 3.2cqw; color: var(--fg3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .3cqw; }
+.vos-rrow .end { flex: none; color: var(--fg3); font-size: 3.6cqw; font-weight: 600; }
+.vos-rhead { text-align: center; margin: 0 auto 3cqw; }
+
+/* Schalter im OS */
+.vos-switch { position: relative; width: 13cqw; height: 8cqw; flex: none; border-radius: 99cqw; background: var(--card3); transition: background .25s; cursor: pointer; }
+.vos-switch::after { content: ''; position: absolute; top: .8cqw; left: .8cqw; width: 6.4cqw; height: 6.4cqw; border-radius: 50%; background: #fff; transition: transform .35s var(--spring); box-shadow: 0 .6cqw 1.6cqw rgba(0,0,0,.35); }
+.vos-switch.on { background: var(--green); }
+.vos-switch.on::after { transform: translateX(5cqw); }
+
+/* Kopfzeile in Apps: geschwungener Titel oben */
+.vos-apptitle { position: absolute; inset: 0; pointer-events: none; }
+/* Farbe, Größe und Sperrung kommen als Attribute aus V.ui.title */
+
+/* App-Container */
+.vos-app { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: #000; }
+.vos-app-content { position: absolute; inset: 0; }
+
+/* App-Symbole */
+.vos-icon {
+  position: relative; border-radius: 50%; display: grid; place-items: center;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255,255,255,.42), rgba(255,255,255,0) 52%),
+    radial-gradient(circle at 50% 120%, rgba(0,0,0,.35), rgba(0,0,0,0) 60%),
+    var(--ic, #555);
+  box-shadow: inset 0 0 0 .25cqw rgba(255,255,255,.12);
+  color: #fff;
+}
+.vos-icon svg { width: 52%; height: 52%; filter: drop-shadow(0 .3cqw .5cqw rgba(0,0,0,.25)); }
+
+/* Startbildschirm / Launcher */
+.vos-launcher { touch-action: none; }
+.vos-launcher .vos-lic {
+  position: absolute; left: 0; top: 0; width: 17cqw; height: 17cqw; margin: -8.5cqw 0 0 -8.5cqw;
+  will-change: transform, opacity; cursor: pointer;
+}
+.vos-launcher .vos-lic .vos-icon { width: 100%; height: 100%; transition: transform .25s var(--spring); }
+.vos-launcher .vos-lic.press .vos-icon { transform: scale(.88); }
+.vos-lname { position: absolute; inset: 0; pointer-events: none; }
+.vos-lname text { fill: #fff; font: 600 34px var(--font); letter-spacing: 1px; }
+
+/* Benachrichtigungen */
+.vos-banner {
+  position: absolute; left: 50%; top: 5.5cqw; width: 62cqw; margin-left: -31cqw;
+  display: flex; align-items: center; gap: 3cqw; padding: 2.6cqw 4.4cqw 2.6cqw 2.6cqw;
+  border-radius: 99cqw; background: rgba(28,28,32,.92);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: 0 2cqw 6cqw rgba(0,0,0,.5), inset 0 0 0 .2cqw rgba(255,255,255,.07);
+  transform: translateY(-140%) scale(.9); opacity: 0;
+  transition: transform .6s var(--spring), opacity .35s ease;
+  cursor: pointer;
+}
+.vos-banner.on { transform: none; opacity: 1; }
+.vos-banner .vos-icon { width: 10cqw; height: 10cqw; flex: none; }
+.vos-banner b { display: block; font-size: 3.6cqw; font-weight: 650; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vos-banner small { display: block; font-size: 3.1cqw; color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vos-banner > div { min-width: 0; flex: 1; }
+
+.vos-alert {
+  position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,.94);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 2.4cqw;
+  opacity: 0; transition: opacity .4s ease;
+}
+.vos-alert.on { opacity: 1; }
+.vos-alert .vos-icon { width: 17cqw; height: 17cqw; margin-bottom: 1cqw; }
+.vos-alert .acts { display: flex; gap: 3cqw; margin-top: 4cqw; }
+
+.vos-toast {
+  position: absolute; left: 50%; bottom: 17cqw; transform: translate(-50%, 4cqw) scale(.94); opacity: 0;
+  padding: 2.6cqw 5cqw; border-radius: 99cqw; background: rgba(40,40,46,.92); font-size: 3.6cqw; font-weight: 600;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  transition: transform .5s var(--spring), opacity .3s; white-space: nowrap; pointer-events: none !important;
+  display: flex; align-items: center; gap: 2cqw;
+}
+.vos-toast svg { width: 4.4cqw; height: 4.4cqw; }
+.vos-toast.on { transform: translate(-50%, 0) scale(1); opacity: 1; }
+
+/* Visto-Gespräch */
+.vos-convo .cv-text {
+  position: absolute; left: 0; right: 0; text-align: center; pointer-events: none;
+}
+.vos-convo .cv-line {
+  position: absolute; left: 50%; white-space: nowrap; transform: translateX(-50%);
+}
+.vos-convo .cv-word { display: inline-block; opacity: 0; transform: translateY(1.2cqw); filter: blur(1.2cqw); transition: opacity .45s ease, transform .6s var(--ease), filter .5s ease; }
+.vos-convo .cv-word.on { opacity: 1; transform: none; filter: none; }
+.vos-convo .cv-user { color: var(--fg3); font-weight: 500; }
+.vos-convo .cv-answer { color: #fff; font-weight: 520; letter-spacing: -.012em; }
+.vos-convo .cv-card { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: auto; }
+.vos-convo .cv-hint { position: absolute; left: 0; right: 0; text-align: center; font-size: 3.3cqw; color: var(--fg3); font-weight: 550; letter-spacing: .02em; transition: opacity .4s; }
+
+/* Kleine Hilfen */
+.vos-fade-in { animation: vosFadeIn .5s var(--ease) both; }
+@keyframes vosFadeIn { from { opacity: 0; transform: scale(.96); } }
+.vos-pop { animation: vosPop .55s var(--spring) both; }
+@keyframes vosPop { from { opacity: 0; transform: scale(.6); } }
+@keyframes vosSpin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .vos-convo .cv-word { transition: opacity .2s; transform: none; filter: none; }
+}

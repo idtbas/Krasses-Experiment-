@@ -85,3 +85,17 @@ Ein LiDAR-Scan-Simulator für Einsteiger, der so realistisch wie möglich misst:
 
 Technik: eigener Strahlverfolgungs-Kern (BVH mit Instanzen) in Web Workern, Three.js und Rapier aus `kinetik/vendor`, Roboter aus KINETIK. Lokal starten mit `python3 -m http.server` im Hauptordner, dann `http://localhost:8000/lidar/` öffnen. Tests: `for t in lidar/tests/*.test.mjs; do node $t; done`.
 
+
+# VistoOS · runder Schreibtisch-Assistent
+
+**Online öffnen (Handy):** https://idtbas.github.io/Krasses-Experiment-/visto/
+
+Das Betriebssystem für **Visto**: ein Schreibtischgerät mit exakt rundem 7″-OLED-Display (1080 × 1080, 90 Hz, Touch) auf einem Sockel. Die Website ist ein Emulator für das Smartphone – das Gerät wird maßstabsgetreu verkleinert gezeigt, darunter liegt die „Stimme“ (Texteingabe, Mikrofon, Vorschläge).
+
+- **Der Kreis ist das Raster:** Fortschritt läuft am Rand entlang (kein Ladebalken), Text folgt Bögen, Listen und App-Wabe wölben sich zum Rand hin, Antworten füllen den Kreis Zeile für Zeile.
+- **Visto, der Assistent:** ruht als feine Lichtlinie unten am Rand. Antippen oder hochziehen – die Enden rollen sich zu einem lebendigen Lichtring ein, zwei Augen springen auf. Visto hört zu (Spracherkennung, wo der Browser sie hat), denkt, antwortet in Worten und Stimme und steuert das Gerät: Timer, Wecker, Licht, Musik, Rechnen, Umrechnen und mehr. Im Claude-Artefakt beantwortet Claude zusätzlich freie Fragen und führt Geräteaktionen als Werkzeuge aus.
+- **Kamera:** Visto hat eine Frontkamera (im Emulator die Frontkamera des Handys; das Aussehen von Gerät und Visto bleibt unverändert). Die Augen folgen deinem Gesicht, Hinschauen weckt das Display, Weggehen dimmt es, aus der Ferne wird die Uhr größer, das Zifferblatt bekommt Tiefe, und nach längerer Abwesenheit begrüßt Visto dich. Die Erkennung läuft nur lokal.
+- **Gesten:** ↑ Apps · ↓ Kontrollzentrum · ← → Zifferblatt wechseln · Halten = Zifferblatt anpassen · vom linken Rand wischen = zurück · am Rand entlangfahren = Drehkrone · Taste am Sockel = Home.
+- **Zifferblätter, Apps, Einrichtung:** siehe `visto/ARCHITEKTUR.md`.
+
+Technik: Vanilla-JavaScript ohne Abhängigkeiten, Canvas-Leuchtebene mit Weichzeichnung, Federphysik für alle Bewegungen, Web Audio für Klänge und Musik. `node visto/tools/build.js` erzeugt eine Einzeldatei (`visto/dist/visto.html`), `node visto/tools/shot.js` macht Screenshots im Handyformat. URL-Schalter: `?skip` (ohne Start/Einrichtung), `?reset`, `?app=<id>`, `?face=<id>`.

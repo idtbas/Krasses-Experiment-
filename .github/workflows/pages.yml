@@ -1,12 +1,12 @@
 # Baut KYTHERA · MANDAT bei jeder Änderung neu und veröffentlicht die Einzeldatei auf dem Branch gh-pages,
 # den GitHub Pages unter https://idtbas.github.io/Krasses-Experiment-/ ausliefert (Version 1 unter /v1/).
 # Das Robotik-Labor KINETIK wird unverändert als Ordner unter /kinetik/ mitveröffentlicht, das LiDAR-Studio
-# ECHO unter /lidar/ (es nutzt Three.js, Rapier und die Roboter aus /kinetik/).
+# ECHO unter /lidar/ (es nutzt Three.js, Rapier und die Roboter aus /kinetik/), der VistoOS-Emulator unter /visto/.
 name: GitHub Pages
 
 on:
   push:
-    branches: [claude/kythera, main]
+    branches: [claude/kythera, claude/vistoos-round-display-v202l0, main]
     paths-ignore: ['dev-screenshots/**', 'README.md']
   workflow_dispatch:
 
@@ -35,7 +35,16 @@ jobs:
           cp -r kinetik/index.html kinetik/manifest.webmanifest kinetik/icon-*.png kinetik/css kinetik/js kinetik/vendor _site/kinetik/
           mkdir -p _site/lidar
           cp -r lidar/index.html lidar/css lidar/js _site/lidar/
+          mkdir -p _site/visto
+          # index.html = Emulator, device.html = das OS allein im Gerätemodus (/visto/device.html)
+          cp -r visto/index.html visto/device.html visto/css visto/js _site/visto/
           touch _site/.nojekyll
+
+      # index.html und device.html müssen dieselben Skripte laden; eine Abweichung erscheint hier als Warnung,
+      # hält die Veröffentlichung der übrigen Seiten aber nicht auf.
+      - name: VistoOS – Skriptlisten von Emulator und Gerätemodus prüfen
+        continue-on-error: true
+        run: node visto/tools/build.js --check
 
       - name: Auf gh-pages veröffentlichen
         working-directory: _site
@@ -46,5 +55,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -q -m "KYTHERA, KINETIK und ECHO veröffentlichen (Stand ${GITHUB_SHA::7})"
+          git commit -q -m "KYTHERA, KINETIK, ECHO und VistoOS veröffentlichen (Stand ${GITHUB_SHA::7})"
           git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
