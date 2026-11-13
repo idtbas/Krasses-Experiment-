@@ -17,7 +17,7 @@
   const STEP = 34;                          // Grad je Zifferblatt auf dem Rad
   const RW = 960;                           // Radius des Rads (logisch)
   const C0 = { x: 500, y: 410, s: 0.64 };   // Vorschau im Karussell
-  const C1 = { x: 500, y: 316, s: 0.4 };    // Vorschau beim Anpassen
+  const C1 = { x: 500, y: 298, s: 0.36 };   // Vorschau beim Anpassen
   const NAME_STEP = 30;                     // Grad je Name am oberen Bogen
   const SWIPE = 560;                        // logische Einheiten je Seite beim Wischen
   const RING_FROM = 225, RING_SPAN = 270;   // Farbtupfer-Ring: von 7:30 über oben bis 4:30 Uhr
@@ -42,7 +42,7 @@
     .fed-row .vos-btn { height: 11.4cqw; }
     .fed-row .fed-adj { background: rgba(255,255,255,.12); padding: 0 5.4cqw; }
     .fed-row .fed-done { padding: 0 6.4cqw; }
-    .fed-page { position: absolute; left: 8cqw; right: 8cqw; top: 55cqw; height: 18.4cqw; display: flex; flex-wrap: wrap;
+    .fed-page { position: absolute; left: 9cqw; right: 9cqw; top: 51cqw; height: 22cqw; display: flex; flex-wrap: wrap;
       align-content: center; justify-content: center; gap: 1.8cqw 1.8cqw; pointer-events: none; will-change: transform, opacity; }
     .fed-page.live > * { pointer-events: auto; }
     .fed-chip { position: relative; height: 9.6cqw; padding: 0 4.6cqw; font-size: 3.7cqw; font-weight: 620; border-radius: 99cqw;

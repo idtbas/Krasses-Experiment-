@@ -213,7 +213,7 @@
     if (sun.el) return;
     V.css('alarm', CSS);
     sun.layers = sunLayers(false);
-    sun.txt = V.ui.arcText({ text: '', r: 432, size: 26, weight: 700, spacing: 5, color: 'rgba(255,240,220,.9)' });
+    sun.txt = V.ui.arcText({ text: '', r: 471, size: 20, weight: 700, spacing: 4.4, color: 'rgba(255,236,214,.88)' });
     sun.txt.el.classList.add('alm-suntxt');
     sun.el = U.el('div', { class: 'alm-sun', attrs: { role: 'button', 'aria-label': 'Sonnenaufgang beenden', 'data-tap': '1' } }, sun.layers, sun.txt.el);
     V.ui.tap(sun.el, () => {
@@ -325,14 +325,14 @@
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent);
   mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent); }
 .alm-colon { font-size: 9cqw; font-weight: 250; color: rgba(255,255,255,.85); margin-top: -1.2cqw; width: 3cqw; text-align: center; }
-.alm-hint { position: absolute; left: 0; right: 0; top: 71cqw; text-align: center; font-size: 3.4cqw; font-weight: 560;
+.alm-hint { position: absolute; left: 0; right: 0; top: 72cqw; text-align: center; font-size: 3.4cqw; font-weight: 560;
   color: rgba(255,255,255,.55); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .alm-slot { position: absolute; transform: translate(-50%, -50%); }
 .alm-eb { width: 14.5cqw; height: 14.5cqw; background: rgba(255,255,255,.12); color: #fff; }
 .alm-eb svg { width: 6.2cqw; height: 6.2cqw; }
 .alm-eb.save { background: ${COLOR}; color: ${INK}; box-shadow: 0 0 6cqw ${U.rgba(COLOR, 0.32)}; }
 .alm-eb.del { background: rgba(255,69,58,.2); color: #FF6B62; }
-.alm-sunp { position: absolute; left: 50%; top: 80.5cqw; transform: translate(-50%, -50%); height: 9.4cqw; padding: 0 4.4cqw 0 3.6cqw;
+.alm-sunp { position: absolute; left: 50%; top: 81.4cqw; transform: translate(-50%, -50%); height: 9.4cqw; padding: 0 4.4cqw 0 3.6cqw;
   border-radius: 99cqw; border: 0; display: inline-flex; align-items: center; gap: 1.6cqw; cursor: pointer; white-space: nowrap;
   background: rgba(255,255,255,.1); color: rgba(255,255,255,.62); font: 650 3.5cqw/1 var(--font);
   transition: background .35s, color .35s, box-shadow .4s; }
@@ -358,7 +358,7 @@
 @keyframes almDisc { 50% { transform: translateY(2.5cqw) scale(1.1); } }
 @keyframes almRays { to { transform: rotate(360deg); } }
 .alm-suntxt { pointer-events: none; }
-.vos-alert.alm-alert { isolation: isolate; background: rgba(0,0,0,.97); }
+.vos-alert.alm-alert { isolation: isolate; background: #000; }
 .vos-alert.alm-alert > .alm-sunl { z-index: -1; }
 .vos-alert.alm-alert .vos-body { color: rgba(255,255,255,.8); }
 `;
@@ -589,7 +589,9 @@
       function rimArc(toMs, o) {
         const span = (toMs - now()) / 864e5;
         if (!(span > 0)) { ctx.rim.remove('next'); return; }
-        ctx.rim.arc('next', Object.assign({ from: nowAngle(), value: Math.min(1, span), color: COLOR, width: 5.5, r: R_RING, glow: 0.9, alpha: 0.85, head: false, track: false, smooth: true }, o || {}));
+        // mehr als ein Tag: Bogen bis zur Marke, dazu eine zarte volle Spur
+        const multi = span > 1;
+        ctx.rim.arc('next', Object.assign({ from: nowAngle(), value: multi ? Math.max(0.002, span % 1) : span, color: COLOR, width: 5.5, r: R_RING, glow: 0.9, alpha: 0.85, head: false, track: multi, trackAlpha: 0.13, smooth: true }, o || {}));
       }
 
       /* ------------------------------------------------------- Liste */
@@ -671,7 +673,7 @@
       editV.appendChild(hint);
       const leftB = V.ui.roundButton('close', { label: 'Abbrechen', cls: 'alm-eb', onClick: () => onLeftEdit() });
       const saveB = V.ui.roundButton('check', { label: 'Sichern', cls: 'alm-eb save', onClick: () => saveEdit() });
-      const lp = V.display.pt(230, 330), rp = V.display.pt(130, 330);
+      const lp = V.display.pt(245, 370), rp = V.display.pt(115, 370);
       editV.append(
         U.el('div', { class: 'alm-slot', style: { left: lp.x / 10 + 'cqw', top: lp.y / 10 + 'cqw' } }, leftB),
         U.el('div', { class: 'alm-slot', style: { left: rp.x / 10 + 'cqw', top: rp.y / 10 + 'cqw' } }, saveB));

@@ -339,7 +339,7 @@
       function footer(nDone) {
         const f = U.el('div', { class: 'rm-foot' });
         f.appendChild(V.ui.button('Neue Erinnerung', { icon: 'mic', cls: 'rm-new', onClick: () => V.convo && V.convo.activate({ via: 'tap' }) }));
-        f.appendChild(U.el('div', { class: 'rm-hint', text: 'Sag zum Beispiel „Erinnere mich um 15 Uhr ans Telefonieren“' }));
+        f.appendChild(U.el('div', { class: 'rm-hint' }, 'Sag zum Beispiel', U.el('b', { text: '„Erinnere mich um 15 Uhr ans Telefonieren“' })));
         if (nDone) f.appendChild(V.ui.button('Erledigte löschen', { kind: 'ghost', size: 'sm', icon: 'trash', onClick: () => { clearDone(); V.notify.toast('Erledigte gelöscht', 'trash'); } }));
         return f;
       }
@@ -374,7 +374,7 @@
         if (on) { V.sound.play('success'); V.haptic([8, 30, 14]); V.rim.pulse({ at: 0, color: COLOR, spread: 60 }); } else { V.sound.play('tap'); V.haptic(5); }
         progress(open().length, done().length);
         clearTimeout(pending);
-        pending = ctx.timeout(render, on ? 1150 : 520);
+        pending = ctx.timeout(() => { pending = 0; render(); }, on ? 1150 : 520);
       }
 
       function animateCheck(row, on) {
@@ -402,8 +402,9 @@
       }
 
       render();
-      ctx.on('reminders:changed', () => { clearTimeout(pending); render(); });
-      ctx.on('time:minute', render);
+      ctx.on('reminders:changed', () => { clearTimeout(pending); pending = 0; render(); });
+      // Fälligkeiten nachführen – aber keine laufende Abhak-Animation unterbrechen
+      ctx.on('time:minute', () => { if (!pending) render(); });
       return {
         crown(dA) { list.crown(dA); },
       };
@@ -411,7 +412,9 @@
   });
 
   V.css('reminders', `
-    .rm-list { padding-top: 19cqw; padding-bottom: 30cqw; }
+    .rm-list { padding-top: 19cqw; padding-bottom: 30cqw;
+      -webkit-mask-image: linear-gradient(to bottom, transparent 8%, #000 17%, #000 76%, transparent 91%);
+      mask-image: linear-gradient(to bottom, transparent 8%, #000 17%, #000 76%, transparent 91%); }
     .rm-head { text-align: center; margin: 0 auto 4cqw; }
     .rm-count { font-size: 16cqw; font-weight: 200; letter-spacing: -.05em; line-height: 1; }
     .rm-sub { margin-top: 1.4cqw; color: ${U.rgba(COLOR, 0.88)}; }
@@ -444,6 +447,7 @@
     .rm-row.soon small { color: #FFB340; }
     .rm-foot { display: flex; flex-direction: column; align-items: center; gap: 2.6cqw; margin-top: 6cqw; }
     .rm-new { background: ${U.rgba(COLOR, 0.2)}; color: ${COLOR}; }
-    .rm-hint { font-size: 3.2cqw; line-height: 1.38; color: var(--fg3); max-width: 58cqw; text-align: center; }
+    .rm-hint { font-size: 3.2cqw; line-height: 1.4; color: var(--fg3); text-align: center; }
+    .rm-hint b { display: block; font-weight: 550; color: var(--fg2); white-space: nowrap; }
   `);
 })();

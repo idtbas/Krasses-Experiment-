@@ -159,7 +159,7 @@
     const pts = [];
     for (let i = 1; i <= tiers; i++) {
       const t = i / tiers;
-      const yy = y - h + h * 0.93 * t;
+      const yy = y - h + h * 0.985 * t;
       const half = w * 0.5 * Math.pow(t, 0.8) * (0.78 + R() * 0.44);
       const droop = (h / tiers) * (0.3 + R() * 0.2);
       pts.push({ yy, half, droop, lh: half * (0.78 + R() * 0.44) / (0.78 + 0.22) });
@@ -196,7 +196,7 @@
     glow(c, sx, sy, S * 0.12, '#fff1cf', 0.7);
     disk(c, sx, sy, S * 0.04, '#fffaf0', 'rgba(255,236,200,0)');
     // Grate: hinten hell im Dunst, vorn fast schwarz
-    const tops = ['#e98c98', '#b45f86', '#6e3a6c', '#33203f', '#120b18'];
+    const tops = ['#d98293', '#b45f86', '#6e3a6c', '#33203f', '#120b18'];
     const hazes = ['#f2a0a0', '#d77a92', '#9a4f7c', '#4d2c52'];
     const L = 5;
     for (let k = 0; k < L; k++) {
@@ -307,8 +307,8 @@
         a.fillStyle = lg(a, 0, by, 0, by - H, [[0, 'rgba(120,255,170,0)'], [0.05, `rgba(150,255,185,${0.85 * I})`], [0.24, `rgba(60,235,160,${0.55 * I})`], [0.6, `rgba(60,170,200,${0.22 * I})`], [0.86, `rgba(170,90,255,${0.15 * I})`], [1, 'rgba(170,90,255,0)']]);
         a.fillRect(x, by - H, 1.4, H + 3);
         // diffuser Schein unter der Kante
-        a.fillStyle = lg(a, 0, by - 1, 0, by + H * 0.22, [[0, `rgba(90,255,170,${0.22 * I})`], [1, 'rgba(90,255,170,0)']]);
-        a.fillRect(x, by - 1, 1.4, H * 0.22 + 1);
+        a.fillStyle = lg(a, 0, by - 1, 0, by + H * 0.42, [[0, `rgba(90,255,170,${0.3 * I})`], [0.35, `rgba(70,220,170,${0.1 * I})`], [1, 'rgba(70,200,170,0)']]);
+        a.fillRect(x, by - 1, 1.4, H * 0.42 + 1);
       }
     }
     c.save(); c.globalCompositeOperation = 'lighter';
@@ -419,12 +419,19 @@
         for (let t = 0; t <= 1.001; t += 0.05) {
           crest.push([px - S * L.w * 0.55 * Math.pow(t, 0.9) + S * L.w * 0.22 * Math.sin(t * Math.PI), py + t * depth]);
         }
+        // Schattenhang endet im nächsten Tal
+        let xr = px, prev = py;
+        for (let x = px + 3; x < px + S * L.w * 2.6; x += 3) {
+          const y = yAt(x);
+          if (y < prev - 0.4) break;
+          prev = y; xr = x;
+        }
+        const end = crest[crest.length - 1];
         c.beginPath();
         c.moveTo(crest[0][0], crest[0][1]);
         for (const q of crest) c.lineTo(q[0], q[1]);
-        const xr = px + S * L.w * 2.2;
-        c.lineTo(xr, py + depth);
-        for (let x = xr; x >= px; x -= 4) c.lineTo(x, yAt(x));
+        c.quadraticCurveTo(U.lerp(end[0], xr, 0.75), end[1], xr, yAt(xr) + S * 0.02);
+        for (let x = xr; x >= px; x -= 3) c.lineTo(x, yAt(x));
         c.closePath();
         c.fillStyle = lg(c, px, py, px + S * L.w, py + depth * 0.6, [[0, U.mix(sh, lit, 0.12)], [0.5, sh], [1, U.mix(sh, '#000000', 0.3)]]);
         c.fill();
@@ -529,21 +536,27 @@
       const band = Math.exp(-Math.pow(d / wid, 2));
       if (band < 0.01) { o[3] = 0; return; }
       // Struktur entlang des Bandes gestreckt
-      const cl = fbm(n, s * 7, d * 26, 5);
-      const fine = fbm(n, s * 26 + 3, d * 60 + 9, 3);
+      const cl = fbm(n, s * 9, d * 17, 5);
+      const fine = fbm(n, s * 30 + 3, d * 48 + 9, 3);
       const rift = 0.018 * Math.sin(s * 10) + 0.03 * (fbm(n, s * 4 + 20, 1, 3) - 0.5);
       const dust = Math.exp(-Math.pow((d - rift) / (0.022 + 0.02 * fbm(n, s * 9, 7, 3)), 2)) * U.smoothstep(0.08, 0.3, s) * (0.55 + 0.45 * fine);
       const core = Math.exp(-Math.pow((s - 0.3) / 0.16, 2));
-      let I = band * (0.18 + 1.25 * Math.pow(cl, 2.4) + 0.25 * fine) * (0.55 + 0.75 * core) * (1 - 0.92 * dust);
-      I = U.clamp(I * 0.95, 0, 1);
+      let I = band * (0.2 + 0.85 * U.smoothstep(0.32, 0.72, cl) + 0.25 * U.smoothstep(0.4, 0.7, fine)) * (0.5 + 0.7 * core) * (1 - 0.9 * dust);
+      I = U.clamp(I * 0.62, 0, 1);
       const warm = U.clamp(core * 0.9 + 0.1, 0, 1);
-      const pink = U.smoothstep(0.66, 0.74, fbm(n, s * 18 + 40, d * 40, 3)) * band * 0.45;
-      o[0] = U.lerp(U.lerp(150, 255, warm), 255, pink) * I;
-      o[1] = U.lerp(U.lerp(166, 222, warm), 130, pink) * I;
-      o[2] = U.lerp(U.lerp(255, 186, warm), 196, pink) * I;
+      const pink = U.smoothstep(0.66, 0.74, fbm(n, s * 18 + 40, d * 40, 3)) * band * 0.4;
+      o[0] = U.lerp(U.lerp(150, 255, warm), 255, pink);
+      o[1] = U.lerp(U.lerp(168, 224, warm), 136, pink);
+      o[2] = U.lerp(U.lerp(255, 190, warm), 200, pink);
       o[3] = 255 * I;
     });
     c.save(); c.globalCompositeOperation = 'lighter';
+    // Schein (Bloom) aus einer kleinen Kopie, dann das scharfe Band
+    const bl = cv(64), bx2 = bl.getContext('2d');
+    bx2.drawImage(mw, 0, 0, 64, 64);
+    c.globalAlpha = 0.45;
+    c.drawImage(bl, 0, 0, S, S);
+    c.globalAlpha = 1;
     c.drawImage(mw, 0, 0, S, S);
     c.restore();
     // Sterne, im Band dichter

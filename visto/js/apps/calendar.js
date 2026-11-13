@@ -385,7 +385,7 @@
 
   /* ------------------------------------------------------ Antworten */
   function joinList(arr) { return arr.length > 1 ? arr.slice(0, -1).join(', ') + ' und ' + arr[arr.length - 1] : arr[0] || ''; }
-  function agenda(off) {
+  function agenda(off, yesNo) {
     const d0 = addDays(todayD0(), off);
     const t = now();
     const all = eventsOfDay(d0);
@@ -403,10 +403,11 @@
     }
     const w = whenWords(d0);
     const W = w.charAt(0).toUpperCase() + w.slice(1);
-    if (!evs.length) return { say: off < 0 ? `${W} hattest du keine Termine.` : `Nein, ${w} ist dein Kalender frei.`, card, emotion: 'happy' };
+    if (!evs.length) return { say: off < 0 ? `${W} hattest du keine Termine.` : yesNo ? `Nein, ${w} ist dein Kalender frei.` : `${W} ist dein Kalender frei.`, card, emotion: 'happy' };
     if (off < 0) return { say: `${W} hattest du ${evs.length === 1 ? 'einen Termin' : evs.length + ' Termine'}: ${joinList(items(evs).slice(0, 4))}.`, card };
-    if (evs.length === 1) return { say: `Ja, ${w} hast du einen Termin: um ${tm(evs[0].start)} Uhr ${evs[0].title}.`, card };
-    return { say: `Ja, ${w} hast du ${evs.length} Termine. Der erste ist um ${tm(evs[0].start)} Uhr: ${evs[0].title}.`, card };
+    const lead = yesNo ? `Ja, ${w}` : W;
+    if (evs.length === 1) return { say: `${lead} hast du einen Termin: um ${tm(evs[0].start)} Uhr ${evs[0].title}.`, card };
+    return { say: `${lead} hast du ${evs.length} Termine. Der erste ist um ${tm(evs[0].start)} Uhr: ${evs[0].title}.`, card };
   }
 
   function parseDayArg(day) {
@@ -516,7 +517,7 @@
           /\bwas (?:habe|hab) ich (?:heute |morgen |übermorgen )?(?:noch )?vor\b/,
           /\bwie (?:sieht|ist) (?:mein|der) (?:tag|kalender)\b/,
         ],
-        run(m, t) { return agenda(dayOffsetFrom(t)); },
+        run(m, t) { return agenda(dayOffsetFrom(t), /^(?:habe?|hab|hast|gibt|ist|bin)\b/.test(t)); },
       });
     },
 

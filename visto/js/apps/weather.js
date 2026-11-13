@@ -354,7 +354,7 @@
   /* ============================================================== Himmel */
   const SKY = {
     dayClear: ['#0B3C93', '#2A6FD3', '#5EA3EE'],
-    dayOver: ['#384252', '#566175', '#7A8598'],
+    dayOver: ['#2C3542', '#465063', '#626D80'],
     nightClear: ['#000002', '#030a22', '#0b1840'],
     nightOver: ['#020203', '#090a0e', '#14171d'],
     dusk: ['#172160', '#7B4C8E', '#F68A57'],
@@ -497,7 +497,7 @@
       const sunVis = U.smoothstep(0.02, 0.4, P.day) * (1 - P.cover * 0.62) * (1 - P.fog * 0.6) * (1 - P.rain * 0.7);
       if (sunVis > 0.01) {
         const f = U.clamp(P.sunF, -0.1, 1.1);
-        const sx = 150 + 700 * f, sy = 318 - 205 * Math.sin(Math.PI * U.clamp(f, 0, 1));
+        const sx = 170 + 660 * f, sy = 345 - 160 * Math.sin(Math.PI * U.clamp(f, 0, 1));
         const warm = U.clamp(P.dusk, 0, 1);
         const core = U.mix('#FFF7DE', '#FFC27A', warm);
         g.globalCompositeOperation = 'lighter';
@@ -534,7 +534,7 @@
       const moonVis = (1 - U.smoothstep(0.1, 0.5, P.day)) * (1 - P.cover * 0.75) * (1 - P.fog * 0.7) * (1 - P.rain * 0.8);
       if (moonVis > 0.01) {
         const f = U.clamp(P.moonF, 0, 1);
-        const mx = 170 + 660 * f, my = 300 - 165 * Math.sin(Math.PI * f), mr = 30;
+        const mx = 180 + 640 * f, my = 345 - 150 * Math.sin(Math.PI * f), mr = 30;
         g.globalCompositeOperation = 'lighter';
         const mg = g.createRadialGradient(mx, my, 10, mx, my, 210);
         mg.addColorStop(0, `rgba(200,215,255,${0.22 * moonVis})`); mg.addColorStop(1, 'rgba(200,215,255,0)');
@@ -564,7 +564,7 @@
         const w = 420 * c.k, h = w * 0.55;
         if (c.x > 1000 + 40) { c.x = -w - 40 - Math.random() * 200; }
         if (c.vis < 0.01) continue;
-        const a = c.vis * (0.55 + c.layer * 0.2) * nightDim;
+        const a = c.vis * (0.55 + c.layer * 0.2) * nightDim * (1 - 0.35 * U.clamp((P.cover - 0.75) * 4, 0, 1) - 0.3 * P.fog);
         const bob = Math.sin(t * 0.15 + c.th * 20) * 6;
         if (dark < 0.99) { g.globalAlpha = a * (1 - dark); g.drawImage(sp.light[c.sp], c.x, c.y + bob, w, h); }
         if (dark > 0.01) { g.globalAlpha = a * dark; g.drawImage(sp.dark[c.sp], c.x, c.y + bob, w, h); }
@@ -573,7 +573,7 @@
       // geschlossene Wolkendecke
       const deck = U.clamp((P.cover - 0.7) * 2.6, 0, 1) * 0.75;
       if (deck > 0.01) {
-        const dc = U.mix(U.mix('#1a1d23', '#9aa3b1', P.day), '#2a3037', P.storm * 0.8 + P.rain * 0.3);
+        const dc = U.mix(U.mix('#15181d', '#6E7886', P.day), '#262b31', P.storm * 0.8 + P.rain * 0.3);
         const lg = g.createLinearGradient(0, 0, 0, 760);
         lg.addColorStop(0, U.rgba(dc, deck)); lg.addColorStop(0.6, U.rgba(dc, deck * 0.55)); lg.addColorStop(1, U.rgba(dc, 0));
         g.fillStyle = lg; g.fillRect(0, 0, 1000, 760);
@@ -581,8 +581,8 @@
 
       // ---- Nebelbänder
       if (P.fog > 0.01) {
-        const fc = P.day > 0.45 ? [214, 219, 226] : [70, 75, 84];
-        g.fillStyle = `rgba(${fc[0]},${fc[1]},${fc[2]},${0.2 * P.fog})`;
+        const fc = P.day > 0.45 ? [178, 186, 197] : [70, 75, 84];
+        g.fillStyle = `rgba(${fc[0]},${fc[1]},${fc[2]},${0.12 * P.fog})`;
         g.fillRect(0, 0, 1000, 1000);
         for (const b of fogs) {
           b.x += b.v * dt;
@@ -591,7 +591,7 @@
           g.translate(b.x, b.y + Math.sin(t * 0.2 + b.w) * 10);
           g.scale(b.w / 120, 1);
           const fg = g.createRadialGradient(0, 0, 0, 0, 0, 120);
-          fg.addColorStop(0, `rgba(${fc[0]},${fc[1]},${fc[2]},${0.55 * P.fog * b.a})`);
+          fg.addColorStop(0, `rgba(${fc[0]},${fc[1]},${fc[2]},${0.42 * P.fog * b.a})`);
           fg.addColorStop(1, `rgba(${fc[0]},${fc[1]},${fc[2]},0)`);
           g.fillStyle = fg;
           g.fillRect(-120, -120, 240, 240);
@@ -664,12 +664,19 @@
       if (!vignette) {
         vignette = g.createRadialGradient(500, 500, 230, 500, 500, 505);
         vignette.addColorStop(0, 'rgba(0,0,0,0)');
-        vignette.addColorStop(0.45, 'rgba(0,0,0,.16)');
-        vignette.addColorStop(0.72, 'rgba(0,0,0,.48)');
-        vignette.addColorStop(1, 'rgba(0,0,0,.9)');
+        vignette.addColorStop(0.5, 'rgba(0,0,0,.1)');
+        vignette.addColorStop(0.74, 'rgba(0,0,0,.4)');
+        vignette.addColorStop(1, 'rgba(0,0,0,.88)');
       }
       g.fillStyle = vignette;
       g.fillRect(0, 0, 1000, 1000);
+      // helle, graue Lagen (Nebel, Schnee, Wolkendecke am Tag): Mitte für die Schrift leicht abdunkeln
+      const bright = P.day * U.clamp(P.cover * 0.45 + P.fog * 0.6 + P.snow * 0.4, 0, 1);
+      if (bright > 0.05) {
+        const sg = g.createRadialGradient(500, 480, 40, 500, 480, 360);
+        sg.addColorStop(0, `rgba(0,0,0,${(0.3 * bright).toFixed(3)})`); sg.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = sg; g.fillRect(0, 0, 1000, 1000);
+      }
     }
 
     return { g, P, resize, setTarget, step, draw };
@@ -870,7 +877,7 @@
     .wx-cond { position:absolute; left:15%; right:15%; top:56.6cqw; text-align:center; font-size:5cqw; font-weight:560; letter-spacing:-.012em; white-space:nowrap; }
     .wx-hilo { position:absolute; left:15%; right:15%; top:63cqw; text-align:center; font-size:3.7cqw; font-weight:600; color:rgba(255,255,255,.85);
       font-variant-numeric:tabular-nums; white-space:nowrap; }
-    .wx-hilo i { font-style:normal; color:rgba(255,255,255,.5); font-weight:650; margin-right:.6cqw; }
+    .wx-hilo i { font-style:normal; color:rgba(255,255,255,.5); font-weight:650; margin-right:1cqw; }
     .wx-note { position:absolute; left:28%; right:28%; top:68.4cqw; text-align:center; font-size:3cqw; font-weight:560; color:rgba(255,255,255,.62); line-height:1.25; }
     .wx-more { position:absolute; left:50%; top:74.6cqw; transform:translateX(-50%); height:11cqw; padding:0 4.2cqw; border:0; border-radius:99cqw;
       display:flex; align-items:center; gap:1.2cqw; cursor:pointer; background:rgba(255,255,255,.1); color:rgba(255,255,255,.88);
@@ -1197,7 +1204,7 @@
         const p = c.pts[q], off = (p.k / 24) * (SPAN / 360);
         const col = tempColor(p.T);
         curveG.addColorStop(off, col);
-        fillG.addColorStop(off, U.rgba(col, 0.2));
+        fillG.addColorStop(off, U.rgba(col, 0.11));
         ringG.addColorStop(off, U.rgba(U.mix('#4F5FD0', '#FFD08A', p.day), U.lerp(0.42, 0.75, p.day)));
       }
       // Tage: Tiefst → Höchst je Bogen

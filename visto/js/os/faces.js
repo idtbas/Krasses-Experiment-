@@ -230,7 +230,10 @@
       const t = V.info.timer && V.safe(() => V.info.timer());
       if (t && o.timer !== false) parts.push({ icon: 'timer', text: V.fmt.duration(t.left), color: '#FF9F0A' });
       const ev = V.info.nextEvent && V.safe(() => V.info.nextEvent());
-      if (ev && o.event !== false && !t) parts.push({ icon: 'calendar', text: V.fmt.time24(ev.start) + ' ' + ev.title });
+      if (ev && o.event !== false && !t) {
+        const day = V.fmt.relDay(ev.start);
+        parts.push({ icon: 'calendar', text: (day === 'Heute' ? '' : day + ' ') + V.fmt.time24(ev.start) + ' ' + ev.title });
+      }
       return parts;
     },
     renderComplications(el, o = {}) {

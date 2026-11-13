@@ -442,7 +442,7 @@
 .hm-layer { position: absolute; inset: 0; pointer-events: none; }
 .hm-page { position: absolute; inset: 0; will-change: transform, opacity; transform-origin: 50% 50%; }
 .hm-halo { position: absolute; width: 84cqw; height: 84cqw; left: 8cqw; border-radius: 50%; pointer-events: none; will-change: transform, background; }
-.hm-bulb { position: absolute; left: 50%; width: 22cqw; height: 27.5cqw; margin-left: -11cqw; padding: 0; border: 0; background: none; cursor: pointer;
+.hm-bulb { position: absolute; left: 50%; width: 24cqw; height: 30cqw; margin-left: -12cqw; padding: 0; border: 0; background: none; cursor: pointer;
   transition: transform .4s var(--spring); -webkit-tap-highlight-color: transparent; }
 .hm-bulb:active { transform: scale(.93); }
 .hm-bulb svg { width: 100%; height: 100%; display: block; overflow: visible; }
@@ -470,7 +470,7 @@
 .hm-tnum { position: absolute; left: 0; right: 0; display: flex; justify-content: center; align-items: flex-start; line-height: 1;
   font-size: 23cqw; font-weight: 200; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
 .hm-tnum .hm-deg { font-size: .36em; font-weight: 250; margin: .1em 0 0 .06em; letter-spacing: 0; color: rgba(255,255,255,.75); }
-.hm-scene { position: absolute; width: 18cqw; height: 18cqw; margin: -9cqw 0 0 -9cqw; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+.hm-scene { position: absolute; width: 17cqw; height: 17cqw; margin: -8.5cqw 0 0 -8.5cqw; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
   display: grid; place-items: center; color: var(--c); background: radial-gradient(circle at 50% 28%, var(--c1), var(--c2) 72%);
   box-shadow: inset 0 0 0 .3cqw var(--c3); transition: transform .4s var(--spring), background .45s, color .45s, box-shadow .45s; }
 .hm-scene svg { width: 7.4cqw; height: 7.4cqw; }
@@ -768,7 +768,7 @@
           }
           const um = t.match(/um (\d+(?:[.,]\d)?) grad/);
           const amount = um ? parseFloat(um[1].replace(',', '.')) : 1;
-          if (W('wärmer|höher|hoch|rauf|hochdrehen|aufdrehen|hochstellen|mehr').test(t) || /kalt|frisch|kühl$/.test(t) && m.k === 'feel') return opt(thermoCommand({ delta: amount }, 'voice'), t, 'klima');
+          if (W('wärmer|höher|hoch|rauf|hochdrehen|aufdrehen|hochstellen|mehr').test(t) || /(?<![a-zäöüß])auf$/.test(t) || /kalt|frisch|kühl$/.test(t) && m.k === 'feel') return opt(thermoCommand({ delta: amount }, 'voice'), t, 'klima');
           if (W('kälter|kühler|niedriger|runter|herunter|weniger|absenken|senken|runterdrehen|zurückdrehen|kleiner').test(t) || m.k === 'feel') return opt(thermoCommand({ delta: -amount }, 'voice'), t, 'klima');
           if (RE.off.test(t)) return opt(thermoCommand({ on: false }, 'voice'), t, 'klima');
           if (RE.on.test(t)) { setThermoRaw(undefined, true); changed({ what: 'thermo', src: 'voice' }); return opt({ say: `Die Heizung ist an und steht auf ${fmtT(st().thermo.target)} Grad.`, card: thermoCard() }, t, 'klima'); }
@@ -809,11 +809,8 @@
         };
       }
       const thTarget = spring(S.thermo.target, 0.38, 0.08, 1e-3);
-      const allSprings = () => {
-        const a = [pos, subT, thTarget];
-        for (const id in shown) { const s = shown[id]; a.push(s.lvl, s.r, s.g, s.b, s.blinds); }
-        return a;
-      };
+      const SPRINGS = [pos, subT, thTarget];
+      for (const id in shown) { const s = shown[id]; SPRINGS.push(s.lvl, s.r, s.g, s.b, s.blinds); }
 
       /** Federziele auf den gespeicherten Zustand setzen (o.stagger = Szene: gestaffelt) */
       function sync(o = {}) {
@@ -856,7 +853,7 @@
 
       // Thermostat: feine Striche rundherum
       const thermoG = U.svg('g');
-      const heatGlow = U.svg('path', { fill: 'none', 'stroke-width': 44, 'stroke-linecap': 'round', filter: `url(#${blurId})`, opacity: 0.5 });
+      const heatGlow = U.svg('path', { fill: 'none', 'stroke-width': 24, 'stroke-linecap': 'round', filter: `url(#${blurId})`, opacity: 0.38 });
       thermoG.appendChild(heatGlow);
       const ticks = [];
       for (let i = 0; i <= T_SPAN / 2; i++) {
@@ -866,9 +863,9 @@
         ticks.push({ el: ln, a, major, k: '' });
       }
       const curMark = U.svg('g');
-      curMark.appendChild(U.svg('circle', { cx: 500, cy: 500 - 410, r: 6, fill: '#fff', opacity: 0.85 }));
-      const tgtGlow = U.svg('line', { x1: 500, y1: 500 - 482, x2: 500, y2: 500 - 414, 'stroke-width': 18, 'stroke-linecap': 'round', filter: `url(#${blurId})` });
-      const tgtMark = U.svg('line', { x1: 500, y1: 500 - 482, x2: 500, y2: 500 - 414, stroke: '#fff', 'stroke-width': 7, 'stroke-linecap': 'round' });
+      curMark.appendChild(U.svg('circle', { cx: 500, cy: 500 - 487, r: 5.5, fill: '#fff', opacity: 0.9 }));
+      const tgtGlow = U.svg('line', { x1: 500, y1: 500 - 478, x2: 500, y2: 500 - 420, 'stroke-width': 18, 'stroke-linecap': 'round', filter: `url(#${blurId})` });
+      const tgtMark = U.svg('line', { x1: 500, y1: 500 - 478, x2: 500, y2: 500 - 420, stroke: '#fff', 'stroke-width': 7, 'stroke-linecap': 'round' });
       const tgtG = U.svg('g');
       tgtG.append(tgtGlow, tgtMark);
       thermoG.append(curMark, tgtG);
@@ -935,8 +932,8 @@
         { tone: 'kerze' }, { tone: 'warm' }, { tone: 'neutral' }, { tone: 'kalt' }, { tone: 'hue' }, { wheel: true },
       ];
       const CHIP_A = [240, 216, 192, 168, 144, 120], CHIP_R = 318;
-      const BULB_TOP = 168;                  // logisch
-      const GLASS_Y = BULB_TOP + (106 / 300) * 275;
+      const BULB_TOP = 150;                  // logisch
+      const GLASS_Y = BULB_TOP + (106 / 300) * 300;
 
       function buildRoomPage(P) {
         const room = P.room;
@@ -1065,6 +1062,7 @@
             if (s !== lastNum) {
               lastNum = s;
               digits.set(s);
+              digitsEl.querySelectorAll('.rd-slot').forEach((sl, i) => { if (s[i] === ',') sl.style.width = '0.2em'; });
               deg.style.display = th.on ? '' : 'none';
               num.style.fontSize = th.on ? '' : '15cqw';
               num.style.paddingTop = th.on ? '' : '4cqw';
@@ -1089,7 +1087,7 @@
 
       function buildScenesPage(P) {
         const el = U.el('div', { class: 'hm-page' });
-        const POS = [[362, 392], [638, 392], [362, 640], [638, 640]];
+        const POS = [[368, 380], [632, 380], [368, 630], [632, 630]];
         const discs = SCENES.map((sc, i) => {
           const [x, y] = POS[i];
           const b = U.el('button', { class: 'hm-scene', attrs: { type: 'button', 'aria-label': 'Szene ' + sc.name }, html: V.icon(sc.icon), style: at(x, y) });
@@ -1099,9 +1097,12 @@
           b.style.setProperty('--c2', U.rgba(sc.color, 0.1));
           b.style.setProperty('--c3', U.rgba(sc.color, 0.3));
           b.style.setProperty('--c4', U.rgba(sc.color, 0.55));
-          const l = U.el('div', { class: 'hm-scenelbl', text: sc.name, style: at(x, y + 112) });
+          // Beschriftung folgt dem Kreis: oben über, unten unter den Scheiben
+          const pr = V.display.polar(x, y);
+          const top = y < 500;
+          const l = V.ui.arcText({ text: sc.name, r: pr.r + 120, at: top ? pr.a : pr.a, side: top ? 'top' : 'bottom', size: 30, weight: 600, spacing: 0.5, color: 'rgba(255,255,255,.72)', upper: false });
           tap(b, () => { runScene(sc.id); V.sound.play('success'); V.haptic([8, 30, 8]); }, false);
-          el.append(b, l);
+          el.append(l.el, b);
           return { b, sc };
         });
         Object.assign(P, {
@@ -1364,7 +1365,7 @@
           const off = labels[i0].c + (labels[i1].c - labels[i0].c) * f + (p < 0 ? p * 40 : p > PAGES.length - 1 ? (p - PAGES.length + 1) * 40 : 0);
           labels.forEach((L) => {
             const a = L.c - off, aa = Math.abs(a);
-            const op = (aa < 4 ? 0.9 : U.lerp(0.9, 0.26, U.smoothstep(4, 34, aa))) * (1 - U.smoothstep(52, 74, aa)) * (1 - sT);
+            const op = (aa < 4 ? 0.92 : U.lerp(0.92, 0.3, U.smoothstep(4, 28, aa))) * (1 - U.smoothstep(36, 56, aa)) * (1 - sT);
             L.g.setAttribute('transform', `rotate(${a.toFixed(3)} 500 500)`);
             L.g.setAttribute('opacity', op.toFixed(3));
           });
@@ -1380,7 +1381,6 @@
             wRoom += w; lvl += U.clamp(sh.lvl.v, 0, 1) * w; cr += sh.r.v * w; cg += sh.g.v * w; cb += sh.b.v * w;
           } else if (pg.kind === 'thermo') wTh += w;
         }
-        const room = sub ? null : curPage().kind === 'room' ? curPage().id : null;
         if (wRoom > 0) { lvl /= wRoom; cr /= wRoom; cg /= wRoom; cb /= wRoom; }
         const lc = U.rgbToHex(cr, cg, cb);
         const fade = 1 - sT;
@@ -1453,11 +1453,10 @@
           o.el.style.transform = `scale(${(1.06 - 0.06 * sT).toFixed(4)})`;
           if (sT <= 0.01 || sub) { o.el.remove(); leaving.splice(i, 1); }
         }
-        void room;
       }
 
       ctx.onFrame((dt, t) => {
-        for (const s of allSprings()) step(s, dt);
+        for (const s of SPRINGS) step(s, dt);
         render(t);
       });
       ctx.on('home:changed', (e) => {
@@ -1466,9 +1465,7 @@
           const i = pageIndex(e.focus);
           if (i >= 0) goPage(i, { response: 0.8 });
         }
-        if (e && e.what === 'scene' && !G && !sub && e.src !== 'ui' && curPage().kind !== 'scenes' && curPage().kind !== 'room') goPage(0, { response: 0.8 });
       });
-      ctx.interval(() => { for (const P of pageObjs) if (P.page.kind === 'thermo') P.frame(); }, 2000);
       sync();
       render(0);
 
