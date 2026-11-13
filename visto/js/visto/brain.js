@@ -11,7 +11,7 @@
  *    card: {type:'big', text, sub} | {type:'icon', icon, color, title, sub} | {type:'el', el}
  *
  *  Hilfen für Apps: V.brain.parseDuration(t) → Sekunden | null
- *                   V.brain.parseTime(t) → {date: Date, h, m, rel: bool} | null
+ *                   V.brain.parseTime(t, {literal}) → {date: Date, h, m, rel: bool} | null  (literal: ohne „nächstes Vorkommen“)
  *                   V.brain.norm(t), V.brain.num(wort)
  */
 'use strict';
@@ -72,7 +72,7 @@
   }
 
   /** Uhrzeit verstehen: „um 7“, „um 7:30“, „halb acht“, „viertel nach 8“, „morgen um 6“, „in 20 minuten“ */
-  function parseTime(text) {
+  function parseTime(text, o = {}) {
     const t = norm(text);
     const now = V.time.now();
     // relativ
@@ -108,7 +108,7 @@
       if (wd >= 0) { dayOff = (wd - now.getDay() + 7) % 7 || 7; }
     }
     if (dayOff) d.setDate(d.getDate() + dayOff);
-    else if (d <= now) {
+    else if (d <= now && !o.literal) {
       // ohne Tagesangabe: nächstes Vorkommen. Bei „um 7“ und es ist 9 Uhr → evtl. 19 Uhr
       if (h < 12 && !/\b(morgens|früh|vormittags|weck|wecker|aufwachen)/.test(t) && d.getTime() + 12 * 3600e3 > now.getTime()) d.setHours(d.getHours() + 12);
       else d.setDate(d.getDate() + 1);
@@ -483,7 +483,37 @@
       return { say: `Ich öffne ${app.name}.`, open: app.id, emotion: 'happy' };
     } });
 
+  I({ id: 'set-clock', priority: 7, match: [/\b(stell|stelle|setz|setze) (die )?(uhr|uhrzeit|systemzeit)\b/, /\buhrzeit\b.*\b(automatisch|manuell)\b/],
+    run(m, t) {
+      if (/automatisch|internet|richtig|zurück/.test(t)) {
+        V.time.setAuto();
+        return { say: `Die Uhr läuft wieder automatisch. Es ist ${V.fmt.time(V.time.now())} Uhr.`, card: { type: 'big', text: V.fmt.time(V.time.now()), sub: 'Automatisch' } };
+      }
+      if (/\b(24|zwölf|12)\b.*\bstunden/.test(t)) {
+        const h24 = /24/.test(t);
+        V.store.set('settings.use24h', h24);
+        return { say: h24 ? 'Die Uhr zeigt jetzt 24 Stunden.' : 'Die Uhr zeigt jetzt 12 Stunden.', emotion: 'happy' };
+      }
+      const p = parseTime(t.replace(/\b(stell|stelle|setz|setze) (die )?(uhr|uhrzeit|systemzeit)( auf)?/, 'um'), { literal: true });
+      if (!p) return { say: 'Auf welche Uhrzeit soll ich die Uhr stellen?', emotion: 'confused' };
+      const d = V.time.now();
+      d.setHours(p.h, p.m, 0, 0);
+      V.time.setManual(d);
+      return { say: `Erledigt, die Uhr steht jetzt auf ${V.fmt.time(d)}.`, card: { type: 'big', text: V.fmt.time(d), sub: 'Manuell gestellt' }, emotion: 'happy' };
+    } });
+
   /* Systemaktionen für Claude */
+  V.actions.register('system.set_clock', {
+    desc: 'Stellt die Systemuhr manuell (time als HH:MM) oder mit mode "auto" zurück auf automatisch.',
+    params: { time: { type: 'string', description: 'HH:MM' }, mode: { type: 'string', enum: ['manual', 'auto'] } },
+    run(a) {
+      if (a.mode === 'auto' || !a.time) { V.time.setAuto(); return 'Uhr wieder automatisch.'; }
+      const m = String(a.time).match(/(\d{1,2}):(\d{2})/);
+      if (!m) return 'Ungültige Uhrzeit.';
+      const d = V.time.now(); d.setHours(+m[1], +m[2], 0, 0); V.time.setManual(d);
+      return 'Uhr gestellt auf ' + V.fmt.time(d) + '.';
+    },
+  });
   V.actions.register('system.open_app', {
     desc: 'Öffnet eine App auf dem Visto-Display. id ist eine der App-IDs.',
     params: { id: { type: 'string', description: 'App-ID, z. B. ' + 'timer, weather, music, home, calendar, reminders, focus, breathe, settings, stopwatch, alarm, worldclock, photos, calculator' } },

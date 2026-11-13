@@ -64,7 +64,7 @@
       row('Zeitlupe', 'Alle Animationen verlangsamt ansehen.', slow),
       row('Ruhemodus jetzt', 'Display dimmt wie nach längerer Pause.', U.el('button', { class: 'emu-btn', text: 'Dimmen', on: { click: () => { toggleSheet(false); V.shell.home(); setTimeout(() => V.ambient.sleep(), 700); } } })),
       row('Nur Display', 'Gerät, Sockel und Eingabe ausblenden.', U.el('button', { class: 'emu-btn', text: 'Vollbild', on: { click: () => { toggleSheet(false); setFull(true); } } })),
-      row('Neu einrichten', 'Setzt Visto auf Werkszustand zurück und startet die Einrichtung.', U.el('button', { class: 'emu-btn danger', text: 'Zurücksetzen', on: { click: () => { if (confirm('VistoOS auf Werkszustand zurücksetzen?')) { V.store.reset(); location.reload(); } } } })),
+      row('Neu einrichten', 'Setzt Visto auf Werkszustand zurück und startet die Einrichtung.', resetBtn()),
       U.el('div', { class: 'emu-foot', html: `VistoOS ${V.version} · Build ${V.build}<br>Wischen, Tippen, Halten und Drehen am Rand funktionieren wie auf dem Gerät.` }),
     );
     document.body.append(sheetBack, sheet);
@@ -73,6 +73,23 @@
       stats.hz.textContent = V.loop.hz + ' Hz';
       stats.fps.textContent = String(V.loop.fps);
     }, 400);
+  }
+  /** zweistufig bestätigen (Dialoge wie confirm() sind nicht überall erlaubt) */
+  function resetBtn() {
+    let armed = false, t = 0;
+    const b = U.el('button', { class: 'emu-btn danger', text: 'Zurücksetzen' });
+    b.addEventListener('click', () => {
+      if (!armed) {
+        armed = true; b.textContent = 'Wirklich zurücksetzen?';
+        clearTimeout(t); t = setTimeout(() => { armed = false; b.textContent = 'Zurücksetzen'; }, 3500);
+        return;
+      }
+      V.store.reset();
+      try { localStorage.removeItem('vistoos.v1'); } catch (e) { /* */ }
+      const url = location.href.replace(/[?&](skip|app|face)(=[^&]*)?/g, '');
+      location.replace(url);
+    });
+    return b;
   }
   function toggleSheet(on) { sheet.classList.toggle('on', on); sheetBack.classList.toggle('on', on); }
   function setFull(on) { document.body.classList.toggle('emu-full', on); size(); }

@@ -5,6 +5,7 @@
    ========================================================================== */
 
 :root {
+  color-scheme: dark;
   --accent: #FF9A4D;
   --accent-rgb: 255, 154, 77;
   --accent-ink: #1a0d02;
@@ -67,7 +68,10 @@ button { font: inherit; color: inherit; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: max(env(safe-area-inset-top), 10px) 16px max(env(safe-area-inset-bottom), 18px);
+  padding-top: max(env(safe-area-inset-top), 10px);
+  padding-bottom: max(env(safe-area-inset-bottom), 18px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
   gap: 12px;
   -webkit-user-select: none;
   user-select: none;
