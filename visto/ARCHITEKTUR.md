@@ -79,6 +79,7 @@ V.gesture(el, {start(p), move(p), end(p), tap(p), long(p)}, {slop, longMs})
 V.rim.arc(id, {value 0…1, from 0, color, width 9, r 488, glow 1, track, head, smooth, alpha}) ; V.rim.remove(id)
 const l = V.rim.loading({color}); await l.done()          // Ladekreis: Linie fährt am Rand entlang
 V.rim.pulse({at: 0, color}) ; V.rim.level('Lautstärke', .6, {color, side:'right'}) ; V.rim.aurora(0…1)
+V.rim.tail(ctx, cx, cy, r, a0, a1, color, width, alphaKopf, alphaSchwanz)   // Bogen mit Verlauf (Leuchtspur) auf eigener Leinwand
 
 // UI-Bausteine (js/ui/kit.js)
 V.ui.title(root, 'Timer')                       // geschwungener Titel oben

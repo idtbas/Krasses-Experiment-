@@ -156,7 +156,7 @@
 .st-wheels{display:flex;align-items:center;justify-content:center;gap:1cqw}
 .st-wheels .vos-wheel{border-radius:6cqw;background:rgba(255,255,255,.04)}
 .st-colon{font-size:9cqw;font-weight:200;color:var(--fg3);margin-top:-1.4cqw}
-.st-pick{position:absolute;left:0;right:0;top:20cqw;display:flex;flex-direction:column;align-items:center}
+.st-pick{position:absolute;left:0;right:0;top:16.5cqw;display:flex;flex-direction:column;align-items:center}
 .st-pick .vos-wheel{background:radial-gradient(closest-side,rgba(255,255,255,.07),transparent)}
 `;
 
@@ -277,7 +277,7 @@
     }
     shown.onUpdate(paint);
     paint();
-    let lastTick = Math.round(v * 20), center = null, prev = v;
+    let lastTick = Math.round(v * 20), center = null, prev = v, onRing = false;
     function setV(nv, animate, commit) {
       nv = U.clamp(nv, min, 1);
       v = nv;
@@ -298,10 +298,15 @@
       return nv;
     }
     V.gesture(el, {
-      start() { center = V.display.centerOf(svg); prev = v; },
-      move(p) { if (p.moved) setV(fromPoint(p), false, false); },
-      tap(p) { setV(fromPoint(p), true, true); },
-      end(p) { if (p.moved && o.onCommit) o.onCommit(v); },
+      start(p) {
+        center = V.display.centerOf(svg);
+        const rLog = (svg.getBoundingClientRect().width / V.display.rect().width) * 1000 * (R / 100);
+        onRing = Math.hypot(p.x - center.x, p.y - center.y) > rLog * 0.58;
+        prev = v;
+      },
+      move(p) { if (p.moved && onRing) setV(fromPoint(p), false, false); },
+      tap(p) { if (onRing) setV(fromPoint(p), true, true); },
+      end(p) { if (p.moved && onRing && o.onCommit) o.onCommit(v); },
     }, { slop: 4 });
     return { el, get: () => v, set(nv) { setV(nv, true, false); }, crown(dA) { setV(v + dA / 300, false, true); } };
   }
@@ -478,9 +483,9 @@
       const cur = get(key, which === 'to' ? 7 : 22);
       const hours = Array.from({ length: 24 }, (_, i) => h2(i));
       const box = U.el('div', { class: 'st-pick' });
-      const w = V.ui.wheel({ items: hours, index: cur, rows: 5, itemH: 11, size: 8.4, width: '44cqw', onChange: (i) => set(key, i) });
+      const w = V.ui.wheel({ items: hours, index: cur, rows: 5, itemH: 10, size: 8, width: '44cqw', onChange: (i) => set(key, i) });
       box.append(U.el('div', { class: 'vos-label', style: { marginBottom: '1cqw' }, text: which === 'to' ? 'Nachtmodus endet' : 'Nachtmodus beginnt' }), w.el,
-        V.ui.button('Fertig', { kind: 'white', style: { marginTop: '2.6cqw', minWidth: '32cqw', height: '11cqw' }, onClick: () => nav.pop() }));
+        V.ui.button('Fertig', { kind: 'white', style: { marginTop: '2.2cqw', minWidth: '32cqw', height: '11cqw' }, onClick: () => nav.pop() }));
       P.el.appendChild(box);
       return { crown: (dA) => w.crown(dA) };
     },

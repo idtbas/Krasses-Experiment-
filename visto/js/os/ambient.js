@@ -33,6 +33,7 @@
       if (V.shell.mode !== 'home') return;
       if (V.convo && V.convo.active) return;
       if (V.control && V.control.isOpen) return;
+      if (V.faceEditor && V.faceEditor.isOpen) return;
       on = true;
       V.faces.setAmbient(true);
       V.emit('ambient', true);

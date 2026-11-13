@@ -347,7 +347,14 @@
     let colorName = null;
     const before = ids.map((id) => levelOf(roomState(id)));
     const toneBefore = roomState(ids[0]).tone;
-    for (const id of ids) {
+    const relColor = /^(wärmer|kälter|kühler)$/i.test(String(a.color || ''));
+    // „Alle Lichter blau/wärmer“: nur die brennenden umfärben (sind alle aus, dann alle)
+    let targets = ids;
+    if (ids.length > 1 && a.color && parts.on === undefined && parts.bri === undefined && !a.delta) {
+      const lit = ids.filter((id) => roomState(id).on);
+      if (lit.length) targets = lit;
+    }
+    for (const id of targets) {
       const r = roomState(id);
       const o = Object.assign({}, parts);
       if (a.delta) {
@@ -367,13 +374,13 @@
     if (ids.length > 1) {
       const anyOn = ids.some((id) => roomState(id).on);
       if (!anyOn) say = 'Alle Lichter sind aus.';
-      else if (colorName) say = `Alle Lichter leuchten jetzt ${colorName.tone === 'hue' ? hueEntry(r0.hue).adj : 'in ' + TONES[r0.tone].name}.`;
+      else if (colorName && relColor) say = `Alle Lichter leuchten jetzt ${/^w/i.test(a.color) ? 'wärmer' : 'kühler'}.`;
+      else if (colorName) { const rc = roomState(targets[0]); say = `Alle Lichter leuchten jetzt ${rc.tone === 'hue' ? hueEntry(rc.hue).adj : 'in ' + TONES[rc.tone].name}.`; }
       else if (parts.bri !== undefined || a.delta) say = `Alle Lichter auf ${pctOf(r0)} Prozent.`;
       else say = 'Alle Lichter sind an.';
       return { say, card: lightCard(ids), emotion: anyOn ? 'happy' : undefined };
     }
     const room = ROOM[ids[0]];
-    const relColor = /^(wärmer|kälter|kühler)$/i.test(String(a.color || ''));
     if (relColor && r0.tone === toneBefore && r0.on) return { say: `${/^w/i.test(a.color) ? 'Wärmer' : 'Kühler'} geht es nicht – das Licht ${room.in} leuchtet schon in ${TONES[r0.tone].name}.`, card: lightCard(ids) };
     if (!r0.on) say = `Das Licht ${room.in} ist aus.`;
     else if (colorName) say = `Das Licht ${room.in} leuchtet jetzt ${r0.tone === 'hue' ? hueEntry(r0.hue).adj : 'in ' + TONES[r0.tone].name}.`;
