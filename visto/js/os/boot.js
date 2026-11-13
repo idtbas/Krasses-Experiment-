@@ -20,7 +20,8 @@
 .bt-root{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:#000;touch-action:none;cursor:pointer;z-index:5}
 .bt-cv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .bt-word{position:absolute;left:0;right:0;top:50%;height:16cqw;margin-top:-8.6cqw;display:flex;justify-content:center;align-items:center;
-  font-family:var(--font);font-weight:200;font-size:14.5cqw;line-height:1;color:#fff;pointer-events:none;white-space:nowrap}
+  font-family:var(--font);font-weight:200;font-size:15cqw;line-height:1;color:#fff;pointer-events:none;white-space:nowrap;
+  text-shadow:0 0 2.4cqw rgba(150,185,255,.38),0 0 .6cqw rgba(255,255,255,.25)}
 .bt-l{display:inline-block;opacity:0;will-change:transform,opacity,filter}
 `);
 

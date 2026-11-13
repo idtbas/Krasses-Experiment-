@@ -206,38 +206,51 @@
   function drawOrb(c, t, o) {
     const { cx, cy, R, cols, a } = o;
     if (a <= 0.004) return;
+    // 1) Inneres: wabernde Lichtkerne, die einander umkreisen (additiv)
     c.globalCompositeOperation = 'lighter';
-    // weiter, weicher Hof
-    const hr = R * 1.9;
-    let g = c.createRadialGradient(cx, cy, R * 0.15, cx, cy, hr);
-    g.addColorStop(0, U.rgba(cols[0], 0.16 * a));
-    g.addColorStop(0.42, U.rgba(cols[1], 0.07 * a));
-    g.addColorStop(1, U.rgba(cols[1], 0));
-    c.fillStyle = g;
-    c.beginPath(); c.arc(cx, cy, hr, 0, TAU); c.fill();
-    // wabernde Lichtkerne
-    for (let i = 0; i < 5; i++) {
+    let g;
+    for (let i = 0; i < 6; i++) {
       const s = i * 2.39;
-      const ang = t * (0.11 + i * 0.027) * (i % 2 ? -1 : 1) + s;
-      const rad = R * (0.16 + 0.26 * (0.5 + 0.5 * U.noise(t * 0.16 + s, i + 1)));
+      const ang = t * (0.13 + i * 0.031) * (i % 2 ? -1 : 1) + s;
+      const rad = R * (0.12 + 0.36 * (0.5 + 0.5 * U.noise(t * 0.17 + s, i + 1)));
       const x = cx + Math.cos(ang) * rad;
-      const y = cy + Math.sin(ang) * rad * 0.86;
-      const rr = R * (0.6 + 0.16 * U.noise(t * 0.21 + s * 3, i + 7));
+      const y = cy + Math.sin(ang) * rad * 0.9;
+      const rr = R * (0.58 + 0.2 * (0.5 + 0.5 * U.noise(t * 0.23 + s * 3, i + 7)));
       const col = cols[i % cols.length];
       g = c.createRadialGradient(x, y, 0, x, y, rr);
-      g.addColorStop(0, U.rgba(col, 0.34 * a));
-      g.addColorStop(0.45, U.rgba(col, 0.15 * a));
+      g.addColorStop(0, U.rgba(col, 0.5 * a));
+      g.addColorStop(0.5, U.rgba(col, 0.2 * a));
       g.addColorStop(1, U.rgba(col, 0));
       c.fillStyle = g;
       c.beginPath(); c.arc(x, y, rr, 0, TAU); c.fill();
     }
-    // feiner Lichtsaum der Kugel
-    const ring = c.createRadialGradient(cx, cy, R * 0.86, cx, cy, R * 1.08);
-    ring.addColorStop(0, U.rgba(cols[2], 0));
-    ring.addColorStop(0.55, U.rgba(cols[2], 0.1 * a));
-    ring.addColorStop(1, U.rgba(cols[2], 0));
-    c.fillStyle = ring;
-    c.beginPath(); c.arc(cx, cy, R * 1.08, 0, TAU); c.fill();
+    // 2) weiche Kugelform: nach außen ausblenden
+    c.globalCompositeOperation = 'destination-in';
+    g = c.createRadialGradient(cx, cy, R * 0.42, cx, cy, R);
+    g.addColorStop(0, 'rgba(0,0,0,1)');
+    g.addColorStop(0.7, 'rgba(0,0,0,.55)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g;
+    c.fillRect(0, 0, 1000, 1000);
+    // 3) Hof hinter der Kugel
+    c.globalCompositeOperation = 'destination-over';
+    const hr = R * 2.1;
+    g = c.createRadialGradient(cx, cy, R * 0.3, cx, cy, hr);
+    g.addColorStop(0, U.rgba(cols[0], 0.2 * a));
+    g.addColorStop(0.4, U.rgba(cols[1], 0.08 * a));
+    g.addColorStop(1, U.rgba(cols[1], 0));
+    c.fillStyle = g;
+    c.beginPath(); c.arc(cx, cy, hr, 0, TAU); c.fill();
+    // 4) feiner Lichtsaum, der langsam um die Kugel wandert
+    c.globalCompositeOperation = 'lighter';
+    const la = t * 0.21;
+    const lx = cx + Math.cos(la) * R * 0.22, ly = cy + Math.sin(la) * R * 0.22;
+    g = c.createRadialGradient(lx, ly, R * 0.78, lx, ly, R * 1.04);
+    g.addColorStop(0, U.rgba(cols[3], 0));
+    g.addColorStop(0.7, U.rgba(cols[3], 0.13 * a));
+    g.addColorStop(1, U.rgba(cols[3], 0));
+    c.fillStyle = g;
+    c.beginPath(); c.arc(lx, ly, R * 1.04, 0, TAU); c.fill();
     c.globalCompositeOperation = 'source-over';
   }
 

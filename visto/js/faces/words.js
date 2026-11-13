@@ -105,15 +105,15 @@
         // Zellgröße so wählen, dass jede Zeile in den Kreis passt
         const n = ROWS.length;
         const need = ROWS.map((r) => r.reduce((a, it) => a + (typeof it === 'string' ? 1 : it[0].length), 0));
-        let cw = 76, layout = null;
+        let cw = 84, layout = null;
         for (; cw > 40; cw -= 1) {
-          const ph = cw * 1.12;
+          const ph = Math.min(cw * 1.12, 335 * 2 / (n - 1));
           const caps = [];
           let ok = true;
           for (let i = 0; i < n; i++) {
             const y = 500 + (i - (n - 1) / 2) * ph;
-            const edge = Math.min(V.display.chord(y - ph * 0.36), V.display.chord(y + ph * 0.36));
-            const cap = Math.floor((edge - 70) / cw);
+            const edge = Math.min(V.display.chord(y - ph * 0.3), V.display.chord(y + ph * 0.3));
+            const cap = Math.floor((edge - 48) / cw);
             if (cap < need[i]) { ok = false; break; }
             caps.push({ y, cap });
           }
@@ -180,7 +180,8 @@
           dots.forEach((d, i) => {
             const on = i < extra;
             d.style.display = o.dots ? '' : 'none';
-            d.style.background = on ? col : 'rgba(255,255,255,.14)';
+            d.style.background = on ? col : 'transparent';
+            d.style.border = on ? '0' : '.25cqw solid rgba(255,255,255,.2)';
             d.style.boxShadow = on && !amb ? `0 0 1.6cqw ${glow}` : 'none';
             d.style.transform = on ? 'scale(1)' : 'scale(.62)';
             d.style.opacity = amb && !on ? '0' : '1';
