@@ -162,3 +162,15 @@ node visto/tools/shot.js AUSGABE.png "?skip&app=weather" '[{"wait":1500},{"tap":
 `?skip` überspringt Start und Einrichtung, `?app=id` öffnet eine App, `?face=id` ein Zifferblatt.
 Das Skript meldet Konsolenfehler (`FEHLER:`). Screenshots mit dem Read-Werkzeug ansehen und so lange
 verbessern, bis es wirklich hochwertig aussieht. Mehrere Zwischenstände: `{"shot":"pfad.png"}` als Schritt.
+
+## Gestaltung 2.0 „Glas & Licht“ (css/design2.css)
+
+- **Glas:** `.vos-glass` (+ `.thin` · `.thick` · `.tint` mit `--tint: Farbe` · `.blur` für echte Hintergrundunschärfe –
+  nur wenn Inhalt dahinter liegt). Knöpfe, Chips, Karten, Listenzeilen, Schalter, Banner und App-Symbole sind bereits
+  systemweit Glas mit Lichtkante – eigene Flächen bitte ebenfalls mit `.vos-glass` statt grauer Füllung bauen.
+- **Bewegung:** nur die vier Federn `V.motion.snappy` (Tippen, Schalter) · `smooth` (Ebenen, Seiten) · `bouncy`
+  (Erscheinen, Bestätigen) · `gentle` (Licht, große Flächen): `V.spring(0, V.motion.bouncy)`.
+- **Tiefe:** Was zurücktritt, wird Milchglas (Unschärfe + leichte Abdunklung), nie hartes Schwarz.
+- **Tortenmenü:** `const wahl = await V.ui.pie([{id, icon, label, color, danger}], {x, y, title})` – für
+  Kontextaktionen bei langem Drücken (in Apps: `V.gesture(el, {long(p) { … V.ui.pie(…, {x: p.x, y: p.y}) }})`).
+- **Shell-Erweiterungspunkte:** `V.shell.hooks` (homeSwipeX, homeCrown, tap[], long[], baseDouble) – siehe SPEC-2.0.md.
