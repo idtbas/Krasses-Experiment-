@@ -288,14 +288,19 @@
 
       /* ---------- Zierde: Wählscheibe, Fingeranschlag, innerer Ring */
       const deco = U.svg('svg', { class: 'vos-svg cal-deco', viewBox: '0 0 1000 1000', 'aria-hidden': 'true' });
-      const a0 = 180 + GAP - 9, a1 = 180 - GAP + 9 + 360;
+      const a0 = digA(0), a1 = digA(9) + 360;
       deco.append(
-        U.svg('path', { d: V.ui.arcPath(500, 500, R_DIG, a0, a1), fill: 'none', stroke: 'rgba(255,255,255,.035)', 'stroke-width': 158, 'stroke-linecap': 'round' }),
-        U.svg('path', { d: V.ui.arcPath(500, 500, R_DIG + 80, a0 + 4, a1 - 4), fill: 'none', stroke: 'rgba(255,255,255,.07)', 'stroke-width': 1.4 }),
+        U.svg('path', { d: V.ui.arcPath(500, 500, R_DIG, a0, a1), fill: 'none', stroke: 'rgba(255,255,255,.034)', 'stroke-width': 160, 'stroke-linecap': 'round' }),
+        U.svg('path', { d: V.ui.arcPath(500, 500, R_DIG + 81, a0 + 6, a1 - 6), fill: 'none', stroke: 'rgba(255,255,255,.06)', 'stroke-width': 1.4 }),
         U.svg('circle', { cx: 500, cy: 500, r: R_OPS, fill: 'none', stroke: 'rgba(255,255,255,.055)', 'stroke-width': 1.4 }),
       );
-      const sp = V.display.pt(STOP, R_DIG - 52), ep = V.display.pt(STOP, R_DIG + 62);
-      deco.appendChild(U.svg('line', { x1: sp.x, y1: sp.y, x2: ep.x, y2: ep.y, stroke: 'rgba(255,255,255,.28)', 'stroke-width': 7, 'stroke-linecap': 'round' }));
+      // Fingeranschlag: kleiner Metallbügel außen hinter der 9
+      const sp = V.display.pt(STOP, R_DIG + 30), ep = V.display.pt(STOP, R_DIG + 84);
+      const grd = U.svg('linearGradient', { id: 'cal-stop', x1: sp.x, y1: sp.y, x2: ep.x, y2: ep.y, gradientUnits: 'userSpaceOnUse' },
+        U.svg('stop', { offset: 0, 'stop-color': '#ffffff', 'stop-opacity': 0.55 }), U.svg('stop', { offset: 1, 'stop-color': '#ffffff', 'stop-opacity': 0.16 }));
+      deco.append(U.svg('defs', null, grd),
+        U.svg('line', { x1: sp.x, y1: sp.y, x2: ep.x, y2: ep.y, stroke: 'url(#cal-stop)', 'stroke-width': 10, 'stroke-linecap': 'round' }),
+        U.svg('circle', { cx: sp.x, cy: sp.y, r: 4.5, fill: '#fff', opacity: 0.7 }));
       root.appendChild(deco);
 
       /* ---------- Anzeige */
