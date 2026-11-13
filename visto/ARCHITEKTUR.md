@@ -63,7 +63,7 @@ const data = V.store.app('meine-app', {standard: 1}); data.x = 2; V.store.save()
 // Zeit
 V.time.now() (Date, berücksichtigt manuell gestellte Uhr) · V.time.ms() · V.time.isNight()
 V.fmt.time(d) '14:05' · dateLong(d) · dateShort(d) · relDay(d) · duration(s) '4:59' · durationWords(s) · weekday(d)
-Ereignisse: 'time:second', 'time:minute'
+Ereignisse: 'time:second', 'time:minute' · Visto: 'convo:open', 'convo:close', 'convo:closed' (nach dem Ausblenden)
 
 // Klang & Haptik
 V.sound.play('tap'|'tick'|'open'|'close'|'success'|'notify'|'error'|'wake'|'sleep')

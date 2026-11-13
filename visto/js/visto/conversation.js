@@ -260,6 +260,7 @@
       setTimeout(() => { if (!active) clearText(); }, 400);
       V.visto.close();
       V.emit('convo:close');
+      setTimeout(() => { if (!active) V.emit('convo:closed'); }, 480);   // nach dem Ausblenden: Apps dürfen sichtbar ändern
     },
   });
 })();

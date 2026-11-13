@@ -1,7 +1,7 @@
 /* VistoOS · tools/shot.js — Screenshots im Handy-Format (Playwright)
  *
  *  node visto/tools/shot.js <ausgabe.png> [suchparameter] [schritte-json] [--display]
- *  Schritte: [{"wait":ms}, {"eval":"js"}, {"tap":[x,y]} (logisch 0…1000), {"swipe":[x0,y0,x1,y1]}, {"rotate":[a0,a1,r]}, {"type":"text"}]
+ *  Schritte: [{"wait":ms}, {"eval":"js"}, {"tap":[x,y]} (logisch 0…1000), {"swipe":[x0,y0,x1,y1]}, {"rotate":[a0,a1,r]}, {"files":[pfade]} (vor dem Antippen), {"type":"text"}]
  *  --display  nur das runde Display ausschneiden
  *  Zeigt Konsolenfehler der Seite an.
  */
@@ -45,6 +45,10 @@ const path = require('path');
       const n = Math.max(8, Math.ceil(Math.abs(a1 - a0) / 4));
       for (let i = 1; i <= n; i++) { const p = at(a0 + ((a1 - a0) * i) / n); await page.mouse.move(p.x, p.y); await page.waitForTimeout(16); }
       await page.mouse.up();
+    }
+    if (s.files) {
+      // Dateien für den nächsten <input type=file> bereitlegen (vor dem Klick registrieren)
+      page.once('filechooser', (fc) => fc.setFiles(s.files).catch((e) => errors.push('files: ' + e.message)));
     }
     if (s.type) { await page.fill('.talk-field input', s.type); await page.press('.talk-field input', 'Enter'); }
     if (s.shot) {
