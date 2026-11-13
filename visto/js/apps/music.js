@@ -240,6 +240,7 @@
     const ac = this.ac;
     const inp = ac.createGain();
     inp.gain.value = o.gain !== undefined ? o.gain : 1;
+    if (this.solo && this.solo.indexOf(name) < 0) inp.gain.value = 0;   // nur Test-Rendering
     this.nodes.push(inp);
     let tail = inp, lp = null;
     const filt = (type, f, q) => {
@@ -1068,11 +1069,12 @@
   }
 
   /** nur für Tests: einen Sender offline rendern und den Pegel messen */
-  async function render(stId, sec, track, step) {
+  async function render(stId, sec, track, step, solo) {
     const st = byId(stId) || STATIONS[0];
     sec = sec || 8;
     const sr = 44100, oac = new OfflineAudioContext(2, Math.ceil(sr * sec), sr);
     const G = buildGraph(oac, oac.destination);
+    SP.solo = solo || null;
     const s = new Session(G, st, track || 0, step || 0, 0.05);
     s.fade(1, 0.05, 0.01);
     while (s.nextTime < sec && s.step < s.song.total) {
@@ -1081,6 +1083,7 @@
       st.step(s, s.step, t);
       s.step++; s.nextTime += s.sd;
     }
+    SP.solo = null;
     const buf = await oac.startRendering();
     let peak = 0, sum = 0, n = 0;
     for (let c = 0; c < buf.numberOfChannels; c++) {

@@ -45,6 +45,7 @@
 .st-host{position:absolute;inset:0}
 .st-page{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:#000;transform-origin:50% 50%}
 .st-back{position:absolute;left:28cqw;right:28cqw;top:0;height:12.5cqw;z-index:6;border:0;background:none;padding:0;cursor:pointer;border-radius:0 0 50% 50%}
+.st-back.inner{left:37cqw;right:37cqw;top:12.4cqw;height:10cqw;border-radius:99cqw}
 .st-back:active{background:radial-gradient(60% 80% at 50% 0%,rgba(255,255,255,.08),transparent)}
 .st-me{display:flex;flex-direction:column;align-items:center;text-align:center;margin:0 auto 4.2cqw;cursor:pointer}
 .st-me .st-mark{width:12cqw;height:12cqw;margin-bottom:1.6cqw;transition:transform .35s var(--spring)}
@@ -98,7 +99,8 @@
 .st-fslot{position:absolute;left:28cqw;top:15cqw;width:44cqw;height:44cqw;border-radius:50%;overflow:hidden;container-type:size;background:#000;cursor:pointer;
   box-shadow:0 0 0 .35cqw rgba(255,255,255,.14),0 2cqw 6cqw rgba(0,0,0,.6);will-change:transform,opacity;transition:box-shadow .4s}
 .st-fslot.cur{box-shadow:0 0 0 .55cqw var(--accent),0 0 6cqw -1cqw rgba(var(--accent-rgb),.6)}
-.st-fslot .st-fname0{position:absolute;inset:0;display:grid;place-items:center;font-size:9cqw;font-weight:600;color:var(--fg3)}
+.st-fslot .st-fname0{position:absolute;inset:0;display:grid;place-items:center;font-size:9cqw;font-weight:600;color:var(--fg3);transition:opacity .3s}
+.st-fslot.live .st-fname0{opacity:0}
 .st-finfo{position:absolute;left:0;right:0;top:62.5cqw;text-align:center;pointer-events:none}
 .st-finfo .vos-h2{white-space:nowrap}
 .st-fbtn{position:absolute;left:50%;top:75cqw;transform:translateX(-50%);height:11cqw}
@@ -109,8 +111,8 @@
 .st-knob{position:absolute;width:10.6cqw;height:10.6cqw;margin:-5.3cqw 0 0 -5.3cqw;border-radius:50%;border:.9cqw solid #fff;pointer-events:none;
   box-shadow:0 .8cqw 2.4cqw rgba(0,0,0,.5),0 0 5cqw -.4cqw var(--k);transition:width .3s var(--spring),height .3s var(--spring),margin .3s var(--spring)}
 .st-knob.big{width:13cqw;height:13cqw;margin:-6.5cqw 0 0 -6.5cqw}
-.st-orb{position:absolute;left:50%;top:41cqw;width:24cqw;height:24cqw;margin:-12cqw 0 0 -12cqw;border-radius:50%;pointer-events:none;transition:box-shadow .3s}
-.st-cinfo{position:absolute;left:0;right:0;top:57.5cqw;text-align:center;pointer-events:none}
+.st-orb{position:absolute;left:50%;top:43.5cqw;width:24cqw;height:24cqw;margin:-12cqw 0 0 -12cqw;border-radius:50%;pointer-events:none;transition:box-shadow .3s}
+.st-cinfo{position:absolute;left:0;right:0;top:59.5cqw;text-align:center;pointer-events:none}
 .st-cinfo .vos-small{margin-top:.8cqw;font-variant-numeric:tabular-nums;letter-spacing:.06em}
 /* Visto-Ring */
 .st-vring{position:relative;width:26cqw;height:26cqw;margin:0 auto 1cqw}
@@ -511,6 +513,7 @@
           const near = Math.abs(i - idx) <= 1;
           if (near && !s.pv) { s.pv = V.faces.preview(s.f.id, s.el); }
           else if (!near && s.pv) { s.pv.destroy(); s.pv = null; }
+          s.el.classList.toggle('live', !!s.pv);
         });
       }
       function render(v) {
@@ -590,6 +593,7 @@
 
   PAGES.color = {
     title: 'Farbe',
+    inner: true,
     build(P) {
       P.el.setAttribute('data-nogesture', 'all');
       let hex = get('settings.accent', '#FF9A4D');
@@ -607,7 +611,7 @@
       const nm = U.el('div', { class: 'vos-h1' });
       const hx = U.el('div', { class: 'vos-small' });
       const info = U.el('div', { class: 'st-cinfo' }, nm, hx);
-      const hint = U.el('div', { class: 'vos-label', style: { position: 'absolute', left: 0, right: 0, top: '71cqw', textAlign: 'center', pointerEvents: 'none' }, text: 'Am Ring drehen' });
+      const hint = U.el('div', { class: 'vos-label', style: { position: 'absolute', left: 0, right: 0, top: '73cqw', textAlign: 'center', pointerEvents: 'none' }, text: 'Am Ring drehen' });
       P.el.append(ring, marks, orb, info, hint, knob);
       function paint() {
         const p = V.display.pt(hue, 430);
@@ -680,7 +684,7 @@
           P.wheels = null;
         }
         out.push({ el: card(null, undefined, ...kids) });
-        out.push({ el: toggleRow({ icon: 'clock', color: '#0A84FF', title: '24-Stunden-Format', subFn: (on) => on ? '18:30' : '6:30 PM', get: () => get('settings.use24h', true), set: (v) => set('settings.use24h', v) }) });
+        out.push({ el: toggleRow({ icon: 'clock', color: '#0A84FF', title: '24-Stunden-Uhr', subFn: (on) => on ? '18:30' : '6:30 PM', get: () => get('settings.use24h', true), set: (v) => set('settings.use24h', v) }) });
         out.push({ el: toggleRow({ icon: 'stopwatch', color: '#FF9F0A', title: 'Sekunden zeigen', sub: 'Auf passenden Zifferblättern', get: () => get('settings.showSeconds', false), set: (v) => set('settings.showSeconds', v) }) });
         return out;
       };
@@ -953,12 +957,12 @@
         destroy() { for (const f of offs.splice(0)) V.safe(f); if (P.onDestroy) V.safe(P.onDestroy); el.remove(); },
       };
       const sub = id !== 'main';
-      const t = V.ui.arcText({ text: (sub ? '‹  ' : '') + def.title, r: 446, size: 27, weight: 700, spacing: 5, color: 'rgba(255,255,255,.55)' });
+      const t = V.ui.arcText({ text: (sub ? '‹  ' : '') + def.title, r: def.inner ? 338 : 446, size: 27, weight: 700, spacing: 5, color: 'rgba(255,255,255,.55)' });
       t.el.classList.add('vos-apptitle');
       P.titleEl = t.el;
       el.appendChild(t.el);
       if (sub) {
-        const b = U.el('button', { class: 'st-back', attrs: { type: 'button', 'aria-label': 'Zurück' } });
+        const b = U.el('button', { class: 'st-back' + (def.inner ? ' inner' : ''), attrs: { type: 'button', 'aria-label': 'Zurück' } });
         V.ui.tap(b, () => nav.pop());
         el.appendChild(b);
       }
