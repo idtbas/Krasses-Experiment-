@@ -833,7 +833,7 @@
         pause: () => request({ play: false }),
         next: () => request({ step: 1 }),
         prev: () => request({ step: -1 }),
-        show: (i) => live.inst && live.inst.go(i),
+        show: (i, type) => live.inst && live.inst.go(i, type),
         scenes: () => SCENES.map((s) => ({ id: s.id, title: s.title, ms: s.ms })),
         render: (i) => renderScene(SCENES[U.clamp(i | 0, 0, SCENES.length - 1)]),
       };
@@ -935,7 +935,7 @@
       bottom.append(addB, delB);
       ctl.append(shade, dots, sub, pausedL, row, bottom);
       const input = U.el('input', { attrs: { type: 'file', accept: 'image/*', multiple: 'multiple', tabindex: '-1', 'aria-hidden': 'true' }, style: { display: 'none' } });
-      root.append(cvs, topShade, title.el, ctl, input);
+      root.append(cvs, topShade, ctl, title.el, input);
 
       /* ---------- Zustand */
       let list = items();
@@ -1313,7 +1313,7 @@
       const inst = {
         get playing() { return playing; },
         apply, importFiles,
-        go: (to) => go(0, { to, type: 'fade', manual: true }),
+        go: (to, type) => go(0, { to, type: type || 'fade', manual: true, dur: type ? TRANS : undefined }),
       };
       live.inst = inst;
 

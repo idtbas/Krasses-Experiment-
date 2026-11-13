@@ -890,11 +890,12 @@
     .wx-mk.on { background:rgba(255,255,255,.14); }
     .wx-mk small { font-size:2.35cqw; font-weight:700; color:rgba(255,255,255,.55); letter-spacing:.04em; font-variant-numeric:tabular-nums; }
     .wx-mk .g { width:6cqw; height:6cqw; }
-    .wx-mk .g svg, .wx-dg svg, .wx-dc .g svg { width:100%; height:100%; display:block; filter:drop-shadow(0 .4cqw 1cqw rgba(0,0,0,.35)); }
+    .wx-mk .g svg, .wx-du .g svg, .wx-dc .g svg { width:100%; height:100%; display:block; filter:drop-shadow(0 .4cqw 1cqw rgba(0,0,0,.35)); }
     .wx-mk b { font-size:3.1cqw; font-weight:640; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
-    .wx-dg { position:absolute; width:7cqw; height:7cqw; margin:-3.5cqw 0 0 -3.5cqw; }
-    .wx-dt { position:absolute; transform:translate(-50%,-50%); white-space:nowrap; font-size:3.2cqw; font-weight:650; font-variant-numeric:tabular-nums; }
-    .wx-dt i { font-style:normal; color:rgba(255,255,255,.45); margin-left:1cqw; font-weight:600; }
+    .wx-du { position:absolute; display:flex; flex-direction:column; align-items:center; gap:.5cqw; transform:translate(-50%,-50%); }
+    .wx-du .g { width:6.8cqw; height:6.8cqw; }
+    .wx-du .t { white-space:nowrap; font-size:3.15cqw; font-weight:650; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+    .wx-du .t i { font-style:normal; color:rgba(255,255,255,.48); margin-left:1.1cqw; font-weight:600; }
     .wx-dc { position:absolute; inset:0; }
     .wx-dc .wd { position:absolute; left:0; right:0; top:25.6cqw; text-align:center; font-size:5.6cqw; font-weight:620; letter-spacing:-.015em; }
     .wx-dc .dt { position:absolute; left:0; right:0; top:32.4cqw; text-align:center; }
@@ -902,7 +903,7 @@
     .wx-dc .tt { position:absolute; left:0; right:0; top:49cqw; text-align:center; font-size:11cqw; font-weight:200; letter-spacing:-.04em; line-height:1; font-variant-numeric:tabular-nums; }
     .wx-dc .tt i { font-style:normal; color:rgba(255,255,255,.45); font-size:.62em; letter-spacing:-.02em; }
     .wx-dc .cd { position:absolute; left:15%; right:15%; top:61.6cqw; text-align:center; font-size:4.4cqw; font-weight:580; white-space:nowrap; }
-    .wx-dc .dl { position:absolute; left:0; right:0; top:67.6cqw; display:flex; justify-content:center; gap:3.4cqw; font-size:3.1cqw; font-weight:620;
+    .wx-dc .dl { position:absolute; left:0; right:0; top:67cqw; display:flex; justify-content:center; gap:3cqw; font-size:3.1cqw; font-weight:620;
       color:rgba(255,255,255,.72); font-variant-numeric:tabular-nums; }
     .wx-dc .dl span { display:inline-flex; align-items:center; gap:1cqw; }
     .wx-dc .dl svg { width:3.4cqw; height:3.4cqw; opacity:.8; }
@@ -1131,12 +1132,12 @@
         tp.textContent = (i === 0 ? 'Heute' : V.fmt.WD_S[d.date.getDay()]).toUpperCase();
         tx.appendChild(tp);
         daySvg.appendChild(tx);
-        const gp = V.display.pt(a, 404);
-        const ge = U.el('div', { class: 'wx-dg', style: { left: gp.x / 10 + 'cqw', top: gp.y / 10 + 'cqw' }, html: glyph(d.code, false) });
-        const tp2 = V.display.pt(a, 341);
-        const te = U.el('div', { class: 'wx-dt wx-sh', style: { left: tp2.x / 10 + 'cqw', top: tp2.y / 10 + 'cqw' }, html: `${deg(d.hi)}<i>${deg(d.lo)}</i>` });
-        dayItems.append(ge, te);
-        dayEls.push({ tx, ge, te });
+        const up = V.display.pt(a, 374);
+        const unit = U.el('div', { class: 'wx-du wx-sh', style: { left: up.x / 10 + 'cqw', top: up.y / 10 + 'cqw' } },
+          U.el('div', { class: 'g', html: glyph(d.code, false) }),
+          U.el('div', { class: 't', html: `${deg(d.hi)}<i>${deg(d.lo)}</i>` }));
+        dayItems.append(unit);
+        dayEls.push({ tx, unit });
       });
       renderDay(true);
     }
@@ -1175,10 +1176,8 @@
       dc.style.transform = `scale(${(0.92 + 0.08 * U.clamp(v, 0, 1.1)).toFixed(4)})`;
       dayEls.forEach((e, i) => {
         const q = U.clamp((v - 0.15 - i * 0.07) * 2.2, 0, 1.15);
-        const s = (0.6 + 0.4 * q).toFixed(3);
-        e.ge.style.opacity = U.clamp(q, 0, 1).toFixed(3);
-        e.ge.style.transform = `scale(${s})`;
-        e.te.style.opacity = U.clamp(q, 0, 1).toFixed(3);
+        e.unit.style.opacity = U.clamp(q, 0, 1).toFixed(3);
+        e.unit.style.transform = `translate(-50%,-50%) scale(${(0.6 + 0.4 * q).toFixed(3)})`;
       });
     }
     function setView(v) {
