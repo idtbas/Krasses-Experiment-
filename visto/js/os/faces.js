@@ -205,15 +205,15 @@
             const old = s.el.lastChild;
             if (old) { old.style.position = 'absolute'; old.style.left = '0'; old.style.right = '0'; old.style.top = '0'; }
             s.el.appendChild(nu);
-            const sp = V.spring(0, { response: 0.62, bounce: 0.08 });
+            const sp = V.spring(0, { response: o.response || 0.62, bounce: 0.08 });
             sp.onUpdate((t) => {
               nu.style.transform = `translateY(${(1 - t) * 42}%) scale(${0.92 + 0.08 * t})`;
               nu.style.opacity = U.clamp(t * 1.3, 0, 1).toFixed(3);
-              nu.style.filter = t < 0.98 ? `blur(${((1 - t) * 0.08).toFixed(3)}em)` : '';
+              nu.style.filter = o.blur !== false && t < 0.98 ? `blur(${((1 - t) * 0.08).toFixed(3)}em)` : '';
               if (old) {
                 old.style.transform = `translateY(${-t * 42}%) scale(${1 - 0.08 * t})`;
                 old.style.opacity = U.clamp(1 - t * 1.5, 0, 1).toFixed(3);
-                old.style.filter = `blur(${(t * 0.08).toFixed(3)}em)`;
+                if (o.blur !== false) old.style.filter = `blur(${(t * 0.08).toFixed(3)}em)`;
               }
             });
             sp.to(1).then(() => { if (old && old.parentNode) old.remove(); nu.style.filter = ''; });
@@ -229,6 +229,11 @@
       if (w && o.weather !== false) parts.push({ icon: w.icon || 'sun', text: Math.round(w.temp) + '°' + (o.place && w.place ? ' ' + w.place : '') });
       const t = V.info.timer && V.safe(() => V.info.timer());
       if (t && o.timer !== false) parts.push({ icon: 'timer', text: V.fmt.duration(t.left), color: '#FF9F0A' });
+      const al = V.info.alarm && V.safe(() => V.info.alarm());
+      if (al && o.alarm !== false && (al.date || al.at)) {
+        const d = new Date(al.date || al.at);
+        if (!isNaN(d) && d - V.time.now() < 14 * 3600e3) parts.push({ icon: 'alarm', text: V.fmt.time24(d) });
+      }
       const ev = V.info.nextEvent && V.safe(() => V.info.nextEvent());
       if (ev && o.event !== false && !t) {
         const day = V.fmt.relDay(ev.start);

@@ -73,6 +73,39 @@
     return V.fmt.durationWords(Math.floor(ms / 1000));
   }
 
+  /** Zählwerk: Ziffern rollen schnell und weich durch ein sanft maskiertes Fenster (für 1×/s-Wechsel) */
+  function roller(container, o) {
+    const slots = [];
+    return {
+      set(str) {
+        const chars = String(str).split('');
+        while (slots.length > chars.length) slots.pop().el.remove();
+        chars.forEach((ch, i) => {
+          let sl = slots[i];
+          if (!sl) { sl = { el: U.el('span', { class: 'sw-win' }), ch: null }; container.appendChild(sl.el); slots[i] = sl; }
+          if (sl.ch === ch) return;
+          sl.el.style.width = ch === ':' ? o.colonW : o.digitW;
+          const first = sl.ch === null;
+          sl.ch = ch;
+          const nu = U.el('span', { class: 'sw-ch', text: ch });
+          if (first) { sl.el.textContent = ''; sl.el.appendChild(nu); return; }
+          while (sl.el.childNodes.length > 1) sl.el.firstChild.remove();
+          const old = sl.el.lastChild;
+          if (old && old.classList) old.classList.add('old');
+          sl.el.appendChild(nu);
+          const dir = o.down ? -1 : 1;
+          const sp = V.spring(0, { response: 0.34, bounce: 0.1 });
+          sp.onUpdate((t) => {
+            nu.style.transform = `translateY(${(dir * (1 - t) * 62).toFixed(2)}%)`;
+            nu.style.opacity = U.clamp(t * 1.5, 0, 1).toFixed(3);
+            if (old) { old.style.transform = `translateY(${(-dir * t * 62).toFixed(2)}%)`; old.style.opacity = U.clamp(1 - t * 1.7, 0, 1).toFixed(3); }
+          });
+          sp.to(1).then(() => { if (old && old.parentNode) old.remove(); });
+        });
+      },
+    };
+  }
+
   /* --------------------------------------------- Hintergrund (Rand) */
   let bgOff = null;
   function appOpen() { return !!(V.shell && V.shell.app && V.shell.app.def.id === 'stopwatch'); }
@@ -133,6 +166,11 @@
   line-height: 1; font-variant-numeric: tabular-nums; color: #fff; white-space: nowrap; pointer-events: auto; cursor: pointer;
   transition: font-size .5s var(--spring); }
 .sw-dig { display: flex; }
+.sw-win { position: relative; display: inline-block; text-align: center; padding: .14em 0; margin: -.14em 0;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 15%, #000 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 15%, #000 85%, transparent 100%); }
+.sw-ch { display: inline-block; will-change: transform, opacity; }
+.sw-ch.old { position: absolute; left: 0; right: 0; top: .14em; }
 .sw-cs { font-size: .36em; font-weight: 300; letter-spacing: -.01em; color: ${COLOR}; width: 1.62em; margin-left: .05em; text-align: left;
   transition: color .4s; }
 .sw[data-state="pause"] .sw-cs { color: rgba(255,255,255,.55); }
@@ -278,7 +316,7 @@
       sub.append(subL, subV);
       main.append(time, sub);
       root.appendChild(main);
-      const digits = V.faces.rollDigits(dig, { digitW: '0.585em', colonW: '0.29em' });
+      const digits = roller(dig, { digitW: '0.585em', colonW: '0.29em' });
 
       /* Knöpfe – leicht gebogen angeordnet, folgen der Kreisform */
       const btns = U.el('div', { class: 'sw-btns' });

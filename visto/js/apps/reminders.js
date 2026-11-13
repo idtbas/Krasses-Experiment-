@@ -102,7 +102,7 @@
     const t = now();
     if (rel) {
       const m = Math.round((at - t) / MIN);
-      return 'in ' + (m < 60 ? (m === 1 ? 'einer Minute' : m + ' Minuten') : V.fmt.durationWords(Math.round((at - t) / 1000 / 60) * 60));
+      return 'in ' + (m < 60 ? (m === 1 ? 'einer Minute' : m + ' Minuten') : V.fmt.durationWords(m * 60).replace(/^1 Stunde/, 'einer Stunde'));
     }
     const diff = Math.round((day0(at) - day0(t)) / DAY);
     const time = 'um ' + V.fmt.time(new Date(at)) + ' Uhr';
@@ -162,8 +162,15 @@
     if (!txt) return null;
     return { text: txt.charAt(0).toUpperCase() + txt.slice(1), phrase };
   }
+  // „in einer (halben) Stunde“ versteht V.brain.parseTime (noch) nicht – lokal ergänzt
+  const REL = [
+    [/\bin (?:einer |1 )?halben stunde\b/, 1800], [/\bin (?:einer |1 )?dreiviertelstunde\b/, 2700],
+    [/\bin (?:einer |1 )?viertelstunde\b/, 900], [/\bin anderthalb stunden\b/, 5400],
+    [/\bin (?:einer|1) stunde\b/, 3600], [/\bin (?:einer|1) minute\b/, 60],
+  ];
   /** Zeit aus dem Satz: genaue Uhrzeit, relativ oder Tageszeit-Wörter */
   function timeFrom(t) {
+    for (const [rx, s] of REL) if (rx.test(t)) return { at: now() + s * 1000, rel: true };
     const p = V.brain.parseTime(t);
     if (p) return { at: p.date.getTime(), rel: p.rel };
     const base = (off, h, m = 0) => ({ at: atDay(off, h, m), rel: false });
@@ -273,7 +280,11 @@
           }
           const ab = aboutFrom(original);
           const tf = timeFrom(t);
-          if (!ab) return { say: tf ? 'Woran soll ich dich erinnern?' : 'Woran und wann soll ich dich erinnern?', emotion: 'confused' };
+          if (!ab && tf) {
+            const it = add('Erinnerung', tf.at);
+            return { say: `Mach ich. Ich melde mich ${whenWords(it.at, tf.rel)}.`, card: { type: 'icon', icon: 'bell', color: COLOR, title: V.fmt.time(new Date(it.at)), sub: 'Erinnerung' }, emotion: 'happy' };
+          }
+          if (!ab) return { say: 'Woran und wann soll ich dich erinnern?', emotion: 'confused' };
           return addReply(add(ab.text, tf ? tf.at : null), ab.phrase, tf && tf.rel);
         },
       });
@@ -327,11 +338,11 @@
         const h = U.el('div', { class: 'rm-head' });
         if (nOpen) {
           h.append(U.el('div', { class: 'rm-count vos-num', text: String(nOpen) }),
-            U.el('div', { class: 'vos-label rm-sub', text: nOpen === 1 ? 'Offen' : 'Offen' }));
+            U.el('div', { class: 'vos-label rm-sub', text: 'Offen' }));
           const dueToday = open().filter((i) => i.at && day0(i.at) <= day0(now())).length;
           if (dueToday) h.lastChild.textContent = 'Offen · ' + dueToday + ' heute';
         } else {
-          h.append(U.el('div', { class: 'rm-all', html: V.icon('check') }), U.el('div', { class: 'vos-label rm-sub', text: nDone ? 'Alles erledigt' : 'Keine Erinnerungen' }));
+          h.append(U.el('div', { class: 'rm-all' + (nDone ? '' : ' empty'), html: V.icon(nDone ? 'check' : 'list') }), U.el('div', { class: 'vos-label rm-sub', text: nDone ? 'Alles erledigt' : 'Keine Erinnerungen' }));
         }
         return h;
       }
@@ -421,6 +432,8 @@
     .rm-all { width: 15cqw; height: 15cqw; margin: 0 auto; border-radius: 50%; display: grid; place-items: center;
       background: ${COLOR}; color: #2a1500; box-shadow: 0 0 8cqw ${U.rgba(COLOR, 0.45)}; }
     .rm-all svg { width: 8cqw; height: 8cqw; stroke-width: 2.6; }
+    .rm-all.empty { background: ${U.rgba(COLOR, 0.14)}; color: ${COLOR}; box-shadow: inset 0 0 0 .4cqw ${U.rgba(COLOR, 0.4)}; }
+    .rm-all.empty svg { stroke-width: 2; }
     .rm-row { gap: 3.2cqw; padding-left: 3cqw; }
     .rm-check { flex: none; width: 9.6cqw; height: 9.6cqw; position: relative; }
     .rm-check svg { width: 100%; height: 100%; overflow: visible; display: block; }

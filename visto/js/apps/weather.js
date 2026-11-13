@@ -408,7 +408,8 @@
   function makeSky(cv) {
     const g = cv.getContext('2d');
     let W = 0, sc = 1;
-    const P = { day: 0, dusk: 0, cover: 0.3, rain: 0, snow: 0, fog: 0, storm: 0, wind: 0.3, sunF: 0.5, moonF: 0.5, phase: 0.5 };
+    // sunA/moonA: Uhrwinkel der Gestirne (die App legt sie in Lücken zwischen ihre Symbole), r = 338
+    const P = { day: 0, dusk: 0, cover: 0.3, rain: 0, snow: 0, fog: 0, storm: 0, wind: 0.3, sunF: 0.5, moonF: 0.5, sunA: 0, moonA: 0, phase: 0.5 };
     const T = Object.assign({}, P);
     const r = U.rng('visto-sky');
     const stars = [];
@@ -447,7 +448,7 @@
     function step(dt) {
       const k = 1 - Math.exp(-dt * 1.7);
       for (const key in T) {
-        if (key === 'sunF' || key === 'moonF') P[key] += (T[key] - P[key]) * (1 - Math.exp(-dt * 2.4));
+        if (key === 'sunA' || key === 'moonA') P[key] += (T[key] - P[key]) * (1 - Math.exp(-dt * 3));
         else P[key] += (T[key] - P[key]) * k;
       }
     }
@@ -496,8 +497,8 @@
       // ---- Sonne mit Strahlen
       const sunVis = U.smoothstep(0.02, 0.4, P.day) * (1 - P.cover * 0.62) * (1 - P.fog * 0.6) * (1 - P.rain * 0.7);
       if (sunVis > 0.01) {
-        const f = U.clamp(P.sunF, -0.1, 1.1);
-        const sx = 170 + 660 * f, sy = 345 - 160 * Math.sin(Math.PI * U.clamp(f, 0, 1));
+        const sp0 = V.display.pt(P.sunA, 338);
+        const sx = sp0.x, sy = sp0.y;
         const warm = U.clamp(P.dusk, 0, 1);
         const core = U.mix('#FFF7DE', '#FFC27A', warm);
         g.globalCompositeOperation = 'lighter';
@@ -533,8 +534,8 @@
       // ---- Mond in seiner Phase
       const moonVis = (1 - U.smoothstep(0.1, 0.5, P.day)) * (1 - P.cover * 0.75) * (1 - P.fog * 0.7) * (1 - P.rain * 0.8);
       if (moonVis > 0.01) {
-        const f = U.clamp(P.moonF, 0, 1);
-        const mx = 180 + 640 * f, my = 345 - 150 * Math.sin(Math.PI * f), mr = 30;
+        const mp0 = V.display.pt(P.moonA, 338);
+        const mx = mp0.x, my = mp0.y, mr = 28;
         g.globalCompositeOperation = 'lighter';
         const mg = g.createRadialGradient(mx, my, 10, mx, my, 210);
         mg.addColorStop(0, `rgba(200,215,255,${0.22 * moonVis})`); mg.addColorStop(1, 'rgba(200,215,255,0)');
@@ -1024,6 +1025,19 @@
         phase: moonPhase(date.getTime()),
       };
     }
+    /** Gestirn in die nächste Lücke zwischen den Symbolen legen (natürlicher Winkel bleibt ungefähr erhalten) */
+    function slot(a) {
+      const gaps = [];
+      if (view === 'days') for (let i = 0; i < 6; i++) gaps.push(SPAN0 + DW * (i + 1));
+      else if (data) {
+        const ms = data.curve.marks.map((m) => angK(m.k));
+        for (let i = 0; i < ms.length - 1; i++) gaps.push((ms[i] + ms[i + 1]) / 2);
+        if (ms.length && ms[0] - 18.75 > SPAN0 + 6) gaps.push(ms[0] - 18.75);
+        if (ms.length && ms[ms.length - 1] + 18.75 < SPAN0 + SPAN - 6) gaps.push(ms[ms.length - 1] + 18.75);
+      }
+      if (!gaps.length) return a;
+      return gaps.reduce((b, x) => (Math.abs(x - a) < Math.abs(b - a) ? x : b), gaps[0]);
+    }
     function updateScene(instant) {
       if (!data) return;
       let sc;
@@ -1033,7 +1047,10 @@
         sc = sceneFor(rec, rec.date);
       } else if (preview) sc = sceneFor(preview.rec, preview.rec.date);
       else sc = sceneFor(Object.assign({}, data.hrs[1], { code: data.cur.code, cloud: data.cur.cloud }), V.time.now());
-      sky.setTarget(sc, instant);
+      sc.sunA = slot(270 + 180 * U.clamp(sc.sunF, 0, 1));
+      sc.moonA = slot(270 + 180 * U.clamp(sc.moonF, 0, 1));
+      sky.setTarget(sc, instant || !sky.ready);
+      sky.ready = true;
     }
 
     /* ---------------------------------------------------- Jetzt-Ansicht */

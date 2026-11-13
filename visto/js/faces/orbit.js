@@ -18,7 +18,7 @@
     .fob-date { margin-top: 1.2cqw; font-size: 2.4cqw; font-weight: 650; letter-spacing: .22em; text-transform: uppercase; color: rgba(255,255,255,.42); }
   `);
 
-  const R_PLANET = 262, R_MOON = 90, R_SAT = 438;
+  const R_PLANET = 282, R_MOON = 96, R_SAT = 442;
 
   V.faces.register({
     id: 'orbit',
@@ -187,7 +187,7 @@
 
         // Planet
         const P = V.display.pt(ah, R_PLANET);
-        const pr = 40;
+        const pr = 44;
         const tilt = -0.42;
         if (!amb) halo(P.x, P.y, pr, col, 0.16);
         if (o.ring && !amb) ringArc(P.x, P.y, pr * 1.75, tilt, false, U.lighten(col, 0.35), 0.55);
@@ -209,8 +209,8 @@
           g.fillStyle = 'rgba(220,220,230,.5)';
           g.beginPath(); g.arc(Mo.x, Mo.y, 8, 0, TAU); g.fill();
         } else {
-          halo(Mo.x, Mo.y, 15, '#ffffff', 0.12);
-          sphere(Mo.x, Mo.y, 15, '#E9E7EF', 0.78);
+          halo(Mo.x, Mo.y, 16, '#ffffff', 0.12);
+          sphere(Mo.x, Mo.y, 16, '#E9E7EF', 0.78);
         }
 
         // Satellit mit Leuchtspur (Sekunde, fließend)

@@ -40,7 +40,7 @@
   /** Geräteaktionen als Werkzeuge beschreiben */
   function toolDefs() {
     const map = new Map();
-    const tools = V.actions.list().slice(0, 40).map((a) => {
+    const tools = V.actions.list().slice(0, 48).map((a) => {
       const name = a.name.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64);
       map.set(name, a);
       return {

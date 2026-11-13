@@ -318,7 +318,10 @@
     const svg = U.svg('svg', { viewBox: '0 0 100 100', class: 'hm-mini' });
     svg.appendChild(U.svg('path', { d: V.ui.arcPath(50, 50, 41, T_A0, T_A0 + T_SPAN), fill: 'none', stroke: 'rgba(255,255,255,.14)', 'stroke-width': 7, 'stroke-linecap': 'round' }));
     if (th.on && th.target > T_MIN) svg.appendChild(U.svg('path', { d: V.ui.arcPath(50, 50, 41, T_A0, tAngle(th.target)), fill: 'none', stroke: col, 'stroke-width': 7, 'stroke-linecap': 'round' }));
-    svg.appendChild(U.svg('text', { x: 50, y: 59, 'text-anchor': 'middle', 'font-size': 25, 'font-weight': 400, fill: '#fff', text: th.on ? fmtT(th.target) : '–' }));
+    const ic = U.frag(V.icon('thermo'));
+    ['x', 'y', 'width', 'height'].forEach((k, i) => ic.setAttribute(k, [32, 32, 36, 36][i]));
+    ic.setAttribute('color', th.on ? col : 'rgba(255,255,255,.5)');
+    svg.appendChild(ic);
     return { type: 'el', el: U.el('div', { class: 'hm-card' }, svg,
       U.el('div', null, U.el('b', { text: th.on ? fmtT(th.target) + ' °C' : 'Heizung aus' }), U.el('small', { text: (th.on ? modeText(m) + ' · ' : '') + 'innen ' + fmt1(curTemp()) + ' °C' }))) };
   }
@@ -342,6 +345,7 @@
       if (isFinite(b)) { if (b <= 0) parts.on = false; else parts.bri = U.clamp(b / 100, 0.01, 1); }
     }
     let colorName = null;
+    const before = ids.map((id) => levelOf(roomState(id)));
     for (const id of ids) {
       const r = roomState(id);
       const o = Object.assign({}, parts);
@@ -370,7 +374,7 @@
     const room = ROOM[ids[0]];
     if (!r0.on) say = `Das Licht ${room.in} ist aus.`;
     else if (colorName) say = `Das Licht ${room.in} leuchtet jetzt ${r0.tone === 'hue' ? hueEntry(r0.hue).adj : 'in ' + TONES[r0.tone].name}.`;
-    else if (parts.bri !== undefined || a.delta) say = `${room.name} ist auf ${pctOf(r0)} Prozent ${a.delta > 0 || (parts.bri || 0) > 0.75 ? 'gestellt' : 'gedimmt'}.`;
+    else if (parts.bri !== undefined || a.delta) say = `Das Licht ${room.in} ist ${a.delta < 0 || (parts.bri !== undefined && parts.bri < before[0]) ? 'auf ' + pctOf(r0) + ' Prozent gedimmt' : 'jetzt auf ' + pctOf(r0) + ' Prozent'}.`;
     else say = `Das Licht ${room.in} ist an.`;
     if (toggled && r0.on) say = `Das Licht ${room.in} ist jetzt an.`;
     return { say, card: lightCard(ids) };
@@ -438,7 +442,7 @@
     const th = st().thermo, cur = curTemp();
     let say = on.length === 0 ? 'Alle Lichter sind aus.' : on.length === ROOMS.length ? 'Überall brennt Licht.' : `Licht brennt ${joinList(on.map((r) => r.in))}.`;
     say += th.on ? ` Die Heizung steht auf ${fmtT(th.target)} Grad, drinnen sind es ${fmt1(cur)} Grad.` : ` Die Heizung ist aus, drinnen sind es ${fmt1(cur)} Grad.`;
-    return { say, card: lightCard(ROOMS.map((r) => r.id), (th.on ? 'Heizung ' + fmtT(th.target) + ' °C · ' : '') + 'innen ' + fmt1(cur) + ' °C') };
+    return { say, card: lightCard(ROOMS.map((r) => r.id), th.on ? 'Heizung ' + fmtT(th.target) + ' °C' : 'Heizung aus') };
   }
 
   /* ------------------------------------------------------------ Stile */
@@ -673,11 +677,12 @@
           const id = roomFrom(t);
           if (!id || ALL_RE.test(t)) {
             const on = ROOMS.filter((r) => roomState(r.id).on);
-            const say = !on.length ? 'Nein, alle Lichter sind aus.' : on.length === ROOMS.length ? 'Ja, überall brennt Licht.' : `Licht brennt ${joinList(on.map((r) => r.in))}.`;
+            const yn = !/^(?:welche|wo|wie)/.test(t);
+            const say = !on.length ? (yn ? 'Nein, alle Lichter sind aus.' : 'Gerade brennt nirgends Licht.') : on.length === ROOMS.length ? (yn ? 'Ja, überall brennt Licht.' : 'Überall brennt Licht.') : `Licht brennt ${joinList(on.map((r) => r.in))}.`;
             return { say, card: lightCard(ROOMS.map((r) => r.id)) };
           }
           const r = roomState(id), room = ROOM[id];
-          if (/wie hell|helligkeit/.test(t) && r.on) return { say: `${room.name}: ${pctOf(r)} Prozent, ${toneName(r)}.`, card: lightCard([id]) };
+          if (/wie hell|helligkeit|welche farbe/.test(t) && r.on) return { say: `Das Licht ${room.in} leuchtet mit ${pctOf(r)} Prozent in ${toneName(r)}.`, card: lightCard([id]) };
           return { say: r.on ? `Ja, ${room.in} brennt Licht – ${pctOf(r)} Prozent in ${toneName(r)}.` : `Nein, das Licht ${room.in} ist aus.`, card: lightCard([id]) };
         },
       });

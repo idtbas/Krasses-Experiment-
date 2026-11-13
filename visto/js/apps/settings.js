@@ -44,6 +44,7 @@
   const CSS = `
 .st-host{position:absolute;inset:0}
 .st-page{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:#000;transform-origin:50% 50%}
+.st-page .vos-rlist{-webkit-mask-image:linear-gradient(to bottom,transparent 0,transparent 9cqw,#000 19cqw,#000 84cqw,transparent 97cqw);mask-image:linear-gradient(to bottom,transparent 0,transparent 9cqw,#000 19cqw,#000 84cqw,transparent 97cqw)}
 .st-back{position:absolute;left:28cqw;right:28cqw;top:0;height:12.5cqw;z-index:6;border:0;background:none;padding:0;cursor:pointer;border-radius:0 0 50% 50%}
 .st-back.inner{left:37cqw;right:37cqw;top:12.4cqw;height:10cqw;border-radius:99cqw}
 .st-back:active{background:radial-gradient(60% 80% at 50% 0%,rgba(255,255,255,.08),transparent)}
@@ -596,14 +597,21 @@
     inner: true,
     build(P) {
       P.el.setAttribute('data-nogesture', 'all');
+      // Farbring mit Lücke unten (Visto-Zone): Rot oben, die Enden treffen sich im Türkis
+      const GAP = 46, A0 = 180 + GAP / 2, ARC = 360 - GAP, RR = 430;
+      const angOf = (h) => U.wrap(A0 + U.wrap(h - 180, 360) * (ARC / 360), 360);
+      const hueOf = (a) => { const rel = U.clamp(U.wrap(a - A0, 360), 0, ARC); return U.wrap(180 + rel * (360 / ARC), 360); };
+      const inGap = (a) => U.wrap(a - A0, 360) > ARC;
       let hex = get('settings.accent', '#FF9A4D');
       let hue = hexToHsl(hex).h;
       const stops = [];
-      for (let h = 0; h <= 360; h += 15) stops.push(`${hueHex(h)} ${h}deg`);
-      const ring = U.el('div', { class: 'st-hue', style: { background: `conic-gradient(from 0deg, ${stops.join(', ')})` } });
+      for (let r = 0; r <= ARC; r += 12) stops.push(`${hueHex(180 + r * (360 / ARC))} ${r.toFixed(1)}deg`);
+      stops.push(`${hueHex(180)} ${ARC}deg`, `transparent ${ARC}deg`);
+      const ring = U.el('div', { class: 'st-hue', style: { background: `conic-gradient(from ${A0}deg, ${stops.join(', ')})` } });
       const marks = U.svg('svg', { class: 'vos-svg', viewBox: '0 0 1000 1000', 'aria-hidden': 'true' });
+      for (const a of [A0, A0 + ARC]) { const c = V.display.pt(a, RR); marks.appendChild(U.svg('circle', { cx: c.x, cy: c.y, r: 35, fill: hueHex(180) })); }
       for (const p of PRESETS()) {
-        const pp = V.display.pt(hexToHsl(p.v).h, 380);
+        const pp = V.display.pt(angOf(hexToHsl(p.v).h), 375);
         marks.appendChild(U.svg('circle', { cx: pp.x, cy: pp.y, r: 6, fill: p.v, opacity: 0.95 }));
       }
       const knob = U.el('div', { class: 'st-knob' });
@@ -612,9 +620,9 @@
       const hx = U.el('div', { class: 'vos-small' });
       const info = U.el('div', { class: 'st-cinfo' }, nm, hx);
       const hint = U.el('div', { class: 'vos-label', style: { position: 'absolute', left: 0, right: 0, top: '73cqw', textAlign: 'center', pointerEvents: 'none' }, text: 'Am Ring drehen' });
-      P.el.append(ring, marks, orb, info, hint, knob);
+      P.el.append(marks, ring, orb, info, hint, knob);
       function paint() {
-        const p = V.display.pt(hue, 430);
+        const p = V.display.pt(angOf(hue), RR);
         knob.style.left = p.x / 10 + 'cqw'; knob.style.top = p.y / 10 + 'cqw';
         knob.style.background = hex;
         knob.style.setProperty('--k', U.rgba(hex, 0.9));
@@ -625,10 +633,10 @@
         P.titleEl.style.setProperty('--fg2', U.rgba(hex, 0.85));
       }
       let snapped = null;
-      function fromAngle(a) {
-        hue = U.wrap(a, 360);
+      function setHue(h) {
+        hue = U.wrap(h, 360);
         let snap = null;
-        for (const p of PRESETS()) { const ph = hexToHsl(p.v).h; if (Math.abs(U.angDiff(ph, hue)) < 4.5) { snap = p; hue = ph; break; } }
+        for (const p of PRESETS()) { const ph = hexToHsl(p.v).h; if (Math.abs(U.angDiff(ph, hue)) < 5) { snap = p; hue = ph; break; } }
         hex = snap ? snap.v : hueHex(hue);
         if ((snap && snap.v) !== snapped) { snapped = snap && snap.v; if (snap) { V.sound.play('tick'); V.haptic(6); } }
         paint();
@@ -636,12 +644,16 @@
       const commit = () => { if (get('settings.accent') !== hex) { set('settings.accent', hex); } };
       let on = false;
       V.gesture(P.el, {
-        start(p, e) { on = p.r0 > 320 && !(e.target.closest && e.target.closest('.st-back')); if (on) { knob.classList.add('big'); fromAngle(p.a); } },
-        move(p) { if (on) fromAngle(p.a); },
+        start(p, e) {
+          const back = e.target.closest && e.target.closest('.st-back');
+          on = p.r0 > 320 && !back && !inGap(p.a);
+          if (on) { knob.classList.add('big'); setHue(hueOf(p.a)); }
+        },
+        move(p) { if (on && !inGap(p.a)) setHue(hueOf(p.a)); },
         end() { if (on) { knob.classList.remove('big'); commit(); } on = false; },
       }, { slop: 3 });
       paint();
-      return { crown(dA) { fromAngle(hue + dA * 0.6); clearTimeout(P._ct); P._ct = setTimeout(commit, 400); } };
+      return { crown(dA) { setHue(hueOf(U.clamp(U.wrap(angOf(hue) - A0, 360) + dA * 0.6, 0, ARC) + A0)); clearTimeout(P._ct); P._ct = setTimeout(commit, 400); } };
     },
   };
 

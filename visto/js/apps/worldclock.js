@@ -239,6 +239,8 @@
   const angOf = (h) => 180 + h * 15;             // Ortsstunde → Uhrwinkel (Mitternacht unten, Mittag oben)
   const hasConic = typeof CanvasRenderingContext2D !== 'undefined' && 'createConicGradient' in CanvasRenderingContext2D.prototype;
   const crad = (a) => U.rad(a - 90);
+  /** um Mitternacht (unten, Visto-Zone) treten Punkte zurück */
+  const vistoFade = (a) => 0.28 + 0.72 * U.smoothstep(16, 30, Math.abs(U.angDiff(180, a)));
 
   function create(ctx) {
     const root = ctx.root;
@@ -316,6 +318,7 @@
         el.style.left = p.x / 10 + 'cqw';
         el.style.top = p.y / 10 + 'cqw';
         el.classList.toggle('on', it.c.id === selId);
+        el.style.opacity = it.c.id === selId ? '' : vistoFade(it.a).toFixed(2);
         el._a = it.a;
       }
     }
@@ -450,11 +453,13 @@
           g.fillStyle = gl; g.beginPath(); g.arc(p.x, p.y, 44, 0, TAU); g.fill();
         }
         const rr = on ? 15 : c.home ? 11 : 9;
+        g.globalAlpha = on ? 1 : vistoFade(a);
         g.fillStyle = 'rgba(0,0,0,.55)';
         g.beginPath(); g.arc(p.x, p.y, rr + 4, 0, TAU); g.fill();
         g.fillStyle = on ? '#ffffff' : U.luma(col) > 0.5 ? '#ffffff' : 'rgba(255,255,255,.92)';
         g.beginPath(); g.arc(p.x, p.y, rr, 0, TAU); g.fill();
         if (c.home) { g.fillStyle = COLOR; g.beginPath(); g.arc(p.x, p.y, rr * 0.45, 0, TAU); g.fill(); }
+        g.globalAlpha = 1;
       }
       // Zeiger-Ende auf dem gewählten Punkt
       const hp = V.display.pt(aSel, R);

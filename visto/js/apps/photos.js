@@ -1049,7 +1049,9 @@
           g.save();
           const s = 0.8 + 0.2 * k;
           g.globalAlpha = 0.18 + 0.82 * k;
-          g.translate(W / 2, W / 2); g.scale(s, s); g.translate(-W / 2, -W / 2);
+          g.translate(W / 2, W / 2); g.scale(s, s);
+          g.beginPath(); g.arc(0, 0, W / 2, 0, TAU); g.clip();
+          g.translate(-W / 2, -W / 2);
           drawSlide(g, nb, 1);
           g.restore();
         }
@@ -1057,6 +1059,12 @@
         const s2 = 1 - 0.16 * U.smoothstep(0, 0.35, k);
         g.translate(W / 2 + (off / 1000) * W, W / 2);
         g.scale(s2, s2);
+        // weicher Schatten unter der Scheibe
+        const sh = U.smoothstep(0, 0.25, k) * 0.6;
+        if (sh > 0.01) {
+          g.fillStyle = rg(g, 0, 0, W * 0.47, W * 0.56, [[0, `rgba(0,0,0,${sh})`], [1, 'rgba(0,0,0,0)']]);
+          g.fillRect(-W * 0.56, -W * 0.56, W * 1.12, W * 1.12);
+        }
         g.beginPath(); g.arc(0, 0, W / 2, 0, TAU); g.clip();
         g.translate(-W / 2, -W / 2);
         drawSlide(g, cur, 1);

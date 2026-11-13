@@ -91,7 +91,6 @@
           row.style.webkitMaskImage = mask; row.style.maskImage = mask;
           row.style.fontSize = s / 10 + 'cqw';
           row.style.fontWeight = weight;
-          row.style.gap = (track * s) / 10 + 'cqw';
           row.style.webkitTextStroke = '';
           for (let k = 0; k < 2; k++) {
             if (!slots[i][k]) {
@@ -101,6 +100,7 @@
             }
             const sl = slots[i][k];
             sl.el.style.width = M.cell + 'em';
+            sl.el.style.marginRight = k === 0 ? track + 'em' : '0';     // enger Satz zwischen den Ziffern
             // Zeichen so verschieben, dass die Ziffernoberkante bei pad liegt
             const off = ((pad - (M.base - M.cap) * s) / 10) + 'cqw';
             sl.off = off;
@@ -123,7 +123,7 @@
         };
         if (mode === 'duo') { setRow(rows[0], '#ffffff', false, false); setRow(rows[1], col, false, true); }
         else if (mode === 'mono') { setRow(rows[0], col, false, true); setRow(rows[1], col, false, true); }
-        else { setRow(rows[0], amb ? '#ffffff' : '#ffffff', true, false); setRow(rows[1], col, amb, true); }
+        else { setRow(rows[0], '#ffffff', true, false); setRow(rows[1], col, amb, true); }
         rows.forEach((r) => (r.style.opacity = amb ? '0.62' : '1'));
         date.el.style.display = o.date ? '' : 'none';
         date.el.style.opacity = amb ? '0.4' : '1';

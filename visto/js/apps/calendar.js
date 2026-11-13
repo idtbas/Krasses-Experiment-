@@ -497,7 +497,9 @@
           return add ? { add: true } : null;
         },
         run(m, t, original) {
-          const p = V.brain.parseTime(t);
+          // „in einer (halben) Stunde“ versteht V.brain.parseTime (noch) nicht – lokal ergänzt
+          const rel = [[/\bin (?:einer |1 )?halben stunde\b/, 30], [/\bin (?:einer|1) stunde\b/, 60], [/\bin (?:einer |1 )?viertelstunde\b/, 15]].find(([rx]) => rx.test(t));
+          const p = rel ? { date: new Date(Math.ceil((now() + rel[1] * MIN) / (5 * MIN)) * 5 * MIN) } : V.brain.parseTime(t);
           const title = addTitle(original) || 'Termin';
           if (!p) return { say: `Wann soll ich „${title}“ eintragen?`, emotion: 'confused' };
           let minutes = 60;
@@ -1138,7 +1140,7 @@
       function applyParams(pr) {
         if (pr && pr.event) {
           const e = byId(pr.event);
-          if (e) setTimeout(() => openDetail(e), 120);
+          if (e) ctx.timeout(() => openDetail(e), 120);
         } else if (pr && pr.day !== undefined) goDay(addDays(todayD0(), parseDayArg(pr.day)));
       }
       applyParams(ctx.params);

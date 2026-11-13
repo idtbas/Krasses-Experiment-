@@ -19,7 +19,7 @@
   const TAU = Math.PI * 2;
   const APP_COLOR = '#FF375F';
   const RD = 290;                      // Scheibenradius (logisch)
-  const MIX = 0.6;                     // Musikpegel vor dem Hauptausgang
+  const MIX = 0.85;                    // Musikpegel vor dem Hauptausgang
   const SECTION = { I: 'Intro', A: 'Thema', B: 'Variation', C: 'Brücke', O: 'Ausklang' };
   const ENERGY = { I: 0.4, A: 0.75, B: 1, C: 0.55, O: 0.35 };
 
@@ -261,7 +261,7 @@
   SP.lp = function (name, f, t, tau) { if (!this.ac) return; const b = this.bus(name); if (b.lp) b.lp.frequency.setTargetAtTime(f, t, tau || 0.6); };
   /** „Sidechain“-Pumpen eines Busses im Takt */
   SP.pump = function (name, t, depth) {
-    if (!this.ac) return;
+    if (!this.ac || (this.solo && this.solo.indexOf(name) < 0)) return;
     const g = this.bus(name).in.gain;
     g.setTargetAtTime(1 - depth, t, 0.012);
     g.setTargetAtTime(1, t + 0.05, 0.12);
@@ -442,7 +442,7 @@
     if (!this.ac) return;
     const ac = this.ac, s = this.noise(t, this.G.white, 0.3), g = ac.createGain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.15 * vel, t + 0.003);
+    g.gain.linearRampToValueAtTime(0.42 * vel, t + 0.003);
     g.gain.setTargetAtTime(0, t + 0.01, 0.055);
     s.connect(g); g.connect(this.bus('snare').in);
     const o = ac.createOscillator(), og = ac.createGain();
@@ -558,9 +558,9 @@
       buses: {
         keys: { lp: 2000, lq: 0.8, rev: 0.26, dly: 0.08 },
         mel: { lp: 3400, rev: 0.32, dly: 0.34, gain: 0.85 },
-        bass: { lp: 480 }, drums: { lp: 4200 },
-        hat: { hp: 6500, lp: 9500, gain: 0.95 },
-        snare: { bp: 1700, bq: 0.9, lp: 5200, rev: 0.12 },
+        bass: { lp: 480, gain: 0.85 }, drums: { lp: 4200 },
+        hat: { hp: 6500, lp: 9500, gain: 3.6 },
+        snare: { bp: 1700, bq: 0.6, lp: 5200, rev: 0.12, gain: 1.1 },
         crack: { hp: 1100, lp: 7000, gain: 0.45 },
       },
       setup(S, t) { S.loop(S.G.crackle, t).connect(S.bus('crack').in); },
@@ -626,10 +626,10 @@
         arp: pick(r, ARPS), mel: 0.18, scale: MPENTA, melOct: 24,
       }),
       buses: {
-        pad: { lp: 1100, lq: 0.4, rev: 0.45 },
-        arp: { lp: 1600, lq: 2.2, rev: 0.25, dly: 0.38 },
-        sub: { lp: 240 }, drums: { lp: 900 },
-        hat: { hp: 8000, gain: 0.5 },
+        pad: { lp: 1100, lq: 0.4, rev: 0.45, gain: 1.4 },
+        arp: { lp: 1600, lq: 2.2, rev: 0.25, dly: 0.38, gain: 2.5 },
+        sub: { lp: 240, gain: 0.5 }, drums: { lp: 900 },
+        hat: { hp: 8000, gain: 1.4 },
         lead: { lp: 2600, rev: 0.4, dly: 0.3 },
       },
       step(S, i, t) {
@@ -697,7 +697,7 @@
       id: 'regen', name: 'Regenzimmer', c1: '#64C8FF', c2: '#A9B8FF',
       titles: ['Tropfen am Glas', 'Graue Stunde', 'Leise Pfützen', 'Dachrinne', 'Nasser Asphalt', 'Regenschirmklavier', 'Fensterbank', 'Wolkendecke', 'Tee und Gewitter', 'Nebelweg', 'Nach dem Regen', 'Murmelnde Rinnen'],
       compose: (r) => ({ bpm: 62 + Math.floor(r() * 8), swing: 0.06, key: 53 + pick(r, [0, 2, -3, -7]), prog: pick(r, PROG.regen), mel: 0.2 + r() * 0.08, scale: PENTA, melOct: 12 }),
-      buses: { piano: { lp: 6000, rev: 0.42, dly: 0.06 }, rain: { lp: 7000 }, drops: { rev: 0.3 }, amb: { rev: 0.2 } },
+      buses: { piano: { lp: 6000, rev: 0.42, dly: 0.06, gain: 3.4 }, rain: { lp: 7000, gain: 0.35 }, drops: { rev: 0.3, gain: 2.5 }, amb: { rev: 0.2 } },
       setup(S, t) {
         const ac = S.ac;
         const src = S.loop(S.G.pink, t);
@@ -811,7 +811,7 @@
       id: 'meer', name: 'Meeresrauschen', c1: '#2EE6C8', c2: '#3A8DFF',
       titles: ['Ebbe', 'Salzluft', 'Dünenwind', 'Brandung bei Nacht', 'Leuchtturm', 'Gezeiten', 'Muschelsammler', 'Weiter Horizont', 'Flut', 'Strandgut', 'Seegang', 'Treibholz'],
       compose: (r) => ({ bpm: 60, swing: 0, key: 50 + pick(r, [0, 2, -2, 5]), prog: pick(r, PROG.meer), mel: 0.1, scale: PENTA, melOct: 24, padWave: 'soft', wave0: 32 + Math.floor(r() * 10) }),
-      buses: { sea: { rev: 0.08 }, pad: { lp: 900, lq: 0.3, rev: 0.55, gain: 0.9 }, chime: { rev: 0.7, dly: 0.25, gain: 0.9 }, amb: { rev: 0.3 } },
+      buses: { sea: { rev: 0.08, gain: 1.6 }, pad: { lp: 900, lq: 0.3, rev: 0.55, gain: 1.3 }, chime: { rev: 0.7, dly: 0.25, gain: 1.2 }, amb: { rev: 0.3 } },
       setup(S, t) {
         const ac = S.ac;
         const src = S.loop(S.G.pink, t);

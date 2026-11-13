@@ -44,7 +44,7 @@
       return new Promise((resolve) => {
         const color = o.color || V.store.get('settings.accent');
         const acts = U.el('div', { class: 'acts' });
-        const el = U.el('div', { class: 'vos-alert' },
+        const el = U.el('div', { class: 'vos-alert' + (o.cls ? ' ' + o.cls : '') },
           o.icon ? U.el('div', { class: 'vos-icon vos-pop', style: { '--ic': color }, html: V.icon(o.icon) }) : null,
           U.el('div', { class: 'vos-h1', text: o.title || '' }),
           o.body ? U.el('div', { class: 'vos-body', style: { maxWidth: '64cqw' }, text: o.body }) : null,
