@@ -255,7 +255,7 @@
         return b;
       });
       const startBtn = V.ui.button('Starten', { icon: 'play', onClick: () => begin(sel), style: { background: COLOR, color: '#032A1F', boxShadow: '0 0 6cqw rgba(99,230,190,.35)', minWidth: '34cqw' } });
-      views.setup.appendChild(U.el('div', { class: 'br-row', style: { top: '73.6cqw', height: '11.5cqw' } }, startBtn));
+      views.setup.appendChild(U.el('div', { class: 'br-row', style: { top: '74.4cqw', height: '11.5cqw' } }, startBtn));
 
       // — Übung
       const leftEl = U.el('div', { class: 'br-txt br-left', style: { top: '80.2cqw' } });
