@@ -474,6 +474,7 @@
       const alphaSp = V.spring(0, { response: 1.1, bounce: 0 });        // Helligkeit der Kugel
       const sizeSp = V.spring(0.8, { response: 0.9, bounce: 0.18 });    // Größe der Kugel
       const speedSp = V.spring(1, { response: 0.9, bounce: 0 });        // Tempo des Waberns
+      const doneSp = V.spring(0, { response: 1.4, bounce: 0 });         // Farbwelt „Geschafft“
 
       let showDone = !!(s0.last && s0.last.complete && !s0.last.seen && now() - s0.last.ts < 15 * 60000);
       let mode = null;
@@ -496,6 +497,7 @@
             vs[k].to(k === m ? 1 : 0);
           }
           timeSp.to(m === 'done' ? 0 : 1);
+          doneSp.to(m === 'done' ? 1 : 0);
           mode = m;
         }
         if (m === 'setup') {
@@ -578,6 +580,7 @@
       render();
       for (const k in vs) vs[k].set(k === mode ? 1 : 0);
       timeSp.set(mode === 'done' ? 0 : 1);
+      doneSp.set(mode === 'done' ? 1 : 0);
       { const s = st().session; mixSp.set(s && isBreak(s.phase) ? 1 : 0); }
       alphaSp.set(0);
       alphaSp.to(mode === 'setup' ? 0.62 : mode === 'done' ? 1.1 : (st().session && st().session.paused ? 0.36 : 1));
