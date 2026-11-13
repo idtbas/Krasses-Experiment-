@@ -221,7 +221,7 @@
         s = s * s * (3 - 2 * s) * 0.15 + s * 0.85;
         const op = 1 - U.smoothstep(380, 500, dy) * 0.9;
         r.style.transform = `scale(${s.toFixed(3)})`;
-        r.style.opacity = op.toFixed(3);
+        if (!o.keepOpacity) r.style.opacity = op.toFixed(3);
       }
     }
     scroller.addEventListener('scroll', () => { if (!pending) { pending = true; requestAnimationFrame(refresh); } }, { passive: true });

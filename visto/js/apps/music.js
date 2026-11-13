@@ -557,7 +557,7 @@
       }),
       buses: {
         keys: { lp: 2000, lq: 0.8, rev: 0.26, dly: 0.08 },
-        mel: { lp: 3400, rev: 0.32, dly: 0.34, gain: 0.85 },
+        mel: { lp: 3400, rev: 0.32, dly: 0.34, gain: 1.8 },
         bass: { lp: 480, gain: 0.85 }, drums: { lp: 4200 },
         hat: { hp: 6500, lp: 9500, gain: 3.6 },
         snare: { bp: 1700, bq: 0.6, lp: 5200, rev: 0.12, gain: 1.1 },
@@ -627,7 +627,7 @@
       }),
       buses: {
         pad: { lp: 1100, lq: 0.4, rev: 0.45, gain: 1.4 },
-        arp: { lp: 1600, lq: 2.2, rev: 0.25, dly: 0.38, gain: 2.5 },
+        arp: { lp: 1600, lq: 1.5, rev: 0.25, dly: 0.38, gain: 3 },
         sub: { lp: 240, gain: 0.5 }, drums: { lp: 900 },
         hat: { hp: 8000, gain: 1.4 },
         lead: { lp: 2600, rev: 0.4, dly: 0.3 },
@@ -760,9 +760,9 @@
       titles: ['Goldene Stunde', 'Lange Schatten', 'Pfirsichhimmel', 'Balkonlicht', 'Letzte Fähre', 'Warmer Asphalt', 'Dämmerung', 'Sommerabend', 'Glühwürmchen', 'Über den Dächern', 'Rosé und Ruhe', 'Laternen gehen an'],
       compose: (r) => ({ bpm: 86 + Math.floor(r() * 8), swing: 0.1, key: 49 + pick(r, [0, 3, 7, -2]), prog: pick(r, PROG.abend), mel: 0.24 + r() * 0.1, scale: PENTA, melOct: 12 }),
       buses: {
-        pad: { lp: 1500, lq: 0.5, rev: 0.4 }, bass: { lp: 420 }, drums: { lp: 2600 },
-        shaker: { bp: 6800, bq: 1.1, gain: 0.9 }, snare: { bp: 2200, bq: 0.7, rev: 0.25 },
-        lead: { lp: 3800, rev: 0.4, dly: 0.42 }, amb: { rev: 0.4 },
+        pad: { lp: 1500, lq: 0.5, rev: 0.4, gain: 1.2 }, bass: { lp: 420, gain: 0.85 }, drums: { lp: 2600 },
+        shaker: { bp: 6800, bq: 0.7, gain: 5 }, snare: { bp: 2200, bq: 0.7, rev: 0.25, gain: 1.9 },
+        lead: { lp: 3800, rev: 0.4, dly: 0.42, gain: 2 }, amb: { rev: 0.4 },
       },
       step(S, i, t) {
         const b = S.bar(i), sec = b.name, s = i & 15, bi = i >> 4;
@@ -1108,6 +1108,17 @@
       g.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.08)';
       g.fillRect(r() * N, r() * N, 1.5, 1.5);
     }
+    // Rillen: feine Ringe mit einzelnen Titel-Lücken (wie auf einer Platte)
+    const h = N / 2;
+    g.lineWidth = 1.1;
+    for (let rr = h * 0.44; rr < h * 0.985; rr += 3.2) {
+      g.strokeStyle = `rgba(0,0,0,${(0.07 + 0.06 * r()).toFixed(3)})`;
+      g.beginPath(); g.arc(h, h, rr, 0, TAU); g.stroke();
+    }
+    for (const f of [0.56, 0.7, 0.84]) {
+      g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.22)';
+      g.beginPath(); g.arc(h, h, h * (f + r() * 0.04), 0, TAU); g.stroke();
+    }
     return c;
   }
   function artFor(st, track) {
@@ -1135,14 +1146,13 @@
     .mu-disc { position: absolute; left: 21cqw; top: 21cqw; width: 58cqw; height: 58cqw; border-radius: 50%;
       will-change: transform; transform-origin: 50% 50%; transition: filter .9s ease;
       box-shadow: 0 0 0 .22cqw rgba(255,255,255,.08), 0 2.4cqw 7cqw rgba(0,0,0,.75); }
-    .mu-disc.paused { filter: saturate(.72) brightness(.66); }
+    .mu-disc.paused { filter: saturate(.85) brightness(.8); }
     .mu-root.scrubbing .mu-disc { filter: saturate(.6) brightness(.32); transition-duration: .3s; }
     .mu-spin { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; will-change: transform; }
     .mu-spin canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
     .mu-groove { position: absolute; inset: 0; border-radius: 50%;
-      background:
-        radial-gradient(circle closest-side, rgba(0,0,0,0) 0 40%, rgba(0,0,0,.3) 100%),
-        repeating-radial-gradient(circle closest-side, rgba(255,255,255,0) 0 .3cqw, rgba(0,0,0,.14) .36cqw .44cqw); }
+      background: radial-gradient(circle closest-side, rgba(0,0,0,0) 0 46%, rgba(0,0,0,.1) 80%, rgba(0,0,0,.42) 100%);
+      box-shadow: inset 0 0 0 .3cqw rgba(255,255,255,.1), inset 0 0 0 .6cqw rgba(0,0,0,.35); }
     .mu-sheen { position: absolute; inset: 0; border-radius: 50%; mix-blend-mode: screen; opacity: .85;
       background: conic-gradient(from -24deg, rgba(255,255,255,0) 0deg, rgba(255,255,255,.17) 22deg, rgba(255,255,255,0) 50deg,
         rgba(255,255,255,0) 180deg, rgba(255,255,255,.12) 206deg, rgba(255,255,255,0) 234deg);

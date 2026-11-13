@@ -722,7 +722,7 @@
     if (code === 'storm' || code === 'heavy' || code === 'rain' || code === 'showers' || code === 'drizzle' || code === 'sleet') return 'sad';
     if (code === 'snow') return 'surprised';
     if (code === 'fog') return 'confused';
-    if (code === 'clear' || code === 'fair') return 'happy';
+    if (code === 'clear' || code === 'fair' || code === 'partly') return 'happy';
     if (code === 'overcast' || code === 'cloudy') return 'sleepy';
     return 'thinking';
   }
@@ -780,6 +780,47 @@
     return {
       say: `${label} in ${c.name}: ${dsc.fc} bei ${Math.round(d.lo)} bis ${Math.round(d.hi)} Grad.${rain}`,
       card: wxCard({ code: d.code, big: deg(d.hi), title: d.text, sub: `H ${deg(d.hi)}  T ${deg(d.lo)} · ${off === 1 ? 'Morgen' : V.fmt.WD[d.date.getDay()]}` }),
+      emotion: emotionFor(d.code, d.hi),
+    };
+  }
+  /** „Gibt es Gewitter?“ / „Wird es sonnig?“ */
+  function saySky(c, off, kind) {
+    const now = V.time.now();
+    const hrs = off ? dayRec(c, addDays(midnight(now), off)).hours.slice(7, 21) : hourly(Math.max(4, 22 - now.getHours()), c.id);
+    const label = dayWord(off, false), Label = dayWord(off, true);
+    const d = dayRec(c, addDays(midnight(now), off));
+    if (kind === 'storm') {
+      const r = hrs.find((h) => h.code === 'storm');
+      return r
+        ? { say: `Ja, ${label} gegen ${hourWord(r)} kann es gewittern. Achte auf Blitz und Donner.`, card: wxCard({ code: 'storm', big: deg(r.temp), title: 'Gewitter ab ' + hourWord(r), sub: `${c.name} · ${Label.replace(/^Am /, '')}` }), emotion: 'surprised' }
+        : { say: `Nein, Gewitter sind ${label} nicht in Sicht.`, card: wxCard({ code: d.code, big: deg(d.hi), title: d.text, sub: `Kein Gewitter · ${c.name}` }), emotion: 'happy' };
+    }
+    const day = hrs.filter((h) => !h.night);
+    const sunny = day.filter((h) => h.code === 'clear' || h.code === 'fair').length;
+    const part = day.filter((h) => h.code === 'partly').length;
+    const share = day.length ? (sunny + part * 0.5) / day.length : 0;
+    let say;
+    if (!day.length) say = 'Heute zeigt sich die Sonne nicht mehr – es ist schon dunkel.';
+    else if (share > 0.6) say = `Ja, ${label} scheint oft die Sonne, bis ${Math.round(d.hi)} Grad.`;
+    else if (share > 0.25) say = `Teilweise: ${label} wechseln sich Sonne und Wolken ab.`;
+    else say = `Eher nicht, ${label} bleibt es meist ${WET[d.code] ? 'nass' : 'grau'}.`;
+    return { say, card: wxCard({ code: d.code, big: deg(d.hi), title: d.text, sub: `H ${deg(d.hi)}  T ${deg(d.lo)} · ${Label.replace(/^Am /, '')}` }), emotion: share > 0.6 ? 'happy' : share > 0.25 ? 'wink' : 'sleepy' };
+  }
+  function sayWeekend(c) {
+    const now = V.time.now(), wd = now.getDay();
+    const sat = wd === 0 ? -1 : (6 - wd + 7) % 7;
+    const parts = [];
+    let first = null;
+    for (const off of [sat, sat + 1]) {
+      if (off < 0 || off > 6) continue;
+      const d = dayRec(c, addDays(midnight(now), off));
+      first = first || { d, off };
+      parts.push(`${V.fmt.WD[d.date.getDay()]} ${describe(d.code).fc} bei ${Math.round(d.lo)} bis ${Math.round(d.hi)} Grad`);
+    }
+    const d = first.d;
+    return {
+      say: `Am Wochenende in ${c.name}: ${parts.join(', ')}.`,
+      card: wxCard({ code: d.code, big: deg(d.hi), title: d.text, sub: `H ${deg(d.hi)}  T ${deg(d.lo)} · ${V.fmt.WD[d.date.getDay()]}` }),
       emotion: emotionFor(d.code, d.hi),
     };
   }
@@ -843,7 +884,7 @@
     }
     const d = dayRec(c, addDays(midnight(V.time.now()), off));
     return {
-      say: `${dayWord(off, true)} wird es in ${c.name} bis zu ${Math.round(d.hi)} Grad warm, nachts ${Math.round(d.lo)} Grad.`,
+      say: `${dayWord(off, true)} werden es in ${c.name} höchstens ${Math.round(d.hi)} Grad, nachts ${Math.round(d.lo)} Grad.`,
       card: wxCard({ code: d.code, big: deg(d.hi), title: d.text, sub: `H ${deg(d.hi)}  T ${deg(d.lo)} · ${dayWord(off, true).replace(/^Am /, '')}` }),
       emotion: d.hi < 3 || d.hi > 28 ? 'surprised' : 'happy',
     };
@@ -952,7 +993,8 @@
     const dcWd = U.el('div', { class: 'wd' }), dcDt = U.el('div', { class: 'dt vos-label', style: { color: 'rgba(255,255,255,.6)' } });
     const dcG = U.el('div', { class: 'g' }), dcTt = U.el('div', { class: 'tt' }), dcCd = U.el('div', { class: 'cd' }), dcDl = U.el('div', { class: 'dl' });
     dc.append(dcWd, dcDt, dcG, dcTt, dcCd, dcDl);
-    daysL.append(daySvg, dayItems, dc);
+    const backB = U.el('button', { class: 'wx-more', attrs: { type: 'button', 'aria-label': 'Zurück zu jetzt' }, html: V.icon('down') + '<span>JETZT</span>' });
+    daysL.append(daySvg, dayItems, dc, backB);
     root.append(mkL, nowL, daysL);
 
     // ---- Federn
@@ -1390,6 +1432,7 @@
       revealS.set(0.35); revealS.to(1);
     });
     V.ui.tap(moreB, () => setView('days'));
+    V.ui.tap(backB, () => setView('now'));
     V.gesture(root, {
       tap(p, e) {
         if (e && e.target && e.target.closest && e.target.closest('button')) return;
@@ -1485,11 +1528,11 @@
           const rain = /(?<![a-zäöüß])(regnet|regnen|regen|nass|niederschlag|nieselt)(?![a-zäöüß])/.test(t);
           const snow = /(?<![a-zäöüß])(schneit|schnee|schneien)(?![a-zäöüß])/.test(t);
           const temp = /wie (warm|kalt|heiß)|(?<![a-zäöüß])(temperatur|temperaturen)(?![a-zäöüß])|wie ?viel grad|(ist|wird) es (draußen |heute |morgen )?(warm|kalt|heiß)|brauche ich (eine )?jacke|grad (hat es|sind es|ist es) draußen/.test(t);
-          const sun = /wann geht die sonne (auf|unter)|sonnen(auf|unter)gang|wann wird es (hell|dunkel)/.test(t) && !/weck/.test(t);
-          const sunny = /scheint (die|morgen die|heute die) sonne|sonne scheint|wird es sonnig|ist es sonnig/.test(t);
+          const sun = (/(wann|wie spät|um wie viel uhr).*sonne.*(?<![a-zäöüß])(auf|unter)(?![a-zäöüß])|sonnen(auf|unter)gang|wann wird es (hell|dunkel)/.test(t)) && !/weck/.test(t);
+          const sunny = /(?<![a-zäöüß])sonnig(?![a-zäöüß])|scheint .*sonne|sonne scheint|sonnenschein/.test(t);
           const storm = /(?<![a-zäöüß])gewitter(?![a-zäöüß])/.test(t);
           if (!(w || umbrella || rain || snow || temp || sun || sunny || storm)) return null;
-          const kind = umbrella ? 'umbrella' : sun ? 'sun' : snow ? 'snow' : rain ? 'rain' : temp ? 'temp' : 'general';
+          const kind = umbrella ? 'umbrella' : sun ? 'sun' : snow ? 'snow' : storm ? 'storm' : rain ? 'rain' : sunny ? 'sunny' : temp ? 'temp' : 'general';
           return { kind, day: parseDay(t), city: cityFromText(t) };
         },
         run(m, t) {
@@ -1504,7 +1547,9 @@
           if (m.kind === 'snow') return sayPrecip(c, day || 0, 'snow');
           if (m.kind === 'temp') return sayTemp(c, day || 0);
           if (m.kind === 'sun') return saySun(c, day || 0, t);
+          if (m.kind === 'storm' || m.kind === 'sunny') return saySky(c, day || 0, m.kind);
           if (day === null || (day === 0 && /(?<![a-zäöüß])(jetzt|gerade|aktuell|draußen)(?![a-zäöüß])/.test(t))) return sayCurrent(c);
+          if (/wochenende/.test(t)) return sayWeekend(c);
           return sayDay(c, day);
         },
       });

@@ -165,7 +165,7 @@
     const off = offsetMin(z, ms), offHome = offsetMin(null, ms);
     const p = partsIn(z, ms);
     const w = new Date(p.y, p.mo - 1, p.d, p.h, p.mi, p.s);
-    return { name: city.name, time: U.pad(p.h) + ':' + U.pad(p.mi), diff: off - offHome, rel: dayRel(w, new Date(ms)), wall: w, hour: p.h };
+    return { name: city.name, time: U.pad(p.h) + ':' + U.pad(p.mi), spoken: p.h + ':' + U.pad(p.mi), diff: off - offHome, rel: dayRel(w, new Date(ms)), wall: w, hour: p.h };
   }
 
   V.worldclock = {
@@ -187,7 +187,6 @@
       b += `<g clip-path="url(#wcclip-${phase})"><circle cx="32" cy="40" r="12" fill="${col}"/><g stroke="${col}" stroke-width="3.2" stroke-linecap="round">`;
       for (let i = 0; i < 5; i++) { const a = Math.PI + (i + 0.5) * (Math.PI / 5); b += `<path d="M${(32 + Math.cos(a) * 17).toFixed(1)} ${(40 + Math.sin(a) * 17).toFixed(1)}L${(32 + Math.cos(a) * 22.5).toFixed(1)} ${(40 + Math.sin(a) * 22.5).toFixed(1)}"/>`; }
       b += `</g></g><path d="M10 46h44M18 53h28" stroke="${col}" stroke-width="3.4" stroke-linecap="round" opacity=".75"/>`;
-      b += phase === 'dawn' ? '<path d="M32 26v-9m-4.5 4.5L32 17l4.5 4.5" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0" />' : '';
     } else {
       b = '<path fill="#F3EFE2" d="M38.25 17.27A16 16 0 1 0 46.83 37.99A12.2 12.2 0 0 1 38.25 17.27Z"/>';
       b += '<g fill="#fff"><circle cx="47" cy="17" r="1.8"/><circle cx="54" cy="27" r="1.2"/><circle cx="43" cy="8" r="1.1"/></g>';
@@ -409,6 +408,7 @@
       g.font = "700 25px 'Inter Tight', system-ui, sans-serif";
       g.textAlign = 'center'; g.textBaseline = 'middle';
       for (const h of [6, 12, 18]) {
+        if (cities.some((c) => Math.abs(U.angDiff(angOf(h), angOf(localH(c, ms)))) < 4.5)) continue;   // Punkt liegt darauf
         const p = V.display.pt(angOf(h), R);
         const lum = U.luma(colorAt(stops, h));
         g.fillStyle = lum > 0.5 ? 'rgba(40,24,10,.62)' : 'rgba(255,255,255,.7)';
@@ -539,7 +539,7 @@
     const r = timeOf(c);
     const night = r.hour >= 22 || r.hour < 6;
     const dayNote = r.rel === 'Morgen' ? `, dort ist schon ${V.fmt.WD[r.wall.getDay()]}` : r.rel === 'Gestern' ? `, dort ist noch ${V.fmt.WD[r.wall.getDay()]}` : '';
-    const say = r.diff === 0 ? `In ${c.name} ist es ${r.time} Uhr – genau wie hier.` : `In ${c.name} ist es ${r.time} Uhr, ${diffText(r.diff, true)}${dayNote}.`;
+    const say = r.diff === 0 ? `In ${c.name} ist es ${r.spoken} Uhr – genau wie hier.` : `In ${c.name} ist es ${r.spoken} Uhr, ${diffText(r.diff, true)}${dayNote}.`;
     return { say, card: { type: 'big', text: r.time, sub: c.name + ' · ' + (r.diff ? diffText(r.diff) : 'gleiche Zeit') }, emotion: night ? 'sleepy' : 'happy' };
   }
 })();

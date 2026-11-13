@@ -82,6 +82,8 @@
     enabled() { return V.store.get('settings.sounds', true); },
     play(name) {
       if (!V.sound.enabled()) return;
+      const ua = navigator.userActivation;
+      if (ua && !ua.hasBeenActive) return;   // Browser erlauben Ton erst nach einer Berührung
       const fn = SOUNDS[name];
       if (fn) try { fn(); } catch (e) { /* stumm */ }
     },

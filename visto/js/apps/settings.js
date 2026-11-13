@@ -20,15 +20,17 @@
   let aiSeen = false;
   V.on('brain:ai', () => { aiSeen = true; });
 
-  const CITIES = ['Berlin', 'Hamburg', 'München', 'Köln', 'Frankfurt am Main', 'Stuttgart', 'Düsseldorf', 'Leipzig', 'Dresden', 'Hannover', 'Nürnberg', 'Bremen', 'Freiburg', 'Wien', 'Zürich'];
+  // dieselben Städte wie Wetter/Weltuhr und dieselben Netze wie die Einrichtung
+  const CITIES = [['Berlin', 'Deutschland'], ['Hamburg', 'Deutschland'], ['München', 'Deutschland'], ['Köln', 'Deutschland'], ['Frankfurt', 'Deutschland'], ['Wien', 'Österreich'], ['Zürich', 'Schweiz']];
   const NETWORKS = [
     { name: 'Zuhause', sec: true, s: 3 },
-    { name: 'Zuhause 5G', sec: true, s: 3 },
-    { name: 'Café Lumen', sec: false, s: 2 },
-    { name: 'FRITZ!Box 7590 KL', sec: true, s: 2 },
-    { name: 'Nachbarschaft', sec: true, s: 1 },
+    { name: 'FRITZ!Box 7590', sec: true, s: 2 },
+    { name: 'Vodafone-8E2C', sec: true, s: 2 },
+    { name: 'Café Mondschein', sec: false, s: 1 },
     { name: 'Telekom_FON', sec: false, s: 1 },
   ];
+  const netKey = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+  const findNet = (q) => { const k = netKey(q); return NETWORKS.find((n) => netKey(n.name) === k) || (k.length > 2 ? NETWORKS.find((n) => netKey(n.name).includes(k)) : null); };
   const IDLE = [{ v: 15, label: '15 s' }, { v: 30, label: '30 s' }, { v: 60, label: '1 Min' }, { v: 120, label: '2 Min' }, { v: 300, label: '5 Min' }];
   const STYLES = [{ v: 'aurora', label: 'Aurora' }, { v: 'mono', label: 'Mono' }, { v: 'accent', label: 'Akzent' }];
   const PRESETS = () => (V.faces.COLORS || []).filter((c) => c.v !== 'accent' && c.v.toUpperCase() !== '#FFFFFF');
@@ -861,8 +863,8 @@
       const items = () => {
         const cur = get('settings.location', 'Berlin');
         city.textContent = cur;
-        return [{ el: hero }, { section: 'Städte' }].concat(CITIES.map((c) => ({
-          title: c, icon: c === cur ? 'check' : 'location', color: c === cur ? '#32D74B' : 'rgba(255,255,255,.1)',
+        return [{ el: hero }, { section: 'Städte' }].concat(CITIES.map(([c, land]) => ({
+          title: c, sub: land, icon: c === cur ? 'check' : 'location', color: c === cur ? '#32D74B' : 'rgba(255,255,255,.1)',
           onClick: () => { if (c === cur) return; set('settings.location', c); V.sound.play('success'); list.setItems(items()); },
         })));
       };
@@ -1069,7 +1071,8 @@
       const say = (txt, extra) => Object.assign({ say: txt, emotion: 'happy' }, extra || {});
       const capCity = (raw) => {
         const s = String(raw).trim().replace(/\s+/g, ' ');
-        const known = CITIES.find((c) => c.toLowerCase() === s.toLowerCase() || c.toLowerCase().startsWith(s.toLowerCase() + ' '));
+        const k = s.toLowerCase().replace(/ am main$/, '');
+        const known = (CITIES.find(([c]) => c.toLowerCase() === k) || [])[0];
         return known || s.split(/([ -])/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('');
       };
       const info = () => `Ich bin ${V.device.name} ${V.device.model} mit VistoOS ${V.version}, Build ${V.build} – ein rundes 7-Zoll-OLED mit 1080 × 1080 Pixeln und 90 Hertz.`;
@@ -1089,19 +1092,22 @@
         params: { h24: { type: 'boolean' } }, required: ['h24'],
         run(a) { const on = a.h24 !== false && a.h24 !== 'false'; set('settings.use24h', on); return say(on ? 'Die Uhr zeigt jetzt das 24-Stunden-Format.' : 'Die Uhr zeigt jetzt das 12-Stunden-Format.', { card: { type: 'big', text: V.fmt.time(V.time.now()) + (on ? '' : ' ' + V.fmt.parts().ampm), sub: on ? '24 Stunden' : '12 Stunden' } }); },
       });
-      V.actions.register('settings.location', {
-        desc: 'Setzt den Ort (Stadt) für Wetter und Sonnenzeiten.',
-        params: { city: { type: 'string', description: 'Stadtname, z. B. Hamburg' } }, required: ['city'],
-        run(a) { const c = capCity(a.city || ''); if (!c) return 'Welche Stadt meinst du?'; set('settings.location', c); return say(`Alles klar, dein Ort ist jetzt ${c}.`, { card: { type: 'icon', icon: 'location', color: '#32D74B', title: c, sub: 'Ort' } }); },
-      });
+      // Ort setzen: die Einrichtung bietet dafür schon system.set_location an (kein doppeltes Werkzeug für Claude)
+      const setLocation = (city) => {
+        if (V.actions.has('system.set_location')) return V.actions.run('system.set_location', { city: capCity(city) });
+        const c = capCity(city || '');
+        if (!c) return 'Welche Stadt meinst du?';
+        set('settings.location', c);
+        return say(`Alles klar, dein Ort ist jetzt ${c}.`, { card: { type: 'icon', icon: 'location', color: '#32D74B', title: c, sub: 'Ort' } });
+      };
       V.actions.register('settings.wifi', {
-        desc: 'WLAN steuern: network = Name zum Verbinden, on = false trennt. Ohne Angaben: Status.',
+        desc: 'WLAN ein- oder ausschalten (on) bzw. mit einem Netz verbinden (network: ' + NETWORKS.map((n) => n.name).join(', ') + '). Ohne Angaben: Status.',
         params: { network: { type: 'string' }, on: { type: 'boolean' } },
         run(a) {
           if (a.on === false || a.on === 'false') { set('settings.wifi', ''); return say('WLAN ist aus.', { emotion: 'neutral' }); }
           if (a.network) {
-            const n = NETWORKS.find((x) => x.name.toLowerCase() === String(a.network).toLowerCase()) || NETWORKS.find((x) => x.name.toLowerCase().startsWith(String(a.network).toLowerCase()));
-            if (!n) return say(`Das Netz „${a.network}“ sehe ich gerade nicht.`, { emotion: 'confused' });
+            const n = findNet(a.network);
+            if (!n) return say(`Das Netz „${a.network}“ sehe ich gerade nicht. In der Nähe sind ${NETWORKS.slice(0, 3).map((x) => x.name).join(', ')}.`, { emotion: 'confused' });
             set('settings.wifi', n.name); set('settings.wifiLast', n.name);
             return say(`Verbunden mit ${n.name}.`, { card: { type: 'icon', icon: 'wifi', color: '#0A84FF', title: n.name, sub: 'Verbunden' } });
           }
@@ -1175,7 +1181,7 @@
         },
       });
       B.intent({
-        id: 'settings-open', priority: 6,
+        id: 'settings-open', priority: 7,
         match: [new RegExp(NB + '(einstellungen|einstellung|settings|systemeinstellungen)' + NA)],
         run(m, t) {
           if (/zurücksetzen|werkseinstellung/.test(t)) { openPage('reset'); return say('Das musst du kurz bestätigen.', { emotion: 'thinking' }); }
@@ -1186,10 +1192,10 @@
       B.intent({
         id: 'settings-location', priority: 6,
         match: [/(?:mein (?:ort|standort|wohnort) ist|ich wohne (?:jetzt )?in|(?:setze?|stell|stelle|ändere?) (?:den |meinen )?(?:ort|standort|wohnort) (?:auf|nach|zu)|(?:ort|standort) (?:auf|nach|ist))\s+([a-zäöüß][a-zäöüß .-]{1,28})$/],
-        run(m) { return V.actions.run('settings.location', { city: m[1].replace(/\s+(bitte|danke)$/, '') }); },
+        run(m) { return setLocation(m[1].replace(/\s+(bitte|danke)$/, '')); },
       });
       B.intent({
-        id: 'settings-wifi', priority: 6,
+        id: 'settings-wifi', priority: 7,
         match: [new RegExp(NB + '(wlan|wifi|wi-fi|wlan-netz)' + NA)],
         run(m, t, original) {
           if (/welche|status|bin ich|sind wir|bist du/.test(t)) return V.actions.run('settings.wifi', {});
@@ -1274,7 +1280,7 @@
       return {
         back() { return nav.pop(); },
         crown(dA) { const t = nav.top; if (!t) return; if (t.inst.crown) t.inst.crown(dA); else if (t.inst.list) t.inst.list.crown(dA); },
-        params(p) { if (p && p.page) nav.goto(p.page); },
+        params(p) { nav.goto((p && p.page) || 'main'); },
         destroy() { nav.destroy(); },
       };
     },

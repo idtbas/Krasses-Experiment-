@@ -52,7 +52,7 @@
     let t = norm(text).replace(/(\d),(\d)/g, '$1.$2');
     t = t.replace(/\b(eine|einen|ein|einer)\s+(stunde|minute|sekunde|viertelstunde|halbe|dreiviertelstunde)/g, '1 $2');
     let sec = 0, hit = false;
-    if (/\b(1 )?halbe stunde\b/.test(t)) { sec += 1800; hit = true; t = t.replace(/\b(1 )?halbe stunde\b/, ''); }
+    if (/\b(1 )?halben? stunde\b/.test(t)) { sec += 1800; hit = true; t = t.replace(/\b(1 )?halben? stunde\b/, ''); }
     if (/\bdreiviertelstunde\b/.test(t)) { sec += 2700; hit = true; t = t.replace(/\bdreiviertelstunde\b/, ''); }
     if (/\bviertelstunde\b/.test(t)) { sec += 900; hit = true; t = t.replace(/\b(1 )?viertelstunde\b/, ''); }
     if (/\banderthalb stunden?\b/.test(t)) { sec += 5400; hit = true; t = t.replace(/\banderthalb stunden?\b/, ''); }
@@ -76,8 +76,8 @@
     const t = norm(text);
     const now = V.time.now();
     // relativ
-    if (/\bin\s+\d|\bin (1 )?(halben stunde|viertelstunde)|\bin anderthalb\b/.test(t)) {
-      const s = parseDuration(t.replace(/^.*?\bin\b/, ''));
+    if (/\bin\s+\d|\bin (eine[rmn]?|1) |\bin (1 )?(halben stunde|viertelstunde)|\bin anderthalb\b/.test(t)) {
+      const s = parseDuration(t.replace(/^.*?\bin\b/, '').replace(/\b(eine[rmn]?)\b/, '1'));
       if (s) { const d = new Date(now.getTime() + s * 1000); return { date: d, h: d.getHours(), m: d.getMinutes(), rel: true }; }
     }
     let h = null, mi = 0;

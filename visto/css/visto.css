@@ -341,6 +341,9 @@ body.emu-full .emu-exitfull { display: grid; }
   transform-origin: 50% 50%;
 }
 .vos-hidden { visibility: hidden; }
+/* Ebenen selbst rund beschneiden (Chrome clippt deckende Ebenen sonst nicht immer) */
+.vos-scrim, .vos-dim, .vos-night, .vos-overlay, .vos-top, .vos-convo, .vos-stage { border-radius: 50%; overflow: hidden; }
+.vos-rlist { -webkit-mask-image: linear-gradient(transparent 0, #000 16%, #000 80%, transparent 100%); mask-image: linear-gradient(transparent 0, #000 16%, #000 80%, transparent 100%); }
 
 /* Sicherer Bereich (einbeschriebenes Quadrat ≈ 70.7 %) */
 .vos-safe { position: absolute; inset: 14.6%; }

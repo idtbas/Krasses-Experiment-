@@ -263,7 +263,7 @@
   function colorFromText(t, r) {
     if (W('wärmer|gemütlicher').test(t)) return stepTone(r, -1);
     if (W('kälter|kühler|frischer').test(t)) return stepTone(r, 1);
-    if (W('kerzenlicht|kerzenschein|kerze').test(t)) return { tone: 'kerze' };
+    if (W('kerzenlicht|kerzenschein|kerze|gemütlich|kuschelig|romantisch').test(t)) return { tone: 'kerze' };
     if (W('warmweiß|warmweiss|warmes|warm').test(t)) return { tone: 'warm' };
     if (W('tageslicht|tageslichtweiß|kaltweiß|kaltweiss|kaltes|kalt').test(t)) return { tone: 'kalt' };
     if (W('neutralweiß|neutralweiss|neutral|weiß|weiss|weißes|normal').test(t)) return { tone: 'neutral' };
@@ -645,7 +645,10 @@
       });
 
       /* --- Absichten (lokal, sofort) --- */
-      const opt = (r, t, page) => { if (RE.show.test(t)) { st().page = page; r.open = 'home'; } return r; };
+      const opt = (r, t, page) => {
+        if (RE.show.test(t) && pageIndex(page) >= 0) { st().page = page; r.open = 'home'; V.emit('home:changed', { focus: page, src: 'voice' }); }
+        return r;
+      };
 
       // Fragen: „Ist das Licht in der Küche an?“, „Läuft die Kaffeemaschine?“, „Wie warm ist es drinnen?“
       V.brain.intent({
@@ -752,6 +755,7 @@
           else if (W('dunkler').test(t)) a.delta = -0.2;
           else if (/dimm/.test(t)) a.delta = r.on && r.bri > 0.35 ? -0.25 : 0;
           else if (W('gedimmt|dunkel|schwach|sanft|leise').test(t)) a.brightness = 20;
+          else if (W('gemütlich|kuschelig|romantisch').test(t)) a.brightness = 35;
           const c = colorFromText(t, r);
           if (c) a.color = c.tone === 'hue' ? hueHex(c.hue) : c.tone;
           if (RE.off.test(t)) a.on = false;
@@ -776,14 +780,15 @@
           return null;
         },
         run(m, t) {
-          const tm = t.match(/(\d{1,2})(?:\s*(?:[.,]|komma)\s*(\d))?(?:\s*(?:einhalb|1\/2))?\s*(?:grad|°)?/);
-          if (tm && !/um (\d+) grad/.test(t)) {
+          // relativ: „um 2 Grad wärmer“, „2 Grad kälter“
+          const rel = t.match(/(?:um )?(\d+(?:[.,]\d)?)\s*(?:grad|°)\s*(?:wärmer|kälter|kühler|höher|niedriger|mehr|weniger|hoch|runter|rauf)/) || t.match(/(?<![a-zäöüß])um (\d+(?:[.,]\d)?)\s*(?:grad|°)/);
+          const tm = !rel && t.match(/(\d{1,2})(?:\s*(?:[.,]|komma)\s*(\d))?(?:\s*(?:einhalb|1\/2))?\s*(?:grad|°)?/);
+          if (tm) {
             let v = +tm[1] + (tm[2] ? +tm[2] / 10 : 0);
             if (/einhalb|1\/2/.test(t)) v += 0.5;
             return opt(thermoCommand({ temp: v }, 'voice'), t, 'klima');
           }
-          const um = t.match(/um (\d+(?:[.,]\d)?) grad/);
-          const amount = um ? parseFloat(um[1].replace(',', '.')) : 1;
+          const amount = rel ? parseFloat(rel[1].replace(',', '.')) : 1;
           if (W('wärmer|höher|hoch|rauf|hochdrehen|aufdrehen|hochstellen|mehr').test(t) || /(?<![a-zäöüß])auf$/.test(t) || /kalt|frisch|kühl$/.test(t) && m.k === 'feel') return opt(thermoCommand({ delta: amount }, 'voice'), t, 'klima');
           if (W('kälter|kühler|niedriger|runter|herunter|weniger|absenken|senken|runterdrehen|zurückdrehen|kleiner').test(t) || m.k === 'feel') return opt(thermoCommand({ delta: -amount }, 'voice'), t, 'klima');
           if (RE.off.test(t)) return opt(thermoCommand({ on: false }, 'voice'), t, 'klima');
@@ -995,6 +1000,8 @@
           return o;
         };
         const blindsBtn = room.blinds ? side(186, 'blinds', '', () => openBlinds(room.id), 'Rollo ' + room.name) : null;
+        // im Flur: der Schalter an der Wohnungstür – alles aus beim Gehen
+        if (!room.blinds) side(186, 'power', 'Alles aus', () => { runScene('aus'); V.sound.play('success'); }, 'Alles ausschalten');
         const rightBtn = room.coffee
           ? side(814, 'coffee', '', () => { const on = !st().coffee; setCoffee(on, 'ui'); changed({ what: 'coffee', src: 'ui' }); if (on) V.sound.play('success'); }, 'Kaffeemaschine')
           : side(814, 'thermo', '', () => goPage(pageIndex('klima')), 'Heizung');
@@ -1004,8 +1011,8 @@
           el,
           refresh() {
             const x = roomState(room.id);
-            tone.textContent = x.on ? (x.tone === 'hue' ? hueEntry(x.hue).name : TONES[x.tone].name + ' · ' + TONES[x.tone].k + ' K') : 'Zum Einschalten antippen';
-            tone.style.color = x.on ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.3)';
+            tone.textContent = x.tone === 'hue' ? hueEntry(x.hue).name : TONES[x.tone].name + ' · ' + TONES[x.tone].k + ' K';
+            tone.style.color = x.on ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.26)';
             for (const ch of chips) {
               const on = !ch.c.wheel && (ch.c.tone === x.tone);
               ch.b.classList.toggle('on', on && x.on);
@@ -1091,7 +1098,7 @@
             const m = thermoMode();
             if (m !== lastMode || force) {
               lastMode = m;
-              const txt = { heat: 'Heizen', cool: 'Kühlen', hold: 'Temperatur gehalten', off: 'Heizung aus' }[m];
+              const txt = { heat: 'Heizen', cool: 'Kühlen', hold: 'Temperatur gehalten', off: 'Heizung' }[m];
               modeArc.set(txt);
               modeArc.text.setAttribute('fill', m === 'hold' || m === 'off' ? 'rgba(255,255,255,.55)' : modeColor(m));
             }
@@ -1360,7 +1367,11 @@
             const vel = p.cancelled ? 0 : -p.vx / PAGE_W;
             const proj = pos.v + vel * 0.2;
             const from = Math.round(g.p0);
-            const target = U.clamp(Math.round(proj), Math.max(0, from - 1), Math.min(PAGES.length - 1, from + 1));
+            let target = Math.round(proj);
+            const moved = pos.v - from;
+            // ab gut einem Viertel Seite weiterblättern, außer der Finger schnippt zurück
+            if (!p.cancelled && target === from && Math.abs(moved) > 0.27 && vel * Math.sign(moved) > -0.6) target = from + Math.sign(moved);
+            target = U.clamp(target, Math.max(0, from - 1), Math.min(PAGES.length - 1, from + 1));
             goPage(target, { velocity: vel * 0.6 });
           }
         },
@@ -1428,7 +1439,7 @@
             const act = mode === 'heat' || mode === 'cool';
             for (const tk of ticks) {
               const on = act && tk.a >= lo - 0.6 && tk.a <= hi + 0.6;
-              const k = on ? 'on' + mode : tk.a > aT && th.on ? (tk.major ? 'M' : 'm') : tk.major ? 'Mb' : 'mb';
+              const k = on ? 'on' + mode : tk.a > aT || !th.on ? (tk.major ? 'M' : 'm') : tk.major ? 'Mb' : 'mb';
               if (k === tk.k) continue;
               tk.k = k;
               tk.el.setAttribute('stroke', on ? col : 'rgba(255,255,255,1)');

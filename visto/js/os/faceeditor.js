@@ -214,6 +214,7 @@
   /* ------------------------------------------------------------ Anpassen */
   function buildCustom(S) {
     destroyCustom(S);
+    S.root.style.removeProperty('--fed-acc');
     const def = S.list[S.index];
     const opts = (def.options || []).slice();
     const C = { def, opts, pages: [], titles: [], rings: [], el: U.el('div', { class: 'fed-layer' }) };

@@ -92,8 +92,12 @@
       }
 
       let busy = 0;
+      let shownKey = V.fmt.time(V.time.now());
       function minute(now) {
-        if (!colonEl || ctx.preview) { render(now); paint(); return; }
+        const key = V.fmt.time(now);
+        // gleiche Minute (z. B. direkt nach dem Erzeugen): nur still aktualisieren
+        if (!colonEl || ctx.preview || key === shownKey) { shownKey = key; render(now); paint(); return; }
+        shownKey = key;
         // weich aus- und an neuer Stelle wieder einblenden
         clearTimeout(busy);
         wrap.style.opacity = '0';
