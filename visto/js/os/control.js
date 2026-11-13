@@ -34,7 +34,7 @@
     { id: 'voice', icon: 'cc-voice', label: 'Visto-Stimme', color: '#B46BFF', ink: '#FFFFFF', at: 300 },
   ];
   // Mini-Player: geschwungenes Band unten (Uhrwinkel, gegen den Uhrzeigersinn = links → rechts)
-  const PL = { r: 318, w: 104, a0: 236, a1: 124, play: 151, next: 130, textA0: 229, textA1: 163 };
+  const PL = { r: 318, w: 104, a0: 238, a1: 124, cover: 229, play: 151, next: 131, textA0: 217, textA1: 162 };
 
   V.icon.add('cc-night', '<path d="M18.6 15.4A7.4 7.4 0 0 1 8.6 5.4a7.4 7.4 0 1 0 10 10z"/><path d="M16.6 2.8v3.4M14.9 4.5h3.4M20.4 8.4v2.2M19.3 9.5h2.2"/>');
   V.icon.add('cc-voice', '<circle cx="9.2" cy="12" r="5.6"/><path d="M7.6 10.9v2.2M10.8 10.9v2.2"/><path d="M17.2 8.6a4.8 4.8 0 0 1 0 6.8M19.9 6a8.6 8.6 0 0 1 0 12"/>');
@@ -200,12 +200,16 @@
     // Mini-Player
     player = U.el('div', { class: 'cc-player' });
     const psvg = U.svg('svg', { class: 'cc-svg', viewBox: '0 0 1000 1000', 'aria-hidden': 'true' });
-    const band = U.svg('path', { d: arcD(PL.r, PL.a0, PL.a1), fill: 'none', stroke: 'rgba(255,255,255,.09)', 'stroke-width': PL.w, 'stroke-linecap': 'round' });
-    const bandGlow = U.svg('path', { d: arcD(PL.r, PL.a0, PL.a1), fill: 'none', stroke: '#fff', 'stroke-width': PL.w * 0.9, 'stroke-linecap': 'round', opacity: 0.16, filter: `url(#${glowId})` });
-    psvg.append(bandGlow, band);
+    const band = U.svg('path', { d: arcD(PL.r, PL.a0, PL.a1), fill: 'none', stroke: 'rgba(255,255,255,.085)', 'stroke-width': PL.w, 'stroke-linecap': 'round' });
+    const bandGlow = U.svg('path', { d: arcD(PL.r + 50, PL.a0 - 6, PL.a1 + 6), fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: 0.5 });
+    const cp = pt(PL.cover, PL.r);
+    const coverGlow = U.svg('circle', { cx: cp.x, cy: cp.y, r: 40, fill: '#FF375F', opacity: 0.55, filter: `url(#${glowId})` });
+    const cover = U.svg('circle', { cx: cp.x, cy: cp.y, r: 39, fill: '#FF375F' });
+    psvg.append(band, bandGlow, coverGlow, cover);
+    iconIn(psvg, 'music', cp.x, cp.y, 34, '#fff');
     player.appendChild(psvg);
-    const title = arcText(psvg, { r: 338, a0: PL.textA0, a1: PL.textA1, size: 27, weight: 650, spacing: 0.2, color: '#fff', upper: false });
-    const artist = arcText(psvg, { r: 297, a0: PL.textA0, a1: PL.textA1, size: 21, weight: 600, spacing: 0.4, color: 'rgba(255,255,255,.55)', upper: false });
+    const title = arcText(psvg, { r: 302, a0: PL.textA0, a1: PL.textA1, size: 27, weight: 650, spacing: 0.2, color: '#fff', upper: false });
+    const artist = arcText(psvg, { r: 340, a0: PL.textA0, a1: PL.textA1, size: 20.5, weight: 600, spacing: 0.4, color: 'rgba(255,255,255,.55)', upper: false });
     const mk = (a, icon, label, cmd) => {
       const p = pt(a, PL.r);
       const b = U.el('button', { class: 'cc-pbtn', attrs: { type: 'button', 'aria-label': label, 'data-cmd': cmd }, style: { left: p.x / 10 + 'cqw', top: p.y / 10 + 'cqw' }, html: V.icon(icon) });
@@ -215,7 +219,7 @@
     };
     const playBtn = mk(PL.play, 'play', 'Wiedergabe', 'toggle');
     const nextBtn = mk(PL.next, 'next', 'Nächster Titel', 'next');
-    player._ = { band, bandGlow, title, artist, playBtn, nextBtn };
+    player._ = { band, bandGlow, cover, coverGlow, title, artist, playBtn, nextBtn };
 
     wrap = U.el('div', { class: 'cc-wrap' }, svg, flower, player);
     root.append(back, wrap, edge);
@@ -407,8 +411,10 @@
     P.title.set(m.title || 'Musik');
     P.artist.set(m.artist || '');
     const c = m.color && /^#[0-9a-f]{6}$/i.test(m.color) ? m.color : '#FF375F';
-    P.band.setAttribute('stroke', U.rgba(c, 0.2));
-    P.bandGlow.setAttribute('stroke', c);
+    P.cover.setAttribute('fill', c);
+    P.coverGlow.setAttribute('fill', c);
+    P.bandGlow.setAttribute('stroke', U.mix(c, '#ffffff', 0.25));
+    P.bandGlow.setAttribute('opacity', m.playing ? 0.55 : 0.2);
     P.playBtn.innerHTML = V.icon(m.playing ? 'pause' : 'play');
     P.playBtn.setAttribute('aria-label', m.playing ? 'Pause' : 'Wiedergabe');
   }
