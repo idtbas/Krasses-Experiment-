@@ -56,11 +56,18 @@
       root.append(cv, mid);
       const digits = V.faces.rollDigits(timeEl, { digitW: '0.58em', colonW: '0.27em' });
 
+      // Leuchtpuffer in ¼ Auflösung, weichgezeichnet und unter die Ringe gelegt
+      const gl = document.createElement('canvas');
+      const gg = gl.getContext('2d');
+      let canBlur = false;
+      try { gg.filter = 'blur(2px)'; canBlur = gg.filter === 'blur(2px)'; gg.filter = 'none'; } catch (e) { canBlur = false; }
       let px = 0;
       function size() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         px = Math.max(200, Math.round((V.display.size || 360) * dpr));
         if (cv.width !== px) { cv.width = px; cv.height = px; }
+        const gw = Math.max(60, Math.round(px / 4));
+        if (gl.width !== gw) { gl.width = gw; gl.height = gw; }
       }
       size();
 
@@ -70,67 +77,83 @@
       const intro = V.spring(ctx.preview ? 1 : 0, { response: 0.9, bounce: 0.08 });
       if (!ctx.preview) intro.to(1);
 
-      function ringPath(r, a0, a1) { g.beginPath(); g.arc(500, 500, r, RAD(a0), RAD(a1)); }
+      function arcPath(c, r, a0, a1) { c.beginPath(); c.arc(500, 500, r, RAD(a0), RAD(a1)); }
+      /** Verlauf entlang des Rings: Anfang dunkler, Kopf hell */
+      function gradient(c, R) {
+        const [c0, c1] = R.cols;
+        if (!c.createConicGradient) return c1;
+        const gr = c.createConicGradient(RAD(0), 500, 500);
+        const capF = (R.w / 2) / (TAU * R.r) * 1.4;
+        gr.addColorStop(0, c0);
+        gr.addColorStop(U.clamp(R.v0, 0, 1), c0);
+        gr.addColorStop(U.clamp(R.v1, 0, 1), c1);
+        gr.addColorStop(U.clamp(R.v1 + capF, 0, 1), c1);
+        if (R.v1 + capF < 1) gr.addColorStop(1, c0);
+        return gr;
+      }
 
-      function drawRing(i, v0, v1, cols) {
-        const r = RADII[i];
-        const [c0, c1] = cols;
-        const w = amb ? 7 : W;
-        // Spur
+      function drawTrack(R) {
         g.lineCap = 'round';
-        g.strokeStyle = U.rgba(c1, amb ? 0.1 : 0.15);
-        g.lineWidth = w;
-        g.beginPath(); g.arc(500, 500, r, 0, TAU); g.stroke();
-        const span = Math.max(0, v1 - v0);
-        if (span <= 0.0004) { drawCap(r, v0, c0, w); return; }
-        const a0 = v0 * 360, a1 = v1 * 360;
-        // Verlauf entlang des Rings: Anfang dunkler, Kopf hell
-        const gr = g.createConicGradient ? g.createConicGradient(RAD(0), 500, 500) : null;
-        let style = c1;
-        if (gr) {
-          const capF = (w / 2) / (TAU * r) * 1.4;
-          gr.addColorStop(0, c0);
-          gr.addColorStop(U.clamp(v0, 0, 1), c0);
-          gr.addColorStop(U.clamp(v1, 0, 1), c1);
-          gr.addColorStop(U.clamp(v1 + capF, 0, 1), c1);
-          if (v1 + capF < 1) gr.addColorStop(1, c0);
-          style = gr;
+        g.strokeStyle = U.rgba(R.cols[1], amb ? 0.1 : 0.15);
+        g.lineWidth = R.w;
+        g.beginPath(); g.arc(500, 500, R.r, 0, TAU); g.stroke();
+      }
+      function drawGlow(list) {
+        const gs = gl.width / 1000;
+        gg.setTransform(1, 0, 0, 1, 0, 0);
+        gg.clearRect(0, 0, gl.width, gl.width);
+        gg.setTransform(gs, 0, 0, gs, 0, 0);
+        if (canBlur) gg.filter = 'blur(' + (gl.width / 90).toFixed(1) + 'px)';
+        gg.lineCap = 'round';
+        for (const R of list) {
+          if (R.v1 - R.v0 <= 0.0004) continue;
+          gg.strokeStyle = gradient(gg, R);
+          gg.lineWidth = R.w + 26;
+          arcPath(gg, R.r, R.v0 * 360, R.v1 * 360); gg.stroke();
         }
-        if (!amb) {
-          // Leuchten: zwei weiche Lagen unter dem Ring
-          g.globalAlpha = 0.13; g.strokeStyle = style; g.lineWidth = w + 34; ringPath(r, a0, a1); g.stroke();
-          g.globalAlpha = 0.2; g.lineWidth = w + 14; ringPath(r, a0, a1); g.stroke();
+        gg.filter = 'none';
+        g.globalAlpha = 0.42;
+        g.globalCompositeOperation = 'lighter';
+        g.drawImage(gl, 0, 0, 1000, 1000);
+        g.globalCompositeOperation = 'source-over';
+        g.globalAlpha = 1;
+      }
+      function drawBody(R) {
+        const span = R.v1 - R.v0;
+        const [c0, c1] = R.cols;
+        g.lineCap = 'round';
+        if (span <= 0.0004) {
+          const p = V.display.pt(R.v0 * 360, R.r);
+          g.fillStyle = c0; g.globalAlpha = amb ? 0.7 : 1;
+          g.beginPath(); g.arc(p.x, p.y, R.w / 2, 0, TAU); g.fill();
           g.globalAlpha = 1;
+          return;
         }
-        g.strokeStyle = style;
-        g.lineWidth = w;
+        const a0 = R.v0 * 360, a1 = R.v1 * 360;
+        const st = gradient(g, R);
+        g.strokeStyle = st;
+        g.lineWidth = R.w;
         g.globalAlpha = amb ? 0.75 : 1;
-        ringPath(r, a0, a1); g.stroke();
+        arcPath(g, R.r, a0, a1); g.stroke();
         g.globalAlpha = 1;
-        // Kopf mit Schatten (überlappt den Anfang bei fast vollem Ring)
-        if (!amb && span > 0.02) {
-          const p = V.display.pt(a1, r);
-          g.save();
-          g.shadowColor = 'rgba(0,0,0,.65)';
-          g.shadowBlur = 14;
-          g.fillStyle = c1;
-          g.beginPath(); g.arc(p.x, p.y, w / 2, RAD(a1) - Math.PI / 2, RAD(a1) + Math.PI / 2); g.fill();
-          g.restore();
+        // fast voller Ring: der Kopf wirft einen weichen Schatten auf den Anfang
+        if (!amb && R.v1 > 0.955 && span > 0.1) {
+          const fwd = a1 + (R.w * 0.35 / (TAU * R.r)) * 360;
+          const p = V.display.pt(fwd, R.r);
+          const sh = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, R.w * 0.85);
+          sh.addColorStop(0, 'rgba(0,0,0,.6)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = sh;
+          g.beginPath(); g.arc(p.x, p.y, R.w * 0.85, 0, TAU); g.fill();
+          g.strokeStyle = c1;
+          arcPath(g, R.r, a1 - 5, a1); g.stroke();
         }
       }
-      function drawCap(r, v, c, w) {
-        const p = V.display.pt(v * 360, r);
-        g.fillStyle = c; g.globalAlpha = amb ? 0.7 : 1;
-        g.beginPath(); g.arc(p.x, p.y, w / 2, 0, TAU); g.fill();
-        g.globalAlpha = 1;
-      }
-      function drawMark(i, ch) {
+      function drawMark(R, ch) {
         // kleiner Kennbuchstabe am Ringanfang (12 Uhr), dunkel auf dem Ring
-        const r = RADII[i];
         g.fillStyle = 'rgba(0,0,0,.62)';
         g.font = `800 ${Math.round(W * 0.42)}px 'Inter Tight', system-ui, sans-serif`;
         g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.fillText(ch, 500 + 1, 500 - r + 1.5);
+        g.fillText(ch, 500 + 1, 500 - R.r + 1.5);
       }
 
       function draw(now) {
@@ -143,16 +166,20 @@
         const m = now.getMinutes() + s / 60;
         const h = (now.getHours() % 12) + m / 60;
         const t = U.clamp(intro.value, 0, 1.2);
-        const vals = [h / 12, m / 60, s / 60];
-        // Stunde & Minute
-        drawRing(0, 0, vals[0] * t, pal[0]);
-        drawRing(1, 0, vals[1] * t, pal[1]);
+        const w = amb ? 7 : W;
+        const list = [
+          { r: RADII[0], w, v0: 0, v1: (h / 12) * t, cols: pal[0], ch: 'H' },
+          { r: RADII[1], w, v0: 0, v1: (m / 60) * t, cols: pal[1], ch: 'M' },
+        ];
         if (o.seconds && !amb) {
-          // Jagd: gerade Minute wächst, ungerade läuft das Ende hinterher
+          // Jagd: in geraden Minuten wächst der Ring, in ungeraden läuft das Ende hinterher
           const odd = now.getMinutes() % 2 === 1;
-          if (odd) drawRing(2, vals[2], 1, pal[2]); else drawRing(2, 0, vals[2] * t, pal[2]);
+          list.push({ r: RADII[2], w, v0: odd ? s / 60 : 0, v1: odd ? 1 : (s / 60) * t, cols: pal[2], ch: 'S' });
         }
-        if (o.marks && !amb) { drawMark(0, 'H'); drawMark(1, 'M'); if (o.seconds) drawMark(2, 'S'); }
+        for (const R of list) drawTrack(R);
+        if (!amb) drawGlow(list);
+        for (const R of list) drawBody(R);
+        if (o.marks && !amb) for (const R of list) drawMark(R, R.ch);
       }
 
       function style() {
