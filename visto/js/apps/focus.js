@@ -597,6 +597,7 @@
       ctx.onFrame((dt) => {
         RT += dt;
         T += dt * speedSp.value;
+        { const s1 = st().session; if (s1 && !s1.paused && now() >= s1.end) bgTick(); }   // Phasenwechsel ohne Verzug
         const s = st().session;
         const k = U.clamp(mixSp.value, 0, 1);
         let pF = 0, pB = 0, p = 0;

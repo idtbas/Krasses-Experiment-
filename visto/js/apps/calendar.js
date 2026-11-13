@@ -542,7 +542,7 @@
       const needle = U.svg('svg', { class: 'vos-svg cal-now', viewBox: '0 0 1000 1000', 'aria-hidden': 'true' });
       needle.innerHTML = `<defs><linearGradient id="${gid}n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
         <radialGradient id="${gid}h"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".35" stop-color="${COLOR}" stop-opacity=".55"/><stop offset="1" stop-color="${COLOR}" stop-opacity="0"/></radialGradient></defs>
-        <g class="cal-now-g"><rect x="498.2" y="${500 - R - 6}" width="3.6" height="104" rx="1.8" fill="url(#${gid}n)" opacity=".85"/>
+        <g class="cal-now-g"><rect x="498.3" y="${500 - R - 16}" width="3.4" height="48" rx="1.7" fill="url(#${gid}n)" opacity=".9"/>
         <circle class="cal-halo" cx="500" cy="${500 - R}" r="30" fill="url(#${gid}h)"/>
         <circle cx="500" cy="${500 - R}" r="8.5" fill="#fff"/></g>`;
       const needleG = needle.querySelector('.cal-now-g');
@@ -662,7 +662,8 @@
           if (g <= 0.05) return;
           const e = lb.it.e;
           let al = alpha * U.smoothstep(0.3, 1, g) * (e.end <= t ? 0.42 : 0.95);
-          if (sel) { if (sel !== e.id) al *= 1 - 0.75 * selK.value; }
+          if (sel && sel !== e.id) al *= 1 - (sel === '__draft' ? 1 : 0.75) * U.clamp(selK.value, 0, 1);
+          if (al <= 0.01) return;
           c.globalAlpha = al;
           c.fillStyle = soft(e.color, 0.35);
           textOnArc(c, lb.text, lb.mid + off, lb.r, LABEL_FONT, 1.2);
@@ -1164,8 +1165,10 @@
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .cal-dtime { font-size: 8.4cqw; font-weight: 230; letter-spacing: -.035em; margin-top: 2.2cqw; line-height: 1; }
     .cal-detail .cal-sub { margin-top: 2cqw; }
-    .cal-addp .cal-big { margin-top: 1.2cqw; }
-    .cal-arow { top: 56cqw; }
+    .cal-addp { padding-top: 19.5cqw; }
+    .cal-addp .cal-big { font-size: 14.5cqw; margin-top: 1.4cqw; }
+    .cal-addp .cal-ttl { font-size: 5cqw; margin-top: 1.4cqw; }
+    .cal-arow { top: 46.5cqw; }
     .cal-dots { position: absolute; inset: 0; pointer-events: none; }
     .cal-dot { position: absolute; width: 11cqw; height: 11cqw; margin: -5.5cqw 0 0 -5.5cqw; border-radius: 50%; border: 0; padding: 0;
       display: grid; place-items: center; cursor: pointer; pointer-events: auto; color: var(--c);
