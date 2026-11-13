@@ -303,7 +303,7 @@
       /* Ablauf */
       let mode = 'setup';          // setup · lead · run · paused · done
       let el = 0, lead = 0, total = cyclesFor(sel) * CYCLE, cycles = cyclesFor(sel), minutes = sel;
-      let lastKey = '', tickAcc = 0, pausedFrom = 'run', summary = null;
+      let lastKey = '', tickAcc = 0, pausedFrom = 'run';
       let open = 0.4, rotBase = Math.random() * 60;
 
       function showView(k) {
@@ -327,7 +327,7 @@
         if (CHOICES.includes(minutes)) { sel = minutes; renderSetup(); }
         cycles = cyclesFor(minutes);
         total = cycles * CYCLE;
-        el = 0; lead = 0; lastKey = ''; tickAcc = 0; summary = null;
+        el = 0; lead = 0; lastKey = ''; tickAcc = 0;
         mode = 'lead';
         running = true;
         title.set('Atmen');
@@ -383,7 +383,6 @@
           return;
         }
         record(sec, breaths, complete);
-        summary = { sec, breaths, complete };
         mode = 'done';
         setPhase('');
         const d = today();
