@@ -282,6 +282,56 @@ Ereignis 'perf:level' · URL-Schalter ?perf=0|1|2
   Lichtebene zeichnet nur die Rechtecke, in denen Licht liegt, und ruht sonst. Im Ruhemodus, unter deckenden Apps und
   bei verstecktem Tab wird nichts gezeichnet (Leinwände unsichtbar). Kontextverlust wird abgefangen und wiederhergestellt.
 
+## Blicke & Karussell (js/os/glances.js · js/os/switcher.js)
+
+**Blicke** sind runde Kurzansichten der Apps links und rechts vom Zifferblatt: groß, ruhig, **eine Aussage**.
+Alle Seiten liegen auf einem **Drehteller**, dessen Achse weit unter dem Display sitzt (1800 Einheiten unter der
+Mitte): Wischen dreht ihn 1 : 1 unter dem Finger, die gehende Seite sinkt, kippt, wird etwas kleiner und weich;
+beim Loslassen trägt der Schwung in die nächste Raste (`V.motion.bouncy`), an den Enden hält ein Gummiband dagegen.
+Seitenpunkte liegen als Bogen oben am Rand (Zifferblatt = kleiner Ring in der Mitte). Antippen öffnet die App.
+Zurück zum Zifferblatt: nach 25 s Ruhe, im Ruhemodus, mit der Sockeltaste. Liegt ein Blick vorn, dreht „am Rand
+drehen“ den Teller (im Uhrzeigersinn → Seite links davon); auf dem Zifferblatt bleibt es die Zeitreise.
+
+```js
+// eigener Blick – am einfachsten in der App-Definition (id = App-ID, ersetzt einen mitgelieferten Blick gleicher id):
+V.apps.register({ id: 'timer', …,
+  glance: { order: 30, create(root, ctx) { … return { update() {}, destroy() {}, tap(p) { return behandelt; } }; } } });
+// oder frei:  V.glances.register({ id, app, name, order, create(root, ctx) })
+//   order < 0 → links vom Zifferblatt, order ≥ 0 → rechts (Betrag klein = nah am Zifferblatt).
+//   Mitgeliefert: home −20 · music −10 · [Zifferblatt] · weather 10 · calendar 20
+ctx = { id, app (Definition), root, visible, accent(),
+        open(params, origin),                 // App öffnen (das tut auch jedes Antippen des Blicks)
+        onFrame(fn),                          // läuft nur, solange der Blick sichtbar ist
+        on(evt, fn),                          // Ereignisbus; ruft nur bei sichtbarem Blick, sonst folgt später update()
+        label(text, farbe) → {set(text)},     // Titel am oberen Bogen (unter den Seitenpunkten)
+        aura(farbe, stärke = 1) }             // weiches Licht im Hintergrund (OLED-treu, wenige Prozent)
+// update() kommt beim Sichtbarwerden und jede Minute; alles Zeichnen dort (nur Geändertes setzen).
+V.glances.show(id | 'face', {instant}) · next(±1) · current · list() · faceShown (1 … 0) · moving
+V.glances.smile(svg, {r = 322, half = 31}) → { pt(f), d(f0, f1), seg(attrs), endLabel('left'|'right', text) }
+Ereignisse: 'glance:changed' id · 'glance:move' { pos, faceShown }
+```
+Gestaltungsregeln für einen Blick (damit alle wie eine Familie wirken):
+- **Oben** der Titel am Bogen (`ctx.label`, App-Farbe), **Mitte** die eine Aussage (Klasse `gl-hero` für die große
+  dünne Zahl, `gl-line` für die Zeile darunter, `gl-sub` für die leise zweite Zeile, `gl-cap` für gesperrte
+  Etiketten; Zeilen absolut mit `gl-row` + `top`), **unten** der Bogen „Lächeln“ (`V.glances.smile`) als runde
+  Anzeige – Spanne, Zeitleiste, Fortschritt – konzentrisch zum Display, direkt über der Visto-Linie.
+- Höchstens ein, zwei Bedienelemente (`<button>`, Glas: `.vos-glass`), nie in der Visto-Zone (y > 868). Alles
+  andere ist Antippfläche für „App öffnen“. Kein eigener deckender Hintergrund – der Lichtgrund scheint durch.
+- Nichts pro Bild neu aufbauen; `onFrame` nur für echte Bewegung (z. B. die drehende Platte im Musik-Blick).
+- Fremde Module: alles im Startbildschirm (`V.faces.home`), was nicht zu den Blicken gehört, dreht als „Zifferblatt“
+  mit weg (so auch der Horizont). Wer anderswo zeichnet (z. B. auf der Leuchtebene), blendet mit `V.glances.faceShown`.
+
+**Karussell** (`V.switcher.open() · close() · toggle() · isOpen · recents() · forget(id)`): Doppeldruck auf die
+Sockeltaste (`hooks.baseDouble`) oder „Zeig die offenen Apps“. Die zuletzt benutzten Apps (über `'app:open'`,
+höchstens 8, `V.store` `system.recents`) liegen als Glasscheiben gleichmäßig auf einem Ring in der Tiefe. Am Rand
+entlangfahren dreht den Ring 1 : 1, waagerecht wischen ebenso; er läuft mit Schwung aus und rastet ein. Antippen
+öffnet (die App wächst aus ihrer Scheibe), nach oben schnippen nimmt eine Scheibe aus der Liste, daneben tippen oder
+die Sockeltaste schließt – dann geht es dorthin zurück, wo man herkam. Unter dem Namen steht der **Live-Zustand**:
+zuerst `V.live.list()` (Eintrag mit `app` = App-ID: `label · sub`, `value` als Ring um die Scheibe), sonst ein kurzer
+Text aus `V.info.*`. Eine App zeigt dort also automatisch etwas, sobald sie `V.live.set(…)` nutzt.
+Neuer Erweiterungspunkt der Shell: `V.shell.hooks.basePress[]` (`fn() → true`, wenn der einfache Tastendruck
+behandelt wurde – z. B. Blick → Zifferblatt, Karussell schließen).
+
 ## Testen
 
 ```

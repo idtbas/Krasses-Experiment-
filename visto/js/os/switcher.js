@@ -347,6 +347,7 @@
     const m = V.shell.mode;
     if (m === 'boot' || m === 'setup' || (V.notify && V.notify.alertOpen)) return;
     if (performance.now() - lastClose < 450) return;       // Doppeldruck, der gerade erst geschlossen hat
+    if (V.convo && V.convo.active) V.convo.close();
     if (V.faceEditor && V.faceEditor.isOpen) V.faceEditor.close();
     if (V.control && V.control.isOpen) V.control.close();
     if (V.ui.pie && V.ui.pie.close) V.safe(() => V.ui.pie.close(), 'pie');
