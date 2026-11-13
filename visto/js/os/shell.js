@@ -120,6 +120,8 @@
       V.emit('app:open', id);
       V.sound.play('open');
       V.haptic(8);
+      // Lumen: Linsen-Lichtring vom Symbol aus
+      if (V.lumen && V.lumen.flare) V.safe(() => V.lumen.flare({ x: origin.x, y: origin.y, color: def.color, kind: 'iris', size: 560 }), 'flare');
       const under = from === 'launcher' ? V.launcher.el : homeEl;
       const dist = Math.hypot(origin.x - 500, origin.y - 500);
       const endR = (500 + dist + 20) / 10;

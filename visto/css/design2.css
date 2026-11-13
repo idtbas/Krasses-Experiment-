@@ -6,3 +6,131 @@
 /* Lumen-Ebenen (WebGL) */
 .vos-back  { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; border-radius: 50%; }
 .vos-light { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 45; pointer-events: none; border-radius: 50%; mix-blend-mode: screen; }
+
+/* ------------------------------------------------------------------ Glas
+   Über OLED-Schwarz wirkt Glas durch Licht: obere Lichtkante, weicher Verlauf, feine Kontur.
+   .blur nur dort, wo wirklich Inhalt dahinter liegt (kostet GPU). */
+.vos-display {
+  --glass-a: rgba(255,255,255,.16);
+  --glass-b: rgba(255,255,255,.075);
+  --glass-edge: inset 0 .24cqw .22cqw -.06cqw rgba(255,255,255,.42), inset 0 -.22cqw .32cqw -.12cqw rgba(255,255,255,.1), inset 0 0 0 .13cqw rgba(255,255,255,.075);
+  --glass-shadow: 0 .9cqw 2.6cqw rgba(0,0,0,.38);
+}
+.vos-glass {
+  background: linear-gradient(180deg, var(--glass-a) 0%, var(--glass-b) 58%, rgba(255,255,255,.1) 100%);
+  box-shadow: var(--glass-edge), var(--glass-shadow);
+}
+.vos-glass.thin  { --glass-a: rgba(255,255,255,.1); --glass-b: rgba(255,255,255,.045); }
+.vos-glass.thick { --glass-a: rgba(255,255,255,.2); --glass-b: rgba(255,255,255,.1); }
+.vos-glass.tint  { background: linear-gradient(180deg, color-mix(in srgb, var(--tint, var(--accent)) 42%, rgba(255,255,255,.14)) 0%, color-mix(in srgb, var(--tint, var(--accent)) 26%, rgba(255,255,255,.05)) 100%); }
+.vos-glass.blur, .vos-blur { -webkit-backdrop-filter: blur(3.4cqw) saturate(1.7); backdrop-filter: blur(3.4cqw) saturate(1.7); }
+
+/* ----------------------------------------------------------------- Knöpfe */
+.vos-btn {
+  background: linear-gradient(180deg, var(--glass-a) 0%, var(--glass-b) 58%, rgba(255,255,255,.1) 100%);
+  box-shadow: var(--glass-edge), var(--glass-shadow);
+  transition: transform .34s var(--spring), filter .2s, opacity .2s, color .2s;
+  letter-spacing: -.012em;
+}
+.vos-btn:active, .vos-btn.is-pressed { transform: scale(.94); filter: brightness(1.28); }
+.vos-btn.primary {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, #fff) 0%, var(--accent) 46%, color-mix(in srgb, var(--accent) 86%, #000) 100%);
+  box-shadow: inset 0 .26cqw .24cqw -.06cqw rgba(255,255,255,.7), inset 0 -.3cqw .5cqw -.2cqw rgba(0,0,0,.22), 0 1cqw 3.2cqw -.4cqw rgba(var(--accent-rgb), .5);
+}
+.vos-btn.white {
+  background: linear-gradient(180deg, #fff 0%, #f1f2f6 55%, #dfe1e8 100%);
+  box-shadow: inset 0 -.3cqw .5cqw -.2cqw rgba(0,0,0,.18), 0 1cqw 3cqw -.6cqw rgba(255,255,255,.35);
+}
+.vos-btn.danger {
+  background: linear-gradient(180deg, rgba(255,90,80,.34), rgba(255,69,58,.16));
+  box-shadow: inset 0 .24cqw .22cqw -.06cqw rgba(255,170,160,.5), inset 0 0 0 .13cqw rgba(255,90,80,.14);
+}
+.vos-btn.ghost { background: transparent; box-shadow: none; }
+
+/* --------------------------------------------------------- Chips, Karten */
+.vos-chip {
+  background: linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,.07));
+  box-shadow: inset 0 .2cqw .18cqw -.05cqw rgba(255,255,255,.36), inset 0 0 0 .12cqw rgba(255,255,255,.06);
+  transition: transform .3s var(--spring), filter .2s;
+}
+.vos-chip:active { transform: scale(.93); filter: brightness(1.3); }
+.vos-chip.on {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, #fff), var(--accent) 60%);
+  box-shadow: inset 0 .2cqw .18cqw -.05cqw rgba(255,255,255,.65), 0 .6cqw 2cqw -.3cqw rgba(var(--accent-rgb), .5);
+}
+.vos-card, .vos-rrow {
+  background: linear-gradient(180deg, rgba(255,255,255,.105), rgba(255,255,255,.055));
+  box-shadow: inset 0 .16cqw 0 rgba(255,255,255,.1), inset 0 0 0 .12cqw rgba(255,255,255,.045);
+}
+.vos-rrow { transition: filter .2s, background .2s; }
+.vos-rrow:active { filter: brightness(1.35); }
+.vos-rrow .ic { box-shadow: inset 0 .18cqw .16cqw -.04cqw rgba(255,255,255,.4); }
+
+/* ---------------------------------------------------------------- Schalter */
+.vos-switch {
+  background: linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.22));
+  box-shadow: inset 0 .25cqw .5cqw rgba(0,0,0,.4), inset 0 0 0 .12cqw rgba(255,255,255,.06);
+}
+.vos-switch::after {
+  background: linear-gradient(180deg, #fff, #e6e8ee);
+  box-shadow: 0 .5cqw 1.4cqw rgba(0,0,0,.45), inset 0 -.2cqw .3cqw rgba(0,0,0,.08);
+}
+.vos-switch.on { background: linear-gradient(180deg, #2bc24a, #34d957); box-shadow: inset 0 .25cqw .5cqw rgba(0,0,0,.22), 0 0 2.4cqw -.4cqw rgba(50,215,75,.6); }
+
+/* ------------------------------------------------------------ App-Symbole */
+.vos-icon {
+  background:
+    radial-gradient(120% 92% at 28% 10%, rgba(255,255,255,.55), rgba(255,255,255,0) 46%),
+    radial-gradient(95% 70% at 72% 108%, rgba(0,0,0,.4), rgba(0,0,0,0) 62%),
+    linear-gradient(158deg, color-mix(in srgb, var(--ic, #666) 80%, #fff) 0%, var(--ic, #666) 44%, color-mix(in srgb, var(--ic, #666) 70%, #000) 100%);
+  box-shadow:
+    inset 0 .32cqw .3cqw -.1cqw rgba(255,255,255,.62),
+    inset 0 -.45cqw .7cqw -.25cqw rgba(0,0,0,.4),
+    inset 0 0 0 .15cqw rgba(255,255,255,.13),
+    0 1.2cqw 2.8cqw -.8cqw color-mix(in srgb, var(--ic, #666) 60%, transparent);
+}
+.vos-icon svg { filter: drop-shadow(0 .35cqw .5cqw rgba(0,0,0,.28)); }
+
+/* ------------------------------------------------- Hinweise: dickes Glas */
+.vos-banner {
+  background: linear-gradient(180deg, rgba(74,76,86,.72), rgba(34,35,41,.78));
+  -webkit-backdrop-filter: blur(4cqw) saturate(1.8); backdrop-filter: blur(4cqw) saturate(1.8);
+  box-shadow: var(--glass-edge), 0 2.4cqw 7cqw rgba(0,0,0,.55);
+}
+.vos-toast {
+  background: linear-gradient(180deg, rgba(78,80,90,.74), rgba(40,41,48,.8));
+  -webkit-backdrop-filter: blur(3.4cqw) saturate(1.8); backdrop-filter: blur(3.4cqw) saturate(1.8);
+  box-shadow: var(--glass-edge), 0 1.6cqw 5cqw rgba(0,0,0,.5);
+}
+.vos-alert {
+  background: rgba(0,0,0,.6);
+  -webkit-backdrop-filter: blur(5cqw) saturate(1.4); backdrop-filter: blur(5cqw) saturate(1.4);
+}
+
+/* ------------------------------------ Tiefe: Hintergrund wird Milchglas */
+.vos-scrim {
+  background: rgba(0,0,0,.6);
+  -webkit-backdrop-filter: blur(4.6cqw) saturate(1.35); backdrop-filter: blur(4.6cqw) saturate(1.35);
+}
+
+/* ------------------------------------------------------------ Tortenmenü */
+.vos-pie { position: absolute; inset: 0; border-radius: 50%; z-index: 5; touch-action: none; }
+.vos-pie-back { position: absolute; inset: 0; background: rgba(0,0,0,.34); -webkit-backdrop-filter: blur(2.2cqw) saturate(1.2); backdrop-filter: blur(2.2cqw) saturate(1.2); opacity: 0; }
+.vos-pie-item {
+  position: absolute; left: 0; top: 0; width: 15.5cqw; height: 15.5cqw; margin: -7.75cqw 0 0 -7.75cqw; border-radius: 50%;
+  display: grid; place-items: center; color: #fff; will-change: transform, opacity;
+  background: linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.1));
+  -webkit-backdrop-filter: blur(3cqw) saturate(1.8); backdrop-filter: blur(3cqw) saturate(1.8);
+  box-shadow: var(--glass-edge), 0 1.4cqw 4cqw rgba(0,0,0,.5);
+}
+.vos-pie-item svg { width: 6.4cqw; height: 6.4cqw; }
+.vos-pie-item.hot { background: linear-gradient(180deg, color-mix(in srgb, var(--pc, var(--accent)) 82%, #fff), var(--pc, var(--accent)) 60%); color: var(--accent-ink); box-shadow: inset 0 .26cqw .24cqw -.06cqw rgba(255,255,255,.7), 0 0 5cqw -.6cqw var(--pc, var(--accent)); }
+.vos-pie-item.danger { color: #ff6b62; }
+.vos-pie-item.danger.hot { --pc: #ff453a; color: #fff; }
+.vos-pie-label {
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); white-space: nowrap; pointer-events: none;
+  font-size: 3.5cqw; font-weight: 650; letter-spacing: -.01em; padding: 1.5cqw 3.6cqw; border-radius: 99cqw;
+  background: linear-gradient(180deg, rgba(80,82,92,.8), rgba(40,41,48,.86)); box-shadow: var(--glass-edge);
+  opacity: 0; transition: opacity .18s;
+}
+.vos-pie-hub { position: absolute; left: 0; top: 0; width: 5cqw; height: 5cqw; margin: -2.5cqw 0 0 -2.5cqw; border-radius: 50%; background: rgba(255,255,255,.85); box-shadow: 0 0 3cqw rgba(255,255,255,.6); opacity: 0; }

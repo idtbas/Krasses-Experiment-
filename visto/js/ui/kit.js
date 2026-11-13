@@ -11,6 +11,7 @@
  *  V.ui.tap(el, fn)                                       Antippen mit Klang, Haptik und Druckeffekt
  *  V.ui.title(root, 'TIMER')                               geschwungener App-Titel oben
  *  V.ui.rimDrag(el, {start(p), drag(p, dA), end(p), minR: 300})   Drehen am Rand
+ *  await V.ui.pie([{id, icon, label, color, danger}], {x, y, title})   Tortenmenü rund um den Finger → Eintrag | null
  */
 'use strict';
 (function () {
@@ -310,4 +311,100 @@
       tap(p) { if (h.tap) h.tap(p); },
     }, { slop: 2 });
   };
+
+  /* ------------------------------------------------------- Tortenmenü
+   *  const wahl = await V.ui.pie([{ id, icon, label, color?, danger? }, …], { x, y, title })
+   *  Öffnet ein Menü rund um den Punkt (logisch). Finger gedrückt halten und zum Eintrag ziehen, loslassen wählt;
+   *  oder loslassen und antippen. Liefert den Eintrag oder null. Höchstens 6 Einträge.
+   */
+  let pieOpen = null;
+  ui.pie = function (items, o = {}) {
+    if (pieOpen) pieOpen(null);
+    items = items.slice(0, 6);
+    return new Promise((resolve) => {
+      const n = items.length;
+      const R = n <= 3 ? 150 : 172;                         // Ringradius (logisch)
+      // Mittelpunkt so legen, dass der Ring ganz im Kreis liegt
+      let cx = o.x !== undefined ? o.x : 500, cy = o.y !== undefined ? o.y : 500;
+      const dx = cx - 500, dy = cy - 500, d = Math.hypot(dx, dy), max = 500 - R - 92;
+      if (d > max) { cx = 500 + (dx / d) * max; cy = 500 + (dy / d) * max; }
+      if (cy + R > 800 && Math.abs(cx - 500) < 260) cy = 800 - R;   // Visto-Zone frei lassen
+      const root = U.el('div', { class: 'vos-pie', attrs: { 'data-nogesture': 'all' } });
+      const back = U.el('div', { class: 'vos-pie-back' });
+      const hub = U.el('div', { class: 'vos-pie-hub' });
+      const label = U.el('div', { class: 'vos-pie-label', text: o.title || '' });
+      root.append(back, hub, label);
+      // Einträge gleichmäßig; bei wenigen als Bogen zur Displaymitte hin geöffnet
+      const toCenter = U.deg(Math.atan2(500 - cx, -(500 - cy)));     // Uhrwinkel Richtung Mitte
+      const span = n <= 2 ? 90 : n === 3 ? 150 : 360;
+      const start = span === 360 ? -90 + (n % 2 ? 0 : 180 / n) : (d > 120 ? toCenter : 0) - span / 2;
+      const nodes = items.map((it, i) => {
+        const a = span === 360 ? start + (i * 360) / n + 90 : start + (n === 1 ? span / 2 : (i * span) / (n - 1));
+        const el = U.el('div', { class: 'vos-pie-item' + (it.danger ? ' danger' : ''), html: V.icon(it.icon || 'dots'), style: it.color ? { '--pc': it.color } : null, attrs: { role: 'menuitem', 'aria-label': it.label || '' } });
+        root.appendChild(el);
+        const sp = V.spring(0, V.motion.bouncy);
+        const hot = V.spring(0, V.motion.snappy);
+        const node = { it, el, a, sp, hot, x: cx, y: cy };
+        const draw = () => {
+          const k = sp.value, r = R * k * (1 + hot.value * 0.07);
+          node.x = cx + Math.sin(U.rad(a)) * r; node.y = cy - Math.cos(U.rad(a)) * r;
+          el.style.transform = `translate(${(node.x / 10).toFixed(2)}cqw, ${(node.y / 10).toFixed(2)}cqw) scale(${(0.4 + 0.6 * k + hot.value * 0.16).toFixed(3)})`;
+          el.style.opacity = U.clamp(k * 1.5, 0, 1).toFixed(3);
+        };
+        sp.onUpdate(draw); hot.onUpdate(draw); draw();
+        setTimeout(() => sp.to(1), 18 * i);
+        return node;
+      });
+      hub.style.transform = label.style.transform = '';
+      hub.style.left = cx / 10 + 'cqw'; hub.style.top = cy / 10 + 'cqw';
+      label.style.left = cx / 10 + 'cqw'; label.style.top = cy / 10 + 'cqw';
+      V.display.top.appendChild(root);
+      V.tween({ duration: 0.22, onUpdate: (v) => { back.style.opacity = v.toFixed(3); hub.style.opacity = (v * 0.9).toFixed(3); label.style.opacity = o.title ? v.toFixed(3) : '0'; } });
+      V.sound.play('open'); V.haptic(10);
+      if (V.lumen && V.lumen.flare) V.safe(() => V.lumen.flare({ x: cx, y: cy, kind: 'ring', size: R }));
+
+      let cur = null, done = false;
+      const pick = (px, py) => {
+        const dd = Math.hypot(px - cx, py - cy);
+        let best = null, bd = 1e9;
+        if (dd > 62) for (const nd of nodes) { const q = Math.hypot(px - nd.x, py - nd.y); if (q < bd) { bd = q; best = nd; } }
+        if (best && bd > 150) best = null;
+        if (best !== cur) {
+          if (cur) { cur.el.classList.remove('hot'); cur.hot.to(0); }
+          cur = best;
+          if (cur) { cur.el.classList.add('hot'); cur.hot.to(1); V.sound.play('tick'); V.haptic(4); }
+          label.textContent = cur ? cur.it.label || '' : o.title || '';
+          label.style.opacity = cur || o.title ? '1' : '0';
+        }
+      };
+      const logical = (e) => V.display.toLogical(e.clientX, e.clientY);
+      const move = (e) => { const p = logical(e); pick(p.x, p.y); };
+      let downs = 0;
+      const up = (e) => {
+        const p = logical(e); pick(p.x, p.y);
+        if (cur) return close(cur.it);
+        // erstes Loslassen ohne Auswahl: offen bleiben; danach schließt Antippen daneben
+        if (downs > 0) close(null);
+      };
+      const down = (e) => { downs++; const p = logical(e); pick(p.x, p.y); e.stopPropagation(); };
+      function close(result) {
+        if (done) return; done = true; pieOpen = null;
+        window.removeEventListener('pointermove', move, true);
+        window.removeEventListener('pointerup', up, true);
+        root.removeEventListener('pointerdown', down, true);
+        root.style.pointerEvents = 'none';
+        if (result) { V.sound.play('tap'); V.haptic(8); } else V.sound.play('close');
+        nodes.forEach((nd, i) => setTimeout(() => nd.sp.to(0, V.motion.snappy), nd === cur ? 90 : 10 * i));
+        V.tween({ duration: 0.26, onUpdate: (v) => { back.style.opacity = (1 - v).toFixed(3); hub.style.opacity = label.style.opacity = (1 - v).toFixed(3); } })
+          .promise.then(() => root.remove());
+        if (V.shell) { V.shell.swallowClick = true; setTimeout(() => (V.shell.swallowClick = false), 60); }
+        resolve(result);
+      }
+      pieOpen = close;
+      window.addEventListener('pointermove', move, true);
+      window.addEventListener('pointerup', up, true);
+      root.addEventListener('pointerdown', down, true);
+    });
+  };
+  ui.pie.close = () => { if (pieOpen) pieOpen(null); };
 })();
