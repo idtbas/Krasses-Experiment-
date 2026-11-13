@@ -42,9 +42,8 @@
   const CSS = `
 .cc-root{position:absolute;inset:0;border-radius:50%;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
 .cc-root.off,.cc-lamp.off{visibility:hidden;pointer-events:none!important}
-.cc-back{position:absolute;inset:0;clip-path:circle(0% at 50% -8%);
-  background:radial-gradient(120% 85% at 50% 0%,rgba(24,24,30,.86) 0%,rgba(0,0,0,.92) 52%,rgba(0,0,0,.965) 100%);
-  -webkit-backdrop-filter:blur(2.6cqw) saturate(1.3);backdrop-filter:blur(2.6cqw) saturate(1.3)}
+.cc-back,.cc-wrap{position:absolute;inset:0;clip-path:circle(0% at 50% -8%)}
+.cc-back{background:radial-gradient(120% 80% at 50% 0%,#17181e 0%,#050507 46%,#000 100%)}
 .cc-edge{position:absolute;border-radius:50%;pointer-events:none;opacity:0;
   box-shadow:0 0 0 .3cqw rgba(255,255,255,.5),0 0 5cqw .8cqw rgba(150,180,255,.32),inset 0 0 5cqw rgba(150,180,255,.2)}
 .cc-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
@@ -76,7 +75,7 @@
 
   /* -------------------------------------------------------------- Zustand */
   let built = false, opened = false;
-  let root, back, edge, svg, flower, player, timeTx, dateTx, statusTx, lampEl;
+  let root, back, wrap, edge, svg, flower, player, timeTx, dateTx, statusTx, lampEl;
   const items = [];                 // gestaffelte Elemente {el, y}
   const sl = {};                    // Regler-Elemente
   const prog = V.spring(0, { response: 0.55, bounce: 0.16 });
@@ -218,7 +217,8 @@
     const nextBtn = mk(PL.next, 'next', 'Nächster Titel', 'next');
     player._ = { band, bandGlow, title, artist, playBtn, nextBtn };
 
-    root.append(back, edge, svg, flower, player);
+    wrap = U.el('div', { class: 'cc-wrap' }, svg, flower, player);
+    root.append(back, wrap, edge);
     V.display.overlay.appendChild(root);
 
     prog.onUpdate(render);
@@ -252,7 +252,7 @@
   function render() {
     const t = prog.value;
     const R = Math.max(0, t) * 112;
-    back.style.clipPath = `circle(${R.toFixed(2)}% at 50% -8%)`;
+    back.style.clipPath = wrap.style.clipPath = `circle(${R.toFixed(2)}% at 50% -8%)`;
     const eo = U.smoothstep(0, 0.06, t) * (1 - U.smoothstep(0.5, 0.97, t));
     edge.style.opacity = eo.toFixed(3);
     if (eo > 0.002) {

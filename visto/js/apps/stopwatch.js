@@ -160,9 +160,9 @@
   background: ${COLOR}; color: ${INK}; font: 750 3cqw/5.6cqw var(--font); font-variant-numeric: tabular-nums; text-align: center;
   transform: scale(0); transition: transform .45s var(--spring); box-shadow: 0 0 0 .7cqw #000; }
 .sw-badge.on { transform: scale(1); }
-.sw .sw-list.vos-rlist { padding: 33cqw 0 36cqw; opacity: 0; pointer-events: none; z-index: 1;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 27%, #000 34%, #000 80%, transparent 89%);
-  mask-image: linear-gradient(to bottom, transparent 0, transparent 27%, #000 34%, #000 80%, transparent 89%); }
+.sw .sw-list.vos-rlist { padding: 29.5cqw 0 36cqw; opacity: 0; pointer-events: none; z-index: 1;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 24.5%, #000 30%, #000 80%, transparent 89%);
+  mask-image: linear-gradient(to bottom, transparent 0, transparent 24.5%, #000 30%, #000 80%, transparent 89%); }
 .sw .sw-list.vos-rlist.on { pointer-events: auto; }
 .sw-lhead { text-align: center; margin: 0 auto 3.4cqw; font-size: 2.9cqw; font-weight: 650; letter-spacing: .16em; text-transform: uppercase;
   color: rgba(255,255,255,.42); white-space: nowrap; }
@@ -258,7 +258,7 @@
       size();
       ctx.on('display:resize', size);
 
-      ctx.title('Stoppuhr', { color: U.rgba(COLOR, 0.78) });
+      ctx.title('Stoppuhr', { color: U.rgba(COLOR, 0.78), r: 424, size: 25 });
 
       /* Runden-Liste (liegt unter der Zeit) */
       const lhead = U.el('div', { class: 'sw-lhead' });
@@ -378,7 +378,7 @@
       const page = V.spring(0, { response: 0.55, bounce: 0.1 });
       page.onUpdate((p) => {
         const q = U.clamp(p, 0, 1.2);
-        main.style.transform = `translateY(${(-q * 20).toFixed(3)}cqw) scale(${(1 - 0.5 * q).toFixed(4)})`;
+        main.style.transform = `translateY(${(-q * 16.5).toFixed(3)}cqw) scale(${(1 - 0.5 * q).toFixed(4)})`;
         sub.style.opacity = U.clamp(1 - q * 2.2, 0, 1).toFixed(3);
         btns.style.opacity = U.clamp(1 - q * 1.8, 0, 1).toFixed(3);
         btns.style.transform = `translateY(${(q * 9).toFixed(2)}cqw) scale(${(1 - 0.14 * q).toFixed(4)})`;
