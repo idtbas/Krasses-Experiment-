@@ -220,7 +220,8 @@
   /* ------------------------------------------------------------ Sprache: Hilfen */
   const W = (s) => new RegExp('(?<![a-zäöüß])(?:' + s + ')(?![a-zäöüß])');
   const RE = {
-    light: /(?<![a-zäöüß])(?:wohnzimmer|küchen|schlafzimmer|arbeitszimmer|flur|büro|decken|tisch|steh|nacht|lese)?(?:licht|lichter|lampe|lampen|leuchte|beleuchtung)(?![a-zäöüß])/,
+    // „Leuchte“, „Leselicht“, „Nachtlicht“ gehören dem Lampenmodus des Displays (Kontrollzentrum)
+    light: /(?<![a-zäöüß])(?:wohnzimmer|küchen|schlafzimmer|arbeitszimmer|flur|büro|decken|steh)?(?:licht|lichter|lampe|lampen|beleuchtung)(?![a-zäöüß])/,
     off: W('aus|ausschalten|ausmachen|abschalten|ausknipsen|abdrehen'),
     on: W('an|ein|einschalten|anmachen|anschalten|anknipsen'),
     pct: /(\d{1,3})\s*(?:%|prozent)/,
@@ -898,6 +899,11 @@
         const ln = U.svg('line', { x1: 500, y1: 500 - 470, x2: 500, y2: 500 - (major ? 428 : 438), transform: `rotate(${a} 500 500)`, 'stroke-linecap': 'round' });
         thermoG.appendChild(ln);
         ticks.push({ el: ln, a, major, k: '' });
+      }
+      // Skala wie bei einem klassischen Thermostat (20 °C oben bleibt frei für den Seitennamen)
+      for (const v of [10, 15, 25, 30]) {
+        const p = V.display.pt(tAngle(v), 398);
+        thermoG.appendChild(U.svg('text', { x: p.x, y: p.y + 7.5, 'text-anchor': 'middle', 'font-size': 23, 'font-weight': 600, fill: 'rgba(255,255,255,.4)', 'font-family': "'Inter Tight', system-ui, sans-serif", text: String(v) }));
       }
       const curMark = U.svg('g');
       curMark.appendChild(U.svg('circle', { cx: 500, cy: 500 - 487, r: 5.5, fill: '#fff', opacity: 0.9 }));

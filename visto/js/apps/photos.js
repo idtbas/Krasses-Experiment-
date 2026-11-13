@@ -784,7 +784,8 @@
 
   function request(o) {
     pending = Object.assign(pending || {}, o);
-    if (live.inst) live.inst.apply();
+    // während Visto spricht, erst nach dem Schließen ausführen (sonst geschieht es unsichtbar)
+    if (live.inst && !(V.convo && V.convo.active)) live.inst.apply();
   }
 
   V.css('photos', `
@@ -837,6 +838,8 @@
         scenes: () => SCENES.map((s) => ({ id: s.id, title: s.title, ms: s.ms })),
         render: (i) => renderScene(SCENES[U.clamp(i | 0, 0, SCENES.length - 1)]),
       };
+
+      V.on('convo:close', () => setTimeout(() => { if (live.inst && pending) live.inst.apply(); }, 420));
 
       V.actions.register('photos.open', {
         desc: 'Öffnet die Fotos-App (digitaler Bilderrahmen). slideshow=true startet die Diashow.',
@@ -934,7 +937,8 @@
       const delB = V.ui.roundButton('trash', { label: 'Foto löschen', cls: 'ph-glass ph-del', onClick: () => { poke(); removeCurrent(); } });
       bottom.append(addB, delB);
       ctl.append(shade, dots, sub, pausedL, row, bottom);
-      const input = U.el('input', { attrs: { type: 'file', accept: 'image/*', multiple: 'multiple', tabindex: '-1', 'aria-hidden': 'true' }, style: { display: 'none' } });
+      const input = U.el('input', { attrs: { type: 'file', accept: 'image/*', multiple: 'multiple', tabindex: '-1', 'aria-hidden': 'true' },
+        style: { position: 'absolute', left: '50%', top: '50%', width: '1px', height: '1px', opacity: '0', pointerEvents: 'none' } });
       root.append(cvs, topShade, ctl, title.el, input);
 
       /* ---------- Zustand */
@@ -1099,7 +1103,13 @@
         const sl = slide(list[ni], ni);
         const ok = await ready(sl);
         going = false;
-        if (!alive || !ok) return;
+        if (!alive) return;
+        if (!ok) {
+          // unlesbares Bild überspringen, in einer Sekunde weiter
+          idx = ni;
+          if (cur) cur.age = Math.min(cur.age, SLIDE - 1);
+          return;
+        }
         if (tr) commit();
         const type = o.type || TYPES[autoN++ % TYPES.length];
         tr = {
@@ -1347,6 +1357,10 @@
           gest.destroy();
           speed.stop(); ctlS.stop(); swipe.stop();
           if (live.inst === inst) live.inst = null;
+          // Speicher freigeben: nur das zuletzt gezeigte Bild bleibt für den nächsten Start
+          const keep = cur && cur.item.id;
+          for (const k of Array.from(images.keys())) if (k !== keep) images.delete(k);
+          cvs.width = cvs.height = 1; buf.width = buf.height = 1;
         },
       };
     },

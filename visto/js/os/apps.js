@@ -74,6 +74,19 @@
     has: (name) => actions.has(name),
     get: (name) => actions.get(name),
     list: () => Array.from(actions.values()),
+    /** nach Relevanz: Aktionen der offenen App und Treffer auf Wörter der Frage zuerst */
+    ranked(q) {
+      const words = String(q || '').toLowerCase().split(/[^a-zäöüß0-9]+/).filter((w) => w.length > 3);
+      const open = V.shell && V.shell.app ? V.shell.app.def.id : '';
+      const score = (a) => {
+        let sc = a.name.startsWith('system.') ? 1 : 0;
+        if (open && a.name.startsWith(open + '.')) sc += 5;
+        const d = (a.name + ' ' + (a.desc || '')).toLowerCase();
+        for (const w of words) if (d.includes(w.slice(0, 5))) sc += 2;
+        return sc;
+      };
+      return Array.from(actions.values()).map((a, i) => ({ a, s: score(a), i })).sort((x, y) => y.s - x.s || x.i - y.i).map((x) => x.a);
+    },
     async run(name, args) {
       const a = actions.get(name);
       if (!a) throw new Error('Unbekannte Aktion: ' + name);

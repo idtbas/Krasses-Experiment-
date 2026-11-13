@@ -305,6 +305,9 @@
         const close = i > 0 && Math.abs(U.angDiff(prev.a, it.a)) < 11;
         lane = close ? 1 - lane : 0;
         it.lane = lane;
+        it.la = it.a;
+        // sehr dicht (z. B. gleiche Zeitzone): zusätzlich seitlich auseinanderziehen
+        if (close && Math.abs(U.angDiff(prev.a, it.a)) < 6) { prev.la = prev.a - 4.5; it.la = it.a + 4.5; }
       });
       for (const it of list) {
         let el = labEls.get(it.c.id);
@@ -313,7 +316,7 @@
           labs.appendChild(el);
           labEls.set(it.c.id, el);
         }
-        const p = V.display.pt(it.a, it.lane ? 360 : 402);
+        const p = V.display.pt(it.la, it.lane ? 360 : 402);
         el.style.left = p.x / 10 + 'cqw';
         el.style.top = p.y / 10 + 'cqw';
         el.classList.toggle('on', it.c.id === selId);

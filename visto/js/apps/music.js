@@ -601,7 +601,7 @@
           cg.addColorStop(0, 'rgba(255,200,190,0)'); cg.addColorStop(0.5, `rgba(255,205,195,${(0.12 + r() * 0.14).toFixed(2)})`); cg.addColorStop(1, 'rgba(255,200,190,0)');
           g.fillStyle = cg; g.fillRect(x - w, y, 2 * w, N * (0.008 + r() * 0.014));
         }
-        const sx = N * (0.36 + r() * 0.28), sy = N * (0.56 + r() * 0.06), sr = N * (0.17 + r() * 0.04);
+        const sx = N * (r() < 0.5 ? 0.26 + r() * 0.07 : 0.67 + r() * 0.07), sy = N * (0.5 + r() * 0.08), sr = N * (0.13 + r() * 0.03);
         const halo = g.createRadialGradient(sx, sy, sr * 0.8, sx, sy, sr * 2.6);
         halo.addColorStop(0, 'rgba(255,190,140,.45)'); halo.addColorStop(1, 'rgba(255,190,140,0)');
         g.fillStyle = halo; g.fillRect(0, 0, N, N);
@@ -789,7 +789,7 @@
         const sky = g.createLinearGradient(0, 0, 0, N);
         sky.addColorStop(0, '#1E0B33'); sky.addColorStop(0.35, '#6A1D5C'); sky.addColorStop(0.62, '#F0566B'); sky.addColorStop(0.8, '#FFA563'); sky.addColorStop(1, '#FFD27A');
         g.fillStyle = sky; g.fillRect(0, 0, N, N);
-        const sx = N * (0.4 + r() * 0.2), sy = N * 0.64, sr = N * 0.2;
+        const sx = N * (r() < 0.5 ? 0.27 + r() * 0.06 : 0.67 + r() * 0.06), sy = N * 0.6, sr = N * 0.2;
         const halo = g.createRadialGradient(sx, sy, 0, sx, sy, sr * 2.4);
         halo.addColorStop(0, 'rgba(255,215,150,.6)'); halo.addColorStop(1, 'rgba(255,215,150,0)');
         g.fillStyle = halo; g.fillRect(0, 0, N, N);
@@ -847,25 +847,35 @@
         const bg = g.createLinearGradient(0, 0, 0, N);
         bg.addColorStop(0, '#020B1F'); bg.addColorStop(0.4, '#06304A'); bg.addColorStop(0.75, '#0B6475'); bg.addColorStop(1, '#2BB7A8');
         g.fillStyle = bg; g.fillRect(0, 0, N, N);
-        const mx = N * (0.3 + r() * 0.4), my = N * (0.17 + r() * 0.1);
+        const ma = (r() - 0.5) * 1.6, mx = N * (0.5 + Math.sin(ma) * 0.32), my = N * (0.5 - Math.cos(ma) * 0.32);
         const halo = g.createRadialGradient(mx, my, 0, mx, my, N * 0.14);
         halo.addColorStop(0, 'rgba(200,255,250,.4)'); halo.addColorStop(1, 'rgba(200,255,250,0)');
         g.fillStyle = halo; g.fillRect(0, 0, N, N);
         g.fillStyle = '#E8FFF9'; g.beginPath(); g.arc(mx, my, N * 0.03, 0, TAU); g.fill();
+        // Dünung: Wellenbänder mit Schaumkronen
+        const cols = ['#1C8C97', '#157787', '#106276', '#0B4D64', '#073A52', '#042A40'];
         g.lineCap = 'round';
-        for (let k = 0; k < 30; k++) {
-          const y0 = N * (0.38 + k * 0.021), amp = N * (0.006 + r() * 0.02 + k * 0.0006), fr = 1.5 + r() * 3, ph = r() * TAU;
-          g.strokeStyle = `rgba(${k % 3 ? '120,240,230' : '220,255,250'},${(0.1 + r() * 0.3).toFixed(2)})`; g.lineWidth = 1 + r() * 2.2;
+        cols.forEach((c, k) => {
+          const base = N * (0.44 + k * 0.095), amp = N * (0.018 + r() * 0.022), ph = r() * TAU, fr = 0.9 + r() * 1.4;
+          const y = (x) => base + amp * Math.sin(ph + (x / N) * fr * TAU) + amp * 0.35 * Math.sin(ph * 2.3 + (x / N) * fr * 2.2 * TAU);
+          const wg = g.createLinearGradient(0, base - amp, 0, base + N * 0.12);
+          wg.addColorStop(0, U.mix(c, '#7FF5E6', 0.22)); wg.addColorStop(1, c);
+          g.fillStyle = wg; g.beginPath(); g.moveTo(0, N);
+          for (let x = 0; x <= N; x += 6) g.lineTo(x, y(x));
+          g.lineTo(N, N); g.closePath(); g.fill();
+          g.strokeStyle = `rgba(215,255,248,${(0.45 - k * 0.05).toFixed(2)})`; g.lineWidth = 2.2 - k * 0.15;
           g.beginPath();
-          for (let x = -10; x <= N + 10; x += 6) {
-            const y = y0 + amp * Math.sin(ph + (x / N) * fr * TAU) + amp * 0.4 * Math.sin(ph * 2 + (x / N) * fr * 2.3 * TAU);
-            if (x === -10) g.moveTo(x, y); else g.lineTo(x, y);
-          }
+          for (let x = 0; x <= N; x += 6) { if (x === 0) g.moveTo(x, y(x)); else g.lineTo(x, y(x)); }
           g.stroke();
-        }
-        for (let k = 0; k < 40; k++) {
+          for (let q = 0; q < 14; q++) {
+            const fx = r() * N;
+            g.fillStyle = `rgba(230,255,250,${(0.15 + r() * 0.35).toFixed(2)})`;
+            g.beginPath(); g.arc(fx, y(fx) + r() * 6, 0.8 + r() * 1.6, 0, TAU); g.fill();
+          }
+        });
+        for (let k = 0; k < 30; k++) {
           g.fillStyle = `rgba(230,255,250,${(0.2 + r() * 0.4).toFixed(2)})`;
-          g.fillRect(mx + (r() - 0.5) * N * 0.2, N * (0.42 + r() * 0.3), 4 + r() * 16, 1.6);
+          g.fillRect(mx + (r() - 0.5) * N * 0.16, N * (0.47 + r() * 0.22), 4 + r() * 14, 1.6);
         }
       },
     },
@@ -1239,8 +1249,8 @@
 
     const stLabel = arcSwap(arcs, { r: 452, size: 23, weight: 700, spacing: 4.6, swing: 20 });
     const titleArc = arcSwap(arcs, { r: 405, size: 40, weight: 620, spacing: 0.3, upper: false, swing: 16 });
-    const tEl = V.ui.arcText({ text: '0:00', r: 440, side: 'bottom', at: 222, size: 24, weight: 600, spacing: 1, color: 'rgba(255,255,255,.5)' });
-    const tRem = V.ui.arcText({ text: '-0:00', r: 440, side: 'bottom', at: 138, size: 24, weight: 600, spacing: 1, color: 'rgba(255,255,255,.5)' });
+    const tEl = V.ui.arcText({ text: '0:00', r: 440, side: 'bottom', at: 221, size: 26, weight: 620, spacing: 1.2, color: 'rgba(255,255,255,.62)' });
+    const tRem = V.ui.arcText({ text: '−0:00', r: 440, side: 'bottom', at: 139, size: 26, weight: 620, spacing: 1.2, color: 'rgba(255,255,255,.62)' });
     tEl.el.classList.add('mu-time'); tRem.el.classList.add('mu-time');
     arcs.append(tEl.el, tRem.el);
 

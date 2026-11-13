@@ -481,9 +481,9 @@
     build(P, nav, which) {
       const key = which === 'to' ? 'settings.nightTo' : 'settings.nightFrom';
       const cur = get(key, which === 'to' ? 7 : 22);
-      const hours = Array.from({ length: 24 }, (_, i) => h2(i));
+      const hours = Array.from({ length: 72 }, (_, i) => h2(i % 24));   // dreifach: wirkt endlos
       const box = U.el('div', { class: 'st-pick' });
-      const w = V.ui.wheel({ items: hours, index: cur, rows: 5, itemH: 10, size: 8, width: '44cqw', onChange: (i) => set(key, i) });
+      const w = V.ui.wheel({ items: hours, index: 24 + cur, rows: 5, itemH: 10, size: 8, width: '44cqw', onChange: (i) => set(key, i % 24) });
       box.append(U.el('div', { class: 'vos-label', style: { marginBottom: '1cqw' }, text: which === 'to' ? 'Nachtmodus endet' : 'Nachtmodus beginnt' }), w.el,
         V.ui.button('Fertig', { kind: 'white', style: { marginTop: '2.2cqw', minWidth: '32cqw', height: '11cqw' }, onClick: () => nav.pop() }));
       P.el.appendChild(box);
@@ -692,9 +692,9 @@
         if (manual) {
           const n = V.time.now();
           let hw = null, mw = null;
-          const apply = () => { if (!hw || !mw) return; const d = V.time.now(); d.setHours(hw.get(), mw.get(), 0, 0); V.time.setManual(d); tick(); };
-          hw = V.ui.wheel({ items: Array.from({ length: 24 }, (_, i) => U.pad(i)), index: n.getHours(), rows: 3, itemH: 10.5, size: 7.6, width: '19cqw', onChange: apply });
-          mw = V.ui.wheel({ items: Array.from({ length: 60 }, (_, i) => U.pad(i)), index: n.getMinutes(), rows: 3, itemH: 10.5, size: 7.6, width: '19cqw', onChange: apply });
+          const apply = () => { if (!hw || !mw) return; const d = V.time.now(); d.setHours(hw.get() % 24, mw.get() % 60, 0, 0); V.time.setManual(d); tick(); };
+          hw = V.ui.wheel({ items: Array.from({ length: 72 }, (_, i) => U.pad(i % 24)), index: 24 + n.getHours(), rows: 3, itemH: 10.5, size: 7.6, width: '19cqw', onChange: apply });
+          mw = V.ui.wheel({ items: Array.from({ length: 180 }, (_, i) => U.pad(i % 60)), index: 60 + n.getMinutes(), rows: 3, itemH: 10.5, size: 7.6, width: '19cqw', onChange: apply });
           kids.push(U.el('div', { class: 'st-wheels', style: { marginTop: '2.4cqw' } }, hw.el, U.el('div', { class: 'st-colon', text: ':' }), mw.el));
           kids.push(U.el('div', { class: 'st-note', text: 'Drehen zum Stellen – gilt sofort.' }));
           P.wheels = [hw, mw];

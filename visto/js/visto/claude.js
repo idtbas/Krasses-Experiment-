@@ -38,9 +38,9 @@
   }
 
   /** Geräteaktionen als Werkzeuge beschreiben */
-  function toolDefs() {
+  function toolDefs(q) {
     const map = new Map();
-    const tools = V.actions.list().slice(0, 48).map((a) => {
+    const tools = V.actions.ranked(q).slice(0, 64).map((a) => {
       const name = a.name.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64);
       map.set(name, a);
       return {
@@ -80,8 +80,8 @@
     /** Gespräch mit Werkzeugschleife. messages: [{role, content}] (Text) */
     async ask(messages, o = {}) {
       const c = await getClient();
-      const { tools, map } = toolDefs();
       const msgs = messages.map((m) => ({ role: m.role, content: m.content }));
+      const { tools, map } = toolDefs(String(msgs.length ? msgs[msgs.length - 1].content : ''));
       const result = { text: '' };
       const ctx = Object.assign({}, o, { result });
       for (let round = 0; round < 6; round++) {

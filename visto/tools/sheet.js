@@ -22,7 +22,7 @@ const APPS = ['timer', 'stopwatch', 'alarm', 'worldclock', 'weather', 'calendar'
   const out = process.argv[2] || 'sheet.png';
   const cols = +(process.argv[3] || 4);
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ ...devices['iPhone 13 Pro'], deviceScaleFactor: 1.5 });
+  const ctx = await browser.newContext({ ...devices['iPhone 13 Pro'], timezoneId: process.env.VISTO_TZ || 'Europe/Berlin', locale: 'de-DE', deviceScaleFactor: 1.5 });
   const shots = [];
   const tmp = path.join(path.dirname(out), '.sheet');
   fs.mkdirSync(tmp, { recursive: true });

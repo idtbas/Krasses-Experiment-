@@ -318,7 +318,7 @@
     const opts = { model: 'claude-sonnet-5-5', modelTier: 'default', effort: 'low', cache: false, signal: ctl.signal };
     if (o.onText) opts.onText = ({ text: tx }) => o.onText(stripTag(tx).say);
     if (claudeTools) {
-      opts.tools = V.actions.list().slice(0, 48).map((a) => ({
+      opts.tools = V.actions.ranked(text).slice(0, 64).map((a) => ({
         name: a.name.replace(/[^A-Za-z0-9_-]/g, '_'),
         description: (a.desc || a.name).slice(0, 900),
         inputSchema: { type: 'object', properties: a.params || {}, required: a.required || [] },
@@ -501,6 +501,7 @@
     run(m, t) {
       if (/^gute nacht/.test(t)) {
         V.store.set('settings.night', 'on');
+        V.emit('visto:goodnight');
         setTimeout(() => { V.shell.home(); setTimeout(() => V.ambient.sleep(), 1500); }, 2600);
         return { say: `Gute Nacht${nameOf() ? ', ' + nameOf() : ''}. Schlaf gut, ich dimme das Licht.`, emotion: 'sleepy' };
       }

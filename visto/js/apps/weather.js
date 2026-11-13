@@ -409,7 +409,7 @@
     const g = cv.getContext('2d');
     let W = 0, sc = 1;
     // sunA/moonA: Uhrwinkel der Gestirne (die App legt sie in Lücken zwischen ihre Symbole), r = 338
-    const P = { day: 0, dusk: 0, cover: 0.3, rain: 0, snow: 0, fog: 0, storm: 0, wind: 0.3, sunF: 0.5, moonF: 0.5, sunA: 0, moonA: 0, phase: 0.5 };
+    const P = { day: 0, dusk: 0, cover: 0.3, rain: 0, snow: 0, fog: 0, storm: 0, wind: 0.3, sunA: 0, moonA: 0, phase: 0.5 };
     const T = Object.assign({}, P);
     const r = U.rng('visto-sky');
     const stars = [];
@@ -766,9 +766,9 @@
     if (off === 0) {
       const d = dayRec(c, midnight(V.time.now()));
       const w = current(c.id);
-      const later = d.precip >= 0.45 && !WET[d.code] ? ` Regenrisiko ${Math.round(d.precip * 10) * 10} Prozent.` : '';
+      const later = d.precip >= 0.45 && !WET[d.code] ? `, Regenrisiko ${Math.round(d.precip * 10) * 10} Prozent` : '';
       return {
-        say: `Heute in ${c.name}: ${describe(d.code).fc}, ${Math.round(d.lo)} bis ${Math.round(d.hi)} Grad. Gerade sind es ${Math.round(w.temp)} Grad.${later}`,
+        say: `Heute in ${c.name}: ${describe(d.code).fc}, ${Math.round(d.lo)} bis ${Math.round(d.hi)} Grad${later}. Gerade sind es ${Math.round(w.temp)} Grad.`,
         card: wxCard({ code: d.code, big: deg(d.hi), title: d.text, sub: `H ${deg(d.hi)}  T ${deg(d.lo)} · Heute` }),
         emotion: emotionFor(d.code, d.hi),
       };
@@ -809,17 +809,13 @@
   function sayWeekend(c) {
     const now = V.time.now(), wd = now.getDay();
     const sat = wd === 0 ? -1 : (6 - wd + 7) % 7;
-    const parts = [];
-    let first = null;
-    for (const off of [sat, sat + 1]) {
-      if (off < 0 || off > 6) continue;
-      const d = dayRec(c, addDays(midnight(now), off));
-      first = first || { d, off };
-      parts.push(`${V.fmt.WD[d.date.getDay()]} ${describe(d.code).fc} bei ${Math.round(d.lo)} bis ${Math.round(d.hi)} Grad`);
-    }
-    const d = first.d;
+    const days = [sat, sat + 1].filter((o) => o >= 0 && o <= 6).map((o) => dayRec(c, addDays(midnight(now), o)));
+    const d = days[0];
+    let say;
+    if (days.length === 2 && days[0].code === days[1].code) say = `Am Wochenende in ${c.name}: ${phrase(d.code)}, Samstag bis ${Math.round(days[0].hi)} und Sonntag bis ${Math.round(days[1].hi)} Grad.`;
+    else say = `Am Wochenende in ${c.name}: ` + days.map((x) => `${V.fmt.WD[x.date.getDay()]} ${phrase(x.code)} bis ${Math.round(x.hi)} Grad`).join(', ') + '.';
     return {
-      say: `Am Wochenende in ${c.name}: ${parts.join(', ')}.`,
+      say,
       card: wxCard({ code: d.code, big: deg(d.hi), title: d.text, sub: `H ${deg(d.hi)}  T ${deg(d.lo)} · ${V.fmt.WD[d.date.getDay()]}` }),
       emotion: emotionFor(d.code, d.hi),
     };
@@ -1091,6 +1087,7 @@
       else sc = sceneFor(Object.assign({}, data.hrs[1], { code: data.cur.code, cloud: data.cur.cloud }), V.time.now());
       sc.sunA = slot(270 + 180 * U.clamp(sc.sunF, 0, 1));
       sc.moonA = slot(270 + 180 * U.clamp(sc.moonF, 0, 1));
+      delete sc.sunF; delete sc.moonF;
       sky.setTarget(sc, instant || !sky.ready);
       sky.ready = true;
     }

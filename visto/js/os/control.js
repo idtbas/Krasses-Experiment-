@@ -81,7 +81,8 @@
   const prog = V.spring(0, { response: 0.55, bounce: 0.16 });
   const lay = V.spring(0, { response: 0.55, bounce: 0.1 });   // 1 = Platz für Mini-Player
   let offs = [];
-  let statusT = 0, musicT = 0, musicShown = false;
+  let statusT = 0, musicT = 0, musicShown = false, lastAct = 0;
+  const IDLE_MS = 30000;   // ohne Berührung schließt das Kontrollzentrum (damit der Ruhemodus greifen kann)
   let drag = null;
 
   const get = (k, d) => V.store.get(k, d);
@@ -556,8 +557,11 @@
     offs.push(V.on('store', (e) => { if (/^settings\.(brightness|volume|dnd|night|wifi|micMuted|voice|nightFrom|nightTo)$/.test(e.path)) sync(); }));
     offs.push(V.on('time:minute', updateTime));
     offs.push(V.on('store:settings.use24h', updateTime));
+    lastAct = performance.now();
+    offs.push(V.on('activity', () => { lastAct = performance.now(); }));
     clearInterval(musicT);
     musicT = setInterval(() => {
+      if (!lampOn && !drag && performance.now() - lastAct > IDLE_MS) { close(); return; }
       const mi = musicInfo();
       if (mi && mi.playing && !musicShown) { musicShown = true; lay.to(1); }
       if (musicShown) updatePlayer();

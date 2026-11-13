@@ -196,7 +196,7 @@
           chars.forEach((ch, i) => {
             const s = slotFor(i);
             if (s.ch === ch) return;
-            const isColon = ch === ':' || ch === '.' || ch === ' ';
+            const isColon = ch === ':' || ch === '.' || ch === ' ' || ch === ',';
             s.el.style.width = isColon ? (o.colonW || '0.32em') : (o.digitW || '0.6em');
             const prev = s.ch;
             s.ch = ch;

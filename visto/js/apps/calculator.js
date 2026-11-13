@@ -46,7 +46,7 @@
   }
   /** Zahl → Eingabe (deutsch, auf 12 Stellen gerundet) */
   function rawOf(v) {
-    const r = Number(v.toPrecision(12));
+    const r = Number.isSafeInteger(v) ? v : Number(v.toPrecision(12));
     return plain(Object.is(r, -0) ? 0 : r).replace('-', '−').replace('.', ',');
   }
   /** Eingabe → Anzeige mit Tausenderpunkten */
@@ -62,7 +62,7 @@
     if (!isFinite(v)) return 'Fehler';
     const a = Math.abs(v);
     if (a !== 0 && (a >= 1e15 || a < 1e-9)) {
-      const [m, e] = v.toExponential(6).split('e');
+      const [m, e] = v.toExponential(9).split('e');
       return m.replace(/\.?0+$/, '').replace('.', ',').replace('-', '−') + 'E' + e.replace('+', '').replace('-', '−');
     }
     return fmtRaw(rawOf(v));
@@ -218,7 +218,7 @@
     .cal-eq.cal-down { background: #FFD08A; box-shadow: 0 0 7cqw rgba(255,170,40,.7); transition: none; }
     .cal-fn { font-size: 4.9cqw; font-weight: 520; color: rgba(255,255,255,.9); background: rgba(255,255,255,.13); }
     .cal-fn.cal-down { background: rgba(255,255,255,.34); transition: none; }
-    .cal-expr { position: absolute; left: 30cqw; right: 30cqw; top: 36cqw; height: 5cqw; text-align: center; white-space: nowrap; overflow: hidden;
+    .cal-expr { position: absolute; left: 35.5cqw; right: 35.5cqw; top: 36cqw; height: 5cqw; text-align: center; white-space: nowrap; overflow: hidden;
       font-size: 3.5cqw; font-weight: 520; color: rgba(255,255,255,.42); font-variant-numeric: tabular-nums; letter-spacing: .01em;
       transition: opacity .3s; }
     .cal-main { position: absolute; left: 0; right: 0; top: 50%; height: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
@@ -227,7 +227,7 @@
       font-variant-numeric: tabular-nums; color: #fff; transform: translateY(-3%); }
     .cal-line.cal-old { position: absolute; left: 50%; top: 0; }
     .cal-ch { display: inline-block; will-change: transform, opacity; }
-    .cal-prev { position: absolute; left: 30cqw; right: 30cqw; top: 58.4cqw; text-align: center; white-space: nowrap; overflow: hidden;
+    .cal-prev { position: absolute; left: 33cqw; right: 33cqw; top: 58.4cqw; text-align: center; white-space: nowrap; overflow: hidden;
       font-size: 3.9cqw; font-weight: 500; color: rgba(255,179,64,.85); font-variant-numeric: tabular-nums;
       transition: opacity .35s ease, transform .45s var(--spring); }
     .cal-err { color: #FF6B62; }
@@ -411,7 +411,10 @@
       function render(how) {
         let main, err = false;
         if (st.err) { main = 'Fehler'; err = true; }
-        else if (st.entry) main = fmtRaw(st.entry);
+        else if (st.entry) {
+          const v = num(st.entry), a = Math.abs(v);
+          main = st.done && a && (a >= 1e15 || a < 1e-9) ? fmtVal(v) : fmtRaw(st.entry);
+        }
         else if (st.toks.length) main = fmtRaw(st.toks[st.toks.length - 2] || '0');
         else main = '0';
         setMain(main, how || 'none', err);
