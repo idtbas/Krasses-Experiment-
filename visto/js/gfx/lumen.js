@@ -25,7 +25,9 @@
  *
  *  Sparsamkeit: Der Lichtgrund wird klein gerechnet (weiche Formen) und nur 30-mal je Sekunde erneuert,
  *  solange nichts geschieht; die Lichtebene zeichnet nur die Rechtecke, in denen wirklich Licht liegt,
- *  und ruht sonst. Im Ruhemodus, bei verdecktem Lichtgrund und verstecktem Tab wird nichts gezeichnet.
+ *  und ruht sonst. Jeder Shader liegt in Varianten vor (mit/ohne Wellen, Berührung, Lichtring), damit nie
+ *  gerechnet wird, was gerade nicht zu sehen ist – auch auf Grafikchips, die Verzweigungen nicht überspringen.
+ *  Im Ruhemodus, bei verdecktem Lichtgrund und verstecktem Tab wird nichts gezeichnet.
  */
 'use strict';
 (function () {
@@ -63,7 +65,7 @@ uniform vec4 uPh;                        // Phasen der Verbiegung
 uniform vec4 uView;                      // Parallaxe x, y · Verstärkung · Körnungsversatz
 uniform vec4 uWave[${MAX_W}];            // Mitte x, y · Radius · Stärke
 uniform vec2 uWaveB[${MAX_W}];           // 1/Breite · –
-uniform vec4 uCrest;                     // Farbe des Wellenkamms (linear) · Wellen aktiv (0/1)
+uniform vec4 uCrest;                     // Farbe des Wellenkamms (linear) · –
 ${DITHER}
 void main() {
   vec2 p = vP;
@@ -71,19 +73,19 @@ void main() {
   if (r >= 1.0) { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
   vec2 q = p - uView.xy;
   float crest = 0.0;
-  if (uCrest.w > 0.5) {
-    for (int i = 0; i < ${MAX_W}; i++) {
-      vec4 w = uWave[i];
-      if (w.w > 0.0) {
-        vec2 d = p - w.xy;
-        float l = length(d) + 1e-4;
-        float x = (l - w.z) * uWaveB[i].x;
-        float g = exp(-x * x) * w.w;
-        q -= (d / l) * (x * g) * 0.075;  // die Welle bricht das Licht dahinter
-        crest += g;
-      }
+#ifdef WAVES
+  for (int i = 0; i < ${MAX_W}; i++) {
+    vec4 w = uWave[i];
+    if (w.w > 0.0) {
+      vec2 d = p - w.xy;
+      float l = length(d) + 1e-4;
+      float x = (l - w.z) * uWaveB[i].x;
+      float g = exp(-x * x) * w.w;
+      q -= (d / l) * (x * g) * 0.075;    // die Welle bricht das Licht dahinter
+      crest += g;
     }
   }
+#endif
   vec2 s = q + 0.15 * vec2(sin(q.y * 1.9 + uPh.x), sin(q.x * 1.6 + uPh.y))
              + 0.05 * vec2(sin(q.y * 4.3 + uPh.z), sin(q.x * 3.7 + uPh.w));
   float rr = length(s);
@@ -139,6 +141,7 @@ void main() {
     c += uSheenC * (band * (m * m * uSheen.z + n * n * uSheen.w));
   }
 
+#ifdef TOUCH
   for (int i = 0; i < ${MAX_T}; i++) {
     vec4 t = uTouch[i];
     if (t.w > 0.0) {
@@ -152,7 +155,9 @@ void main() {
       c += uTouchC * (g.w * exp(-x * x * (x > 0.0 ? 2.6 : 0.4)));
     }
   }
+#endif
 
+#ifdef FLARE
   for (int i = 0; i < ${MAX_F}; i++) {
     vec4 A = uFlareA[i];
     vec4 B = uFlareB[i];
@@ -172,6 +177,7 @@ void main() {
       if (B.z > 0.0) c += uFlareC[i] * (B.z * (1.0 - smoothstep(A.z * 0.1, A.z, l)));
     }
   }
+#endif
 
   c = min(c, vec3(1.0));
   c += step(0.002, c) * grain(gl_FragCoord.xy + uMisc.x) / 255.0;
@@ -190,7 +196,7 @@ void main() {
     refresh() { if (L.ok) { checkOcclusion(); wake(); } },
   });
 
-  let back = null, light = null;      // { cv, gl, prog, u, w, lost, shown }
+  let back = null, light = null;      // { cv, gl, progs, cur, w, lost, shown }
   let forced = null;                  // festgehaltene Qualität
   let webgl = 0;
 
@@ -263,14 +269,14 @@ void main() {
 
   /* ================================================================ WebGL */
 
-  function makeLayer(cv, alpha) {
+  function makeLayer(cv, alpha, frag, names) {
     const attrs = { alpha, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: 'low-power' };
     let gl = null, v = 2;
     try { gl = cv.getContext('webgl2', attrs); } catch (e) { gl = null; }
     if (!gl) { v = 1; try { gl = cv.getContext('webgl', attrs) || cv.getContext('experimental-webgl', attrs); } catch (e) { gl = null; } }
     if (!gl) return null;
     webgl = v;
-    return { cv, gl, prog: null, u: {}, w: 0, lost: false, shown: false, alpha };
+    return { cv, gl, frag, names, progs: {}, cur: null, prec: '', w: 0, lost: false, shown: false, alpha };
   }
 
   function compile(gl, type, src) {
@@ -285,18 +291,14 @@ void main() {
     return s;
   }
 
-  function build(layer, frag, names) {
+  const BACK_U = ['uLobeA', 'uLobeB', 'uLobeC', 'uCore', 'uCoreC', 'uPh', 'uView', 'uWave', 'uWaveB', 'uCrest'];
+  const LIGHT_U = ['uTouch', 'uRing', 'uTouchC', 'uFlareA', 'uFlareB', 'uFlareC', 'uSheen', 'uSheenC', 'uMisc'];
+  const DEFS = { W: 'WAVES', T: 'TOUCH', F: 'FLARE' };
+
+  /** Grundzustand einer Ebene (nach dem Anlegen und nach einem wiederhergestellten Kontext) */
+  function prepare(layer) {
     const gl = layer.gl;
-    const hp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
-    const prec = 'precision ' + (hp && hp.precision > 0 ? 'highp' : 'mediump') + ' float;\n';
-    const vs = compile(gl, gl.VERTEX_SHADER, VERT), fs = compile(gl, gl.FRAGMENT_SHADER, prec + frag);
-    const p = gl.createProgram();
-    gl.attachShader(p, vs); gl.attachShader(p, fs);
-    gl.bindAttribLocation(p, 0, 'aPos');
-    gl.linkProgram(p);
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('Programm: ' + gl.getProgramInfoLog(p));
-    gl.deleteShader(vs); gl.deleteShader(fs);
-    gl.useProgram(p);
+    layer.progs = {}; layer.cur = null;
     // ein Dreieck, das die ganze Fläche deckt
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -305,13 +307,44 @@ void main() {
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND); gl.disable(gl.DITHER);
     gl.clearColor(0, 0, 0, layer.alpha ? 0 : 1);
-    layer.prog = p;
-    layer.u = {};
-    for (const n of names) layer.u[n] = gl.getUniformLocation(p, n);
+    const hp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
+    layer.prec = 'precision ' + (hp && hp.precision > 0 ? 'highp' : 'mediump') + ' float;\n';
     layer.lost = false;
   }
-  const buildBack = () => build(back, FRAG_BACK, ['uLobeA', 'uLobeB', 'uLobeC', 'uCore', 'uCoreC', 'uPh', 'uView', 'uWave', 'uWaveB', 'uCrest']);
-  const buildLight = () => build(light, FRAG_LIGHT, ['uTouch', 'uRing', 'uTouchC', 'uFlareA', 'uFlareB', 'uFlareC', 'uSheen', 'uSheenC', 'uMisc']);
+  /** Shader-Variante wählen (key: Buchstaben aus DEFS, z. B. '' · 'W' · 'T' · 'TF'); übersetzt beim ersten Gebrauch */
+  function use(layer, key) {
+    let p = layer.progs[key];
+    if (!p) {
+      const gl = layer.gl;
+      let defs = '';
+      for (let i = 0; i < key.length; i++) defs += '#define ' + DEFS[key[i]] + '\n';
+      const vs = compile(gl, gl.VERTEX_SHADER, VERT), fs = compile(gl, gl.FRAGMENT_SHADER, layer.prec + defs + layer.frag);
+      const prog = gl.createProgram();
+      gl.attachShader(prog, vs); gl.attachShader(prog, fs);
+      gl.bindAttribLocation(prog, 0, 'aPos');
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('Programm: ' + gl.getProgramInfoLog(prog));
+      gl.deleteShader(vs); gl.deleteShader(fs);
+      const u = {};
+      for (const n of layer.names) u[n] = gl.getUniformLocation(prog, n);   // fehlt eine Größe in der Variante: null, Setzen bleibt folgenlos
+      p = layer.progs[key] = { prog, u };
+    }
+    if (layer.cur !== p) { layer.gl.useProgram(p.prog); layer.cur = p; }
+    return p.u;
+  }
+  const buildBack = () => { prepare(back); use(back, ''); };
+  const buildLight = () => { prepare(light); use(light, ''); use(light, 'T'); };
+  /** übrige Varianten in einer ruhigen Minute vorbereiten, damit die erste Welle / der erste Lichtring nicht stockt */
+  function warmUp() {
+    const todo = [[back, 'W'], [light, 'F'], [light, 'TF']];
+    const next = () => {
+      const t = todo.shift();
+      if (!t || !L.ok) return;
+      try { if (!t[0].lost) { const c = t[0].cur; use(t[0], t[1]); if (c) { t[0].gl.useProgram(c.prog); t[0].cur = c; } } } catch (e) { /* zeigt sich beim Gebrauch */ }
+      setTimeout(next, 250);
+    };
+    setTimeout(next, 1500);
+  }
 
   function watchContext(layer, rebuild) {
     layer.cv.addEventListener('webglcontextlost', (e) => {
@@ -619,7 +652,7 @@ void main() {
   }
 
   function drawBack(l) {
-    const gl = back.gl, u = back.u;
+    const gl = back.gl;
     const en = cur[ENERGY];
     const sp = cur[SPREAD] * (1 + 0.07 * en);
     for (let i = 0; i < LOBES; i++) {
@@ -653,12 +686,15 @@ void main() {
     }
     // Wellenkamm: ein fester Hauch Licht, unabhängig davon, wie hell die Szene gerade ist
     const ck = (0.0016 * U.clamp(cur[GAIN] * 2, 0, 1)) / Math.max(1e-5, uView[2]);
-    uCrest[0] = cur[COL] * ck; uCrest[1] = cur[COL + 1] * ck; uCrest[2] = cur[COL + 2] * ck; uCrest[3] = nw ? 1 : 0;
+    uCrest[0] = cur[COL] * ck; uCrest[1] = cur[COL + 1] * ck; uCrest[2] = cur[COL + 2] * ck;
+
+    const u = use(back, nw ? 'W' : '');
 
     gl.uniform4fv(u.uLobeA, uLobeA); gl.uniform4fv(u.uLobeB, uLobeB); gl.uniform3fv(u.uLobeC, uLobeC);
     gl.uniform4fv(u.uCore, uCore); gl.uniform3fv(u.uCoreC, uCoreC);
     gl.uniform4fv(u.uPh, uPh); gl.uniform4fv(u.uView, uView);
-    gl.uniform4fv(u.uWave, uWave); gl.uniform2fv(u.uWaveB, uWaveB); gl.uniform4fv(u.uCrest, uCrest);
+    if (nw) { gl.uniform4fv(u.uWave, uWave); gl.uniform2fv(u.uWaveB, uWaveB); }
+    gl.uniform4fv(u.uCrest, uCrest);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     draws++;
   }
@@ -680,7 +716,8 @@ void main() {
   const critical = (t, resp) => { const w = (TAU / resp) * t; return 1 - (1 + w) * Math.exp(-w); };
 
   function drawLight(sheenOn) {
-    const gl = light.gl, u = light.u;
+    const gl = light.gl;
+    let nt = 0, nf = 0;
     nRects = 0;
     // Glanzlicht
     const sa = (sheenA * Math.PI) / 180;
@@ -783,8 +820,8 @@ void main() {
     const bc = V.display.back, lc = V.display.light;
     bc.style.visibility = 'hidden'; lc.style.visibility = 'hidden';
     try {
-      back = makeLayer(bc, false);
-      light = back && makeLayer(lc, true);
+      back = makeLayer(bc, false, FRAG_BACK, BACK_U);
+      light = back && makeLayer(lc, true, FRAG_LIGHT, LIGHT_U);
       if (!back || !light) throw new Error('kein WebGL');
       buildBack(); buildLight();
     } catch (e) {
@@ -799,6 +836,7 @@ void main() {
     sizes();
     dayTime();
     applyScene();
+    warmUp();
 
     V.on('display:resize', sizes);
     V.on('perf:level', () => { sizes(); wake(); });
