@@ -464,6 +464,7 @@
         V.emit('activity');
         const key = keys.get(k);
         const r = press(st, k);
+        V.sound.play(r === 'deny' ? 'tick' : 'tap');
         V.haptic(r === 'deny' ? [4, 30, 4] : 5);
         if (r === 'deny') { shake.impulse(-70); return; }
         if (/^\d$/.test(k)) dialComet(key.a);
@@ -486,7 +487,6 @@
         if (!k || !keys.has(k)) return;
         e.preventDefault();
         keys.get(k).bump();
-        V.sound.play('tap');
         hit(k);
       };
       window.addEventListener('keydown', onKey);
