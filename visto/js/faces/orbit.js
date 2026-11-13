@@ -81,8 +81,8 @@
         g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
       }
       function halo(x, y, r, col, a) {
-        const gr = g.createRadialGradient(x, y, r * 0.6, x, y, r * 2.4);
-        gr.addColorStop(0, U.rgba(col, a)); gr.addColorStop(1, U.rgba(col, 0));
+        const gr = g.createRadialGradient(x, y, r * 0.7, x, y, r * 2.4);
+        gr.addColorStop(0, U.rgba(col, a)); gr.addColorStop(0.35, U.rgba(col, a * 0.3)); gr.addColorStop(1, U.rgba(col, 0));
         g.fillStyle = gr;
         g.beginPath(); g.arc(x, y, r * 2.4, 0, TAU); g.fill();
       }
@@ -181,15 +181,15 @@
         // Spur des Planeten (zurückgelegter Teil der Stunde, verblassend)
         const ah = h * 30;
         if (!amb) {
-          const span = 46;
-          V.rim.tail(g, 500, 500, R_PLANET, ah - span, ah, col, 3.2, 0.55, 0);
+          g.lineCap = 'round';
+          V.rim.tail(g, 500, 500, R_PLANET, ah - 64, ah, col, 5, 0.75, 0);
         }
 
         // Planet
         const P = V.display.pt(ah, R_PLANET);
         const pr = 40;
         const tilt = -0.42;
-        if (!amb) halo(P.x, P.y, pr, col, 0.22);
+        if (!amb) halo(P.x, P.y, pr, col, 0.16);
         if (o.ring && !amb) ringArc(P.x, P.y, pr * 1.75, tilt, false, U.lighten(col, 0.35), 0.55);
         if (amb) {
           g.strokeStyle = U.rgba(col, 0.6); g.lineWidth = 3;
@@ -202,7 +202,7 @@
         if (!amb) {
           g.strokeStyle = 'rgba(255,255,255,.1)'; g.lineWidth = 1.4;
           g.beginPath(); g.arc(P.x, P.y, R_MOON, 0, TAU); g.stroke();
-          V.rim.tail(g, P.x, P.y, R_MOON, am - 70, am, '#ffffff', 2.4, 0.4, 0);
+          V.rim.tail(g, P.x, P.y, R_MOON, am - 80, am, '#ffffff', 3.2, 0.55, 0);
         }
         const Mo = { x: P.x + Math.sin(U.rad(am)) * R_MOON, y: P.y - Math.cos(U.rad(am)) * R_MOON };
         if (amb) {

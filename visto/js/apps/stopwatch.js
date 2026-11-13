@@ -210,7 +210,7 @@
       const NB = '(?![a-zäöüß])';
       V.brain.intent({
         id: 'stopwatch-reset', priority: 9,
-        match: [new RegExp(SW + '.*(?:zurücksetzen|zurück|reset|auf null|nullen|löschen)'), new RegExp('(?:setz|setze|stell|stelle|lösch|lösche)' + NB + '.*' + SW + '.*(?:zurück|null)')],
+        match: [new RegExp(SW + '.*(?:zurücksetzen|zurück|reset|auf null|auf 0|nullen|löschen)'), new RegExp('(?:setz|setze|stell|stelle|lösch|lösche)' + NB + '.*' + SW + '.*(?:zurück|null)')],
         run: () => control('reset'),
       });
       V.brain.intent({
@@ -234,7 +234,7 @@
       });
       V.brain.intent({
         id: 'stopwatch-start', priority: 8,
-        match: [new RegExp('(?:start|starte|starten|los|beginn|beginne|aktivier|aktiviere)' + NB + '.*' + SW), new RegExp(SW + '.*(?<![a-zäöüß])(?:start|starten|los|an|weiter|fortsetzen|laufen)' + NB)],
+        match: [new RegExp('(?<![a-zäöüß])(?:start|starte|starten|los|beginn|beginne|aktivier|aktiviere)' + NB + '.*' + SW), new RegExp(SW + '.*(?<![a-zäöüß])(?:start|starten|los|an|weiter|fortsetzen|laufen)' + NB)],
         run: () => control('start'),
       });
     },
@@ -527,7 +527,7 @@
 
         // Lichtpunkt mit Schweif
         const p = pt(dispA, R_DOT);
-        if (active && dispA > 0.5) V.rim.tail(g, 500, 500, R_DOT, Math.max(dispA - 54, rewinding ? dispA : -400), dispA, COLOR, 5, 0.85, 0);
+        if (active && dispA > 0.5) V.rim.tail(g, 500, 500, R_DOT, rewinding ? dispA : Math.max(dispA - 54, e < 60000 ? 0 : -400), dispA, COLOR, 5, 0.85, 0);
         const breathe = s.running || rewinding ? 1 : active ? 0.62 + 0.38 * Math.sin(t * 2.8) : 0.5 + 0.2 * Math.sin(t * 1.6);
         const halo = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, 46);
         halo.addColorStop(0, ya(0.6 * breathe));
