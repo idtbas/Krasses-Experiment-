@@ -273,9 +273,10 @@
           const tang = Math.abs(p.dA) * (Math.PI / 180) * p.r0;
           const radial = Math.abs(p.r - p.r0);
           const visto = V.convo && V.convo.active;
-          if (startEdge && horiz && p.dx > 0 && (shell.mode === 'app' || shell.mode === 'launcher') && !visto && ng !== 'noedge') kind = 'back';
+          const ccOpen = !!(V.control && V.control.isOpen);
+          if (startEdge && horiz && p.dx > 0 && (shell.mode === 'app' || shell.mode === 'launcher') && !visto && !ccOpen && ng !== 'noedge') kind = 'back';
           else if (startLine && vert && p.dy < 0 && !visto) kind = 'visto';
-          else if (startRim && tang > radial * 1.4 && tang > 18 && (crownFn = crownTarget()) && ng !== 'all') kind = 'crown';
+          else if (startRim && tang > radial * 1.4 && tang > 18 && !ccOpen && (crownFn = crownTarget()) && ng !== 'all') kind = 'crown';
           else if (startTop && vert && p.dy > 0 && !visto && shell.mode !== 'home' && V.control) kind = 'control';
           else if (ng === 'all') kind = 'none';
           else if (shell.mode === 'home' && !visto && !(V.control && V.control.isOpen)) {

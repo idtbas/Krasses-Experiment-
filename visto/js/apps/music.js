@@ -1537,7 +1537,7 @@
         if (q >= 1) { pulses.splice(j, 1); continue; }
         g.globalAlpha = (1 - q) * (1 - q) * 0.45 * p.v * vis;
         g.strokeStyle = c1; g.lineWidth = p.w;
-        g.beginPath(); g.arc(cx, cy, RD + 14 + 96 * V.ease.outCubic(q), 0, TAU); g.stroke();
+        g.beginPath(); g.arc(cx, cy, RD + 14 + 70 * V.ease.outCubic(q), 0, TAU); g.stroke();
       }
       // Strahlenkranz
       const r0 = RD * (1 + 0.016 * pop) + 17;
@@ -1545,7 +1545,7 @@
         g.lineWidth = pass ? 4.6 : 13;
         for (let i = 0; i < NR; i++) {
           const v = shown[i];
-          const L = 3 + v * 76;
+          const L = 3 + v * (76 - 22 * Math.max(0, 1 - i / 9));   // unten kürzer: Visto-Zone frei
           g.strokeStyle = rayCols[i];
           g.globalAlpha = (pass ? 0.32 + 0.68 * Math.min(1, v * 1.2) : 0.13 * v) * vis;
           const x0 = SIN[i] * r0, y0 = -COS[i] * r0, x1 = SIN[i] * (r0 + L), y1 = -COS[i] * (r0 + L);
@@ -1562,7 +1562,7 @@
         const q = s.life / s.max;
         if (q >= 1) { sparks.splice(j, 1); continue; }
         const a = U.rad(s.a), x = cx + Math.sin(a) * s.r, y = cy - Math.cos(a) * s.r;
-        const al = Math.sin(Math.PI * Math.min(1, q * 1.4 + 0.05)) * vis;
+        const al = Math.sin(Math.PI * Math.min(1, q * 1.4 + 0.05)) * vis * (1 - U.smoothstep(352, 388, s.r));
         g.fillStyle = s.col ? c2 : c1;
         g.globalAlpha = al * 0.22; g.beginPath(); g.arc(x, y, s.s * 3, 0, TAU); g.fill();
         g.globalAlpha = al * 0.95; g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y, s.s * 0.6, 0, TAU); g.fill();
@@ -1586,7 +1586,7 @@
     }
 
     /* ---------- Bildtakt */
-    let angle = Math.random() * 360, w = 0, lastT1 = '', lastT2 = '';
+    let angle = Math.random() * 360, w = M.playing ? 38 : 0, lastT1 = '', lastT2 = '';
     ctx.onFrame((dt, T) => {
       if (colT < 1) {
         colT = Math.min(1, colT + dt * 2);

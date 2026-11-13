@@ -218,6 +218,7 @@
     norm, parseDuration, parseTime, num: wordNum, calc,
     get history() { return history; },
     get claudeReady() { return (!!claude || !!(V.claude && V.claude.configured)) && V.store.get('settings.vistoAI', true); },
+    get claudeAvailable() { return !!claude || !!(V.claude && V.claude.configured); },
     get claudeSource() { return V.claude && V.claude.configured ? 'api' : claude ? 'artifact' : null; },
 
     intent(def) {

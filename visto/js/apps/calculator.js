@@ -221,6 +221,7 @@
     .cal-expr { position: absolute; left: 35.5cqw; right: 35.5cqw; top: 36cqw; height: 5cqw; text-align: center; white-space: nowrap; overflow: hidden;
       font-size: 3.5cqw; font-weight: 520; color: rgba(255,255,255,.42); font-variant-numeric: tabular-nums; letter-spacing: .01em;
       transition: opacity .3s; }
+    .cal-expr.cal-idle { font-size: 2.7cqw; font-weight: 650; letter-spacing: .2em; text-transform: uppercase; color: rgba(255,255,255,.3); line-height: 5cqw; }
     .cal-main { position: absolute; left: 0; right: 0; top: 50%; height: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
     .cal-scaler { position: relative; transform-origin: 50% 50%; }
     .cal-line { display: flex; white-space: nowrap; font-size: 12.5cqw; font-weight: 200; letter-spacing: -.035em; line-height: 1;
@@ -388,6 +389,8 @@
         if (how === 'instant') fit.set(k); else fit.to(k);
       }
       function setExpr(text) {
+        exprEl.classList.toggle('cal-idle', !text);
+        if (!text) text = 'Rechner';
         exprEl.textContent = text;
         if (exprEl.scrollWidth > exprEl.clientWidth + 1) {
           const parts = text.split(' ');

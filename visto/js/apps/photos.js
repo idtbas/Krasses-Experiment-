@@ -3,9 +3,10 @@
  *  Eingebaute „Fotos“ werden prozedural auf Canvas gemalt (Alpenglühen, Meer bei Dämmerung,
  *  Polarlicht über Fichten, Wüstendünen, Nebelwald, Milchstraße) – rund komponiert, mit
  *  Verläufen, Rauschen, Schichten, Glanz und feinem Filmkorn.
- *  Diashow: Ken-Burns-Fahrt, Übergänge „Iris“ (Kreis-Enthüllung), „Weich“ und „Zeiger“
- *  (Uhrzeiger-Wischen mit Lichtkopf am Rand). Antippen zeigt die Bedienung, waagerecht wischen
- *  oder am Rand drehen blättert. Fortschritt der Diashow läuft am Rand.
+ *  Diashow: Ken-Burns-Fahrt, Übergänge „Iris“ (Kreis-Enthüllung), „Weich“ und „Fächer“
+ *  (öffnet sich von einem Randpunkt aus, zwei Lichtköpfe laufen am Rand). Antippen zeigt die
+ *  Bedienung, waagerecht wischen (Foto gleitet als Scheibe weg) oder am Rand drehen blättert.
+ *  Fortschritt der Diashow und des Imports läuft am Rand.
  *  Eigene Fotos: verstecktes <input type=file accept=image/*>, verkleinert (max. 1200 px),
  *  gespeichert in IndexedDB (Rückfall: Arbeitsspeicher).
  *
@@ -813,6 +814,10 @@
     .ph-add { height: 11.5cqw; padding: 0 5.4cqw 0 4.4cqw; }
     .ph-del { width: 11.5cqw; height: 11.5cqw; }
     .ph-dots circle { transition: r .4s var(--spring), opacity .3s; }
+    .ph-hint { position: absolute; left: 22cqw; right: 22cqw; top: 76cqw; text-align: center; color: rgba(255,255,255,.82);
+      font-size: 3.3cqw; font-weight: 560; line-height: 1.35; white-space: pre-line; letter-spacing: .01em; text-shadow: 0 0 1.6cqw rgba(0,0,0,.8);
+      opacity: 0; transform: translateY(1.5cqw); transition: opacity .7s ease, transform .9s var(--ease); pointer-events: none; }
+    .ph-hint.ph-on { opacity: 1; transform: none; }
     .ph-paused { position: absolute; left: 0; right: 0; top: 33cqw; text-align: center; color: rgba(255,255,255,.7); opacity: 0; transition: opacity .4s; }
   `);
 
@@ -928,9 +933,9 @@
       const sub = U.el('div', { class: 'vos-label ph-sub' });
       const pausedL = U.el('div', { class: 'vos-label ph-paused', text: 'Pausiert' });
       const row = U.el('div', { class: 'ph-row' });
-      const prevB = V.ui.roundButton('prev', { label: 'Vorheriges Foto', cls: 'ph-glass', onClick: () => { poke(); go(-1, { type: 'sweep', manual: true }); } });
+      const prevB = V.ui.roundButton('prev', { label: 'Vorheriges Foto', cls: 'ph-glass', onClick: () => { poke(); go(-1, { type: 'fan', manual: true }); } });
       const playB = V.ui.roundButton('pause', { kind: 'lg', label: 'Diashow anhalten', cls: 'ph-play', onClick: () => { poke(); setPlaying(!playing); } });
-      const nextB = V.ui.roundButton('next', { label: 'Nächstes Foto', cls: 'ph-glass', onClick: () => { poke(); go(1, { type: 'sweep', manual: true }); } });
+      const nextB = V.ui.roundButton('next', { label: 'Nächstes Foto', cls: 'ph-glass', onClick: () => { poke(); go(1, { type: 'fan', manual: true }); } });
       row.append(prevB, playB, nextB);
       const bottom = U.el('div', { class: 'ph-bottom' });
       const addB = V.ui.button('Hinzufügen', { icon: 'plus', cls: 'ph-glass ph-add', onClick: () => { poke(); pick(); } });
@@ -1091,7 +1096,7 @@
       }
 
       /* ---------- Ablauf */
-      const TYPES = ['iris', 'fade', 'sweep'];
+      const TYPES = ['iris', 'fade', 'fan'];
       async function go(dir, o = {}) {
         if (!alive || sw) return;
         list = items();
@@ -1149,12 +1154,20 @@
       function renderDots() {
         dots.innerHTML = '';
         const n = list.length;
-        const step = Math.min(4.4, 150 / Math.max(1, n - 1));
-        for (let i = 0; i < n; i++) {
-          const a = (i - (n - 1) / 2) * step;
-          const p = V.display.pt(a, 404);
-          const on = i === idx;
-          dots.appendChild(U.svg('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: on ? 7 : 4, fill: '#fff', opacity: on ? 1 : list[i].kind === 'user' ? 0.55 : 0.35 }));
+        if (n <= 24) {
+          // Punkte am Bogen unter dem Titel
+          const step = Math.min(4.4, 52 / Math.max(1, n - 1));
+          for (let i = 0; i < n; i++) {
+            const a = (i - (n - 1) / 2) * step;
+            const p = V.display.pt(a, 404);
+            const on = i === idx;
+            dots.appendChild(U.svg('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: on ? 7 : 4, fill: '#fff', opacity: on ? 1 : list[i].kind === 'user' ? 0.55 : 0.35 }));
+          }
+        } else {
+          // viele Fotos: feiner Bogen mit leuchtender Position
+          dots.appendChild(U.svg('path', { d: V.ui.arcPath(500, 500, 404, -26, 26), fill: 'none', stroke: 'rgba(255,255,255,.28)', 'stroke-width': 4, 'stroke-linecap': 'round' }));
+          const a = -26 + (52 * idx) / (n - 1);
+          dots.appendChild(U.svg('path', { d: V.ui.arcPath(500, 500, 404, Math.max(-26, a - 2.2), Math.min(26, a + 2.2)), fill: 'none', stroke: '#fff', 'stroke-width': 9, 'stroke-linecap': 'round' }));
         }
       }
       function announce() {
@@ -1301,7 +1314,7 @@
         const p = pending; pending = null;
         if (!p) return;
         if (p.play !== undefined) { setPlaying(p.play); if (p.play && ctlOn) showCtl(false); if (!p.play && !ctlOn) showCtl(true); }
-        if (p.step) go(p.step, { type: 'sweep', manual: true });
+        if (p.step) go(p.step, { type: 'fan', manual: true });
       }
       ctx.on('photos:changed', () => {
         const id = cur && cur.item.id;
@@ -1333,6 +1346,16 @@
       ctx.line(0.3);
       pending = null;
 
+      // einmaliger Hinweis beim ersten Öffnen
+      if (!data.hinted) {
+        data.hinted = true; ctx.save();
+        const hint = U.el('div', { class: 'ph-hint', text: 'Antippen für Bedienung\nWischen zum Blättern' });
+        root.appendChild(hint);
+        ctx.timeout(() => hint.classList.add('ph-on'), 900);
+        ctx.timeout(() => hint.classList.remove('ph-on'), 5200);
+        ctx.timeout(() => hint.remove(), 6200);
+      }
+
       let crownAcc = 0;
       const inst = {
         get playing() { return playing; },
@@ -1347,7 +1370,7 @@
           if (Math.abs(crownAcc) >= 34) {
             const dir = crownAcc > 0 ? 1 : -1;
             crownAcc = 0;
-            go(dir, { type: 'sweep', manual: true });
+            go(dir, { type: 'fan', manual: true });
           }
         },
         params() { apply(); },

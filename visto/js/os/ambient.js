@@ -11,6 +11,7 @@
   let on = false;
   let shiftT = 0;
   let curDim = 0;
+  let overrideLvl = null;
 
   const amb = (V.ambient = {
     lux: 0.7,
@@ -39,7 +40,10 @@
       V.emit('ambient', true);
       apply();
     },
+    /** vorübergehende Helligkeit (z. B. Leuchte), wird nicht gespeichert; null = aus */
+    override(level) { overrideLvl = level === null || level === undefined ? null : U.clamp(level, 0, 1); apply(); },
     effective() {
+      if (overrideLvl !== null) return overrideLvl;
       let b = V.store.get('settings.brightness', 0.9);
       if (V.store.get('settings.autoBrightness', true)) b *= U.lerp(0.5, 1.15, amb.lux);
       if (amb.night()) b *= on ? 0.5 : 0.75;

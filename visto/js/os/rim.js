@@ -18,6 +18,7 @@
   const pulses = [];
   let auroraTarget = 0, aurora = 0, auroraT = 0;
   let level = null;
+  let coverS = 1;
   const hasConic = typeof CanvasRenderingContext2D !== 'undefined' && 'createConicGradient' in CanvasRenderingContext2D.prototype;
 
   const rad = (a) => ((a - 90) * Math.PI) / 180;
@@ -277,9 +278,16 @@
       z: 10,
       active: () => arcs.size > 0 || loaders.size > 0 || pulses.length > 0 || aurora > 0 || auroraTarget > 0 || !!level,
       draw(ctx, g, t, dt) {
+        // App-Bögen treten zurück, solange eine Systemebene darüber offen ist
+        const cover = (V.control && V.control.isOpen) || (V.faceEditor && V.faceEditor.isOpen) || (V.convo && V.convo.active);
+        coverS += ((cover ? 0.12 : 1) - coverS) * Math.min(1, dt * 8);
         for (const a of arcs.values()) {
           if (a.smooth) a.shown += (a.value - a.shown) * Math.min(1, dt * 9);
+          const keep = a.id === 'alert';
+          const al = a.alpha;
+          if (!keep) a.alpha = al * coverS;
           drawArc(ctx, g, a);
+          a.alpha = al;
         }
         drawAurora(ctx, g, dt);
         for (const L of Array.from(loaders)) drawLoader(ctx, g, L, dt);
