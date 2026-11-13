@@ -69,6 +69,7 @@
       U.el('p', { class: 'sub', text: 'Visto V1 · 7″ OLED, kreisrund, 1080 × 1080, 90 Hz. Dieses Display ist maßstabsgetreu verkleinert.' }),
       st,
       claudeRow(),
+      cameraRow(),
       row('90-Hz-Taktung', 'Zeichnet genau wie das echte Display höchstens 90 Bilder pro Sekunde.', switchEl(V.loop.cap90, (v) => { V.loop.cap90 = v; try { localStorage.setItem('vistoos.cap90', v ? '1' : '0'); } catch (e) { /* */ } })),
       row('Umgebungslicht', 'Simulierter Lichtsensor für die automatische Helligkeit.', lux),
       row('Zeitlupe', 'Alle Animationen verlangsamt ansehen.', slow),
@@ -86,6 +87,90 @@
     }, 400);
   }
   /** Claude verbinden: eigener API-Schlüssel der Organisation, bleibt nur in diesem Browser */
+  /* ------------------------------------------------------------ Kamera */
+  let camLed = null, puck = null;
+  function cameraRow() {
+    const wrap = U.el('div', { class: 'emu-claude' });
+    const seg = U.el('div', { class: 'emu-seg', attrs: { role: 'radiogroup', 'aria-label': 'Kamera' } });
+    const msg = U.el('p', { class: 'emu-claude-msg' });
+    const opts = [['off', 'Aus'], ['camera', 'Frontkamera'], ['sim', 'Simulation']];
+    const btns = opts.map(([v, l]) => {
+      const b = U.el('button', { class: 'emu-segb', text: l, attrs: { type: 'button', role: 'radio', 'data-v': v } });
+      b.addEventListener('click', async () => {
+        msg.textContent = '';
+        if (v === 'off') { V.presence.off(); }
+        else if (v === 'sim') { await V.presence.start('sim'); msg.textContent = 'Rechts neben dem Sockel ist jetzt ein Gesicht: ziehen = Kopf bewegen, antippen = weggehen/zurückkommen, Regler = Abstand.'; }
+        else {
+          msg.textContent = 'Kamera wird gestartet …';
+          const ok = await V.presence.start('camera');
+          msg.textContent = ok ? 'Die Kamera läuft – alles wird nur auf deinem Gerät ausgewertet. Bewege den Kopf: Visto schaut dich an.' : 'Die Kamera ließ sich nicht starten. Erlaube den Zugriff oder nutze die Simulation.';
+        }
+        sync();
+      });
+      seg.appendChild(b);
+      return b;
+    });
+    const near = U.el('input', { class: 'emu-range', attrs: { id: 'emu-face-near', type: 'range', min: 0, max: 100, value: 55, 'aria-label': 'Abstand' } });
+    near.addEventListener('input', () => { puckState.near = near.value / 100; pushPuck(); });
+    const nearRow = row('Abstand (Simulation)', 'Weit weg = Fernansicht mit großer Uhrzeit.', near);
+    const note = U.el('p', { class: 'emu-claude-note', text: 'Visto hat oben im Rahmen eine Kamera. Damit folgen die Augen deinem Gesicht, Hinschauen weckt das Display, Weggehen dimmt es, und die Uhr bekommt Tiefe. Die Erkennung läuft ausschließlich lokal; die grüne Leuchte am Gerät zeigt, wann die Kamera an ist.' });
+    function sync() {
+      const cur = V.presence.source || 'off';
+      btns.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === cur)));
+      nearRow.hidden = cur !== 'sim';
+    }
+    V.on('presence:source', sync);
+    sync();
+    wrap.append(row('Kamera', 'Gesichtsabhängige Funktionen', seg), msg, nearRow, note);
+    return wrap;
+  }
+
+  /* Simulation: ein „Gesicht“ als kleiner Steuerknüppel neben dem Sockel (verdeckt das Display nicht) */
+  const puckState = { x: 0.25, y: -0.1, near: 0.55, away: false };
+  let pad = null;
+  function pushPuck() {
+    if (!puck) return;
+    const on = V.presence.source === 'sim';
+    pad.hidden = !on;
+    if (!on) return;
+    const R = pad.offsetWidth / 2 - 18;
+    puck.style.transform = `translate(${(puckState.x * R).toFixed(1)}px, ${(puckState.y * R).toFixed(1)}px) scale(${(0.75 + puckState.near * 0.5).toFixed(3)})`;
+    pad.classList.toggle('away', puckState.away);
+    V.presence.simulate(puckState.away ? null : puckState.x, puckState.y, puckState.near);
+  }
+  function buildFacePuck(stage) {
+    pad = U.el('div', { class: 'emu-facepad', attrs: { hidden: true, title: 'Simuliertes Gesicht: ziehen = Kopf bewegen, antippen = weggehen/zurück, Mausrad = Abstand' } }, U.el('small', { text: 'Gesicht' }));
+    puck = U.el('div', { class: 'emu-face', attrs: { role: 'slider', 'aria-label': 'Simuliertes Gesicht', tabindex: '0' } },
+      U.el('span', { class: 'eye l' }), U.el('span', { class: 'eye r' }), U.el('span', { class: 'mouth' }));
+    pad.appendChild(puck);
+    stage.appendChild(pad);
+    let drag = null;
+    puck.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      puck.setPointerCapture(e.pointerId);
+      drag = { x0: e.clientX, y0: e.clientY, px: puckState.x, py: puckState.y, moved: false };
+    });
+    puck.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const R = pad.offsetWidth / 2 - 18;
+      const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+      if (Math.hypot(dx, dy) > 4) drag.moved = true;
+      let x = drag.px + dx / R, y = drag.py + dy / R;
+      const l = Math.hypot(x, y);
+      if (l > 1) { x /= l; y /= l; }
+      puckState.x = x; puckState.y = y;
+      pushPuck();
+    });
+    puck.addEventListener('pointerup', () => {
+      if (drag && !drag.moved) { puckState.away = !puckState.away; V.notify.toast(puckState.away ? 'Niemand da' : 'Zurück am Schreibtisch', 'visto'); }
+      drag = null; pushPuck();
+    });
+    puck.addEventListener('wheel', (e) => { e.preventDefault(); puckState.near = U.clamp(puckState.near - e.deltaY / 800, 0, 1); const n = document.getElementById('emu-face-near'); if (n) n.value = Math.round(puckState.near * 100); pushPuck(); }, { passive: false });
+    V.on('presence:source', pushPuck);
+    V.on('display:resize', pushPuck);
+    V.on('presence', () => { if (camLed) camLed.classList.toggle('on', !!V.presence.source); });
+  }
+
   function claudeRow() {
     const wrap = U.el('div', { class: 'emu-claude' });
     const status = U.el('small');
@@ -176,7 +261,9 @@
       const stage = U.el('section', { class: 'emu-stage' });
       deviceEl = U.el('div', { class: 'device' });
       glass = U.el('div', { class: 'device-glass' });
-      deviceEl.append(glass, U.el('div', { class: 'device-glare' }));
+      camLed = U.el('div', { class: 'device-cam', attrs: { title: 'Frontkamera' } }, U.el('i'));
+      deviceEl.append(glass, U.el('div', { class: 'device-glare' }), camLed);
+      buildFacePuck(stage);
       const neck = U.el('div', { class: 'device-neck' });
       const base = U.el('div', { class: 'device-base' });
       baseLight = U.el('div', { class: 'base-light' });

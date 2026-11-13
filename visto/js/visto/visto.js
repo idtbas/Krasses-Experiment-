@@ -94,7 +94,7 @@
     for (let i = 0; i < N; i++) {
       const s = closed ? i / N : i / (N - 1);
       const th2 = U.rad(90 + (s - 0.5) * span);
-      const th = th2 + rot;
+      const th = th2 + rot + U.rad(lineRot.value) * (1 - me);
       // lebendige Verformung
       let w = amp * (5.2 * Math.sin(2 * th2 + time * 1.3 + ph) + 3.4 * Math.sin(3 * th2 - time * 0.9 + 1 + ph) + 2.1 * Math.sin(5 * th2 + time * 2.1 + 2 - ph));
       w += lv * (9 * Math.sin(7 * th2 + time * 7.5 + ph) + 6 * Math.sin(11 * th2 - time * 9.3 + ph * 1.7));
@@ -247,7 +247,15 @@
       }
     }
     // Augen wandern
-    if (isOpen && state !== 'thinking' && !dragLook) {
+    // Kamera: Visto schaut dich an (Berührung hat kurz Vorrang, ab und zu ein Blick zur Seite)
+    touchT -= dt;
+    if (faceGaze && isOpen && state !== 'thinking' && !dragLook && touchT <= 0) {
+      glanceT -= dt;
+      if (glanceT <= 0) { glanceT = 5 + Math.random() * 6; glanceUntil = 0.45 + Math.random() * 0.35; glanceDir = { x: (Math.random() - 0.5) * 1.4, y: (Math.random() - 0.6) * 0.6 }; }
+      if (glanceUntil > 0) { glanceUntil -= dt; lookX.to(glanceDir.x); lookY.to(glanceDir.y); }
+      else { lookX.to(U.clamp(faceGaze.x * 0.95, -1, 1)); lookY.to(U.clamp(faceGaze.y * 0.75, -0.8, 0.8)); }
+      sacc = 2;
+    } else if (isOpen && state !== 'thinking' && !dragLook && touchT <= 0) {
       sacc -= dt;
       if (sacc <= 0) {
         sacc = 1.4 + Math.random() * 2.6;
@@ -264,6 +272,8 @@
     if (shimmer >= 0) { shimmer += dt / 1.3; if (shimmer > 1) shimmer = -1; }
   }
   let dragLook = false;
+  let faceGaze = null, touchT = 0, glanceT = 6, glanceUntil = 0, glanceDir = { x: 0, y: 0 };
+  const lineRot = V.spring(0, { response: 0.9, bounce: 0 });
 
   function draw(ctx, g, t, dt) {
     update(dt);
@@ -400,6 +410,29 @@
       const k = Math.min(1, d / 300);
       lookX.to((dx / d) * k); lookY.to((dy / d) * k * 0.8);
       sacc = 2.2;
+      touchT = 1.6;
+    },
+    /** Kamera: Blickziel aus Sicht der Person (x, y −1…1) oder null, wenn niemand da ist */
+    watch(x, y) {
+      if (x === null || x === undefined) {
+        if (faceGaze) { faceGaze = null; lineRot.to(0); hover.to(0); if (isOpen) { lookX.to(0); lookY.to(0); } }
+        return;
+      }
+      faceGaze = { x, y };
+      // die Ruhelinie rückt ein wenig zur Person hin und leuchtet auf, wenn man hinschaut
+      lineRot.to(U.clamp(-x * 9, -9, 9));
+      if (!isOpen) hover.to(V.presence && V.presence.state.looking ? 0.55 : 0.15);
+    },
+    get watching() { return !!faceGaze; },
+    /** kurze Begrüßung, wenn jemand nach längerer Zeit zurückkommt */
+    greet() {
+      if (isOpen) return;
+      visto.open().then(() => {
+        visto.emote('happy', 2400);
+        const n = V.store.get('user.name', '');
+        V.notify.toast(n ? 'Willkommen zurück, ' + n : 'Willkommen zurück', 'visto');
+        setTimeout(() => { if (!(V.convo && V.convo.active)) visto.close(); }, 2600);
+      });
     },
     setLine(a) { lineTarget = a; if (!isOpen) lineA.to(a); },
     hover(on) { hover.to(on ? 1 : 0); },

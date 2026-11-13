@@ -83,7 +83,10 @@
     apply();
     V.loop.add((dt) => {
       const idle = (performance.now() - last) / 1000;
-      const lim = V.store.get('settings.idleSec', 60);
+      let lim = V.store.get('settings.idleSec', 60);
+      // Kamera: niemand da → früher dimmen; jemand schaut hin → wach bleiben
+      const P = V.presence;
+      if (P && P.active) { if (!P.state.present) lim = Math.min(lim, 15); else if (P.state.looking) last = performance.now(); }
       if (!on && idle > lim && V.shell.mode === 'home' && !V.notify.alertOpen) amb.sleep();
       // Apps ohne Wachhalten kehren nach langer Ruhe zum Zifferblatt zurück
       if (V.shell.mode === 'app' && idle > Math.max(180, lim * 3)) {

@@ -66,20 +66,32 @@
     hz: 60,        // gemessene Bildwiederholrate des Handys
     fps: 60,       // tatsächlich gezeichnete Bilder pro Sekunde
     slow: 1,       // Zeitlupe für Tests
-    get count() { return subs.length; },   // Anzahl Abonnenten (Leck-Suche)
+    get count() { return subs.length + pending.length; },   // Anzahl Abonnenten (Leck-Suche)
     add(fn, z = 0) {
       const s = { fn, z, dead: false };
-      subs.push(s);
-      subs.sort((a, b) => a.z - b.z);
+      // während eines Bildes nicht umsortieren (sonst laufen Abonnenten doppelt oder fallen aus) – ab dem nächsten Bild dabei
+      if (ticking) pending.push(s);
+      else { subs.push(s); subs.sort((a, b) => a.z - b.z); }
       kick();
-      return () => { s.dead = true; const i = subs.indexOf(s); if (i >= 0) subs.splice(i, 1); };
+      return () => {
+        if (s.dead) return;
+        s.dead = true;
+        if (ticking) { dirty = true; return; }
+        let i = subs.indexOf(s);
+        if (i >= 0) subs.splice(i, 1);
+        else if ((i = pending.indexOf(s)) >= 0) pending.splice(i, 1);
+      };
     },
   });
+  const pending = [];
+  let ticking = false, dirty = false;
 
   const rawIntervals = [];
   let fpsCount = 0, fpsAcc = 0;
 
-  function kick() { if (!raf) { lastRaw = 0; raf = requestAnimationFrame(tick); } }
+  // nie ein zweites requestAnimationFrame anfordern, solange ein Bild läuft: sonst liefe der Takt
+  // danach dauerhaft mehrfach je Bild (jede Anmeldung aus einem Bild heraus kam dazu – Arbeit ×2, ×3 …)
+  function kick() { if (!raf && !ticking) { lastRaw = 0; raf = requestAnimationFrame(tick); } }
 
   function tick(now) {
     raf = 0;
@@ -111,12 +123,20 @@
     fpsCount++; fpsAcc += dt / loop.slow;
     if (fpsAcc >= 0.5) { loop.fps = Math.round(fpsCount / fpsAcc); fpsCount = 0; fpsAcc = 0; }
 
+    ticking = true;
     for (let i = 0; i < subs.length; i++) {
       const s = subs[i];
       if (s.dead) continue;
       try { s.fn(dt, loop.t); } catch (e) { console.error('[VistoOS] Takt', e); }
     }
-    if (subs.length) raf = requestAnimationFrame(tick);
+    ticking = false;
+    if (dirty) { dirty = false; for (let i = subs.length - 1; i >= 0; i--) if (subs[i].dead) subs.splice(i, 1); }
+    if (pending.length) {
+      for (const s of pending) if (!s.dead) subs.push(s);
+      pending.length = 0;
+      subs.sort((a, b) => a.z - b.z);
+    }
+    if (subs.length && !raf) raf = requestAnimationFrame(tick);
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { lastRender = 0; kick(); } });
 

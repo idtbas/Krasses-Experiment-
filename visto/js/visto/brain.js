@@ -571,7 +571,24 @@
       return { say: `Erledigt, die Uhr steht jetzt auf ${V.fmt.time24(d).replace(/^0(?=\d)/, '')} Uhr.`, card: { type: 'big', text: V.fmt.time(d), sub: 'Manuell gestellt' }, emotion: 'happy' };
     } });
 
+  I({ id: 'camera', priority: 7, match: [/\bkamera\b/, /\bschau mich an\b|\bsiehst du mich\b|\bkannst du mich sehen\b/],
+    async run(m, t) {
+      const P = V.presence;
+      if (/\bkamera\b/.test(t) && /\b(aus|ausschalten|deaktiv|stopp)/.test(t)) { P.off(); return { say: 'Kamera ist aus. Ich sehe jetzt nichts mehr.', emotion: 'sleepy' }; }
+      if (/\bkamera\b/.test(t) && /\b(an|ein|einschalten|aktiv|start)/.test(t)) {
+        const ok = await P.start('camera');
+        return ok ? { say: 'Kamera ist an. Alles bleibt auf dem Gerät.', emotion: 'surprised' } : { say: 'Die Kamera ließ sich nicht starten. Im Emulator gibt es auch eine Simulation.', emotion: 'sad' };
+      }
+      if (!P.active) return { say: 'Meine Kamera ist gerade aus. Sag „Kamera an“, dann schaue ich dich an.', emotion: 'sleepy' };
+      return P.state.present ? { say: 'Ja, ich sehe dich! ' + (P.state.near < 0.25 ? 'Du bist ziemlich weit weg.' : P.state.near > 0.8 ? 'Du bist ganz schön nah dran.' : 'Schön, dass du da bist.'), emotion: 'happy' } : { say: 'Im Moment sehe ich niemanden.', emotion: 'confused' };
+    } });
+
   /* Systemaktionen für Claude */
+  V.actions.register('system.camera', {
+    desc: 'Schaltet die Frontkamera von Visto (Gesichtserkennung nur lokal: Augen folgen dem Gesicht, Anwesenheit, Fernansicht). on: true/false.',
+    params: { on: { type: 'boolean' } }, required: ['on'],
+    async run(a) { if (!a.on) { V.presence.off(); return 'Kamera aus.'; } return (await V.presence.start('camera')) ? 'Kamera an.' : 'Kamera konnte nicht starten.'; },
+  });
   V.actions.register('system.set_clock', {
     desc: 'Stellt die Systemuhr manuell (time als HH:MM) oder mit mode "auto" zurück auf automatisch.',
     params: { time: { type: 'string', description: 'HH:MM' }, mode: { type: 'string', enum: ['manual', 'auto'] } },

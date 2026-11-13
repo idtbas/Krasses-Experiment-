@@ -99,6 +99,11 @@ CSS-Klassen: .vos-btn(.primary/.white/.danger/.ghost/.sm) .vos-round(.lg/.sm) .v
 V.notify.banner({title, body, icon, color, silent}) ; await V.notify.alert({title, body, icon, color, alarm, buttons:[{label, kind, value}]})
 V.notify.toast('Gespeichert', 'check')
 
+// Kamera (Gesichtsposition, alles lokal)
+V.presence.state → {present, x, y (−1…1 aus Sicht der Person), near (0 weit … 1 nah), looking}
+Ereignisse: 'presence' (laufend), 'presence:arrive', 'presence:leave', 'presence:look'
+V.presence.start('camera'|'sim') · V.presence.off() · V.visto.watch(x, y) (macht presence.js selbst)
+
 // Navigation
 V.shell.open(appId, params, origin) ; V.shell.home() ; V.shell.launcher() ; V.shell.back() ; V.shell.mode
 ```
