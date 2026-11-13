@@ -164,6 +164,17 @@
     }
   };
 
+  /** Stile einer Datei einmalig einhängen: V.css('wx', '.wx-temp{…}') */
+  const cssDone = new Set();
+  V.css = function (id, text) {
+    if (cssDone.has(id)) return;
+    cssDone.add(id);
+    const s = document.createElement('style');
+    s.setAttribute('data-vos', id);
+    s.textContent = text;
+    document.head.appendChild(s);
+  };
+
   /** kleines Protokoll für Fehler, die die Oberfläche nicht stören sollen */
   V.safe = function (fn, label) {
     try { return fn(); } catch (e) { console.error('[VistoOS]', label || '', e); return undefined; }

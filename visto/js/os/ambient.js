@@ -40,7 +40,7 @@
     },
     effective() {
       let b = V.store.get('settings.brightness', 0.9);
-      if (V.store.get('settings.autoBrightness', true)) b *= U.lerp(0.45, 1.08, amb.lux);
+      if (V.store.get('settings.autoBrightness', true)) b *= U.lerp(0.5, 1.15, amb.lux);
       if (amb.night()) b *= on ? 0.5 : 0.75;
       if (on) b *= V.store.get('settings.alwaysOn', true) ? 0.4 : 0;
       return U.clamp(b, 0, 1);
@@ -49,9 +49,10 @@
 
   function apply() {
     const b = amb.effective();
-    const target = 1 - U.clamp(b, 0.03, 1) * 1;
+    // wahrnehmungsgerechte Kurve: hohe Helligkeit bleibt strahlend, niedrige wird deutlich dunkler
+    const target = Math.pow(1 - U.clamp(b, 0.03, 1), 1.7);
     curDim = target;
-    V.display.setDim(on && !V.store.get('settings.alwaysOn', true) ? 1 : target * 0.94);
+    V.display.setDim(on && !V.store.get('settings.alwaysOn', true) ? 1 : target * 0.95);
     V.display.setNightTint(on && amb.night() ? 0.92 : amb.night() && V.store.get('settings.night') === 'on' ? 0.5 : 0);
   }
 

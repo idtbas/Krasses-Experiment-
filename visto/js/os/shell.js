@@ -261,6 +261,7 @@
         startEdge = p.x0 < 120 && Math.abs(p.y0 - 500) < 320;
         startRim = p.r0 > 395;
         lastA = 0;
+        if (startLine && !isInteractive(t)) V.visto && V.visto.hover(true);
       },
       move(p) {
         if (kind === 'none') return;
@@ -297,6 +298,7 @@
         }
       },
       end(p) {
+        V.visto && V.visto.hover(false);
         const k = kind; kind = null;
         setTimeout(() => { shell.swallowClick = false; }, 0);
         if (!k || k === 'none' || p.cancelled) { if (k === 'back') endBack(p, true); return; }

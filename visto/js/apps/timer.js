@@ -44,7 +44,7 @@
     stop(t.id);
     const v = await V.notify.alert({
       title: t.label === 'Timer' ? 'Timer abgelaufen' : t.label,
-      body: t.label === 'Timer' ? V.fmt.durationWords(t.total) + ' sind um.' : 'Timer · ' + V.fmt.durationWords(t.total),
+      body: t.label === 'Timer' ? 'Die Zeit ist um · ' + V.fmt.durationWords(t.total) : 'Timer · ' + V.fmt.durationWords(t.total),
       icon: 'timer', color: COLOR, alarm: 'chime',
       buttons: [{ label: '+1 Min', value: 'plus' }, { label: 'Stopp', kind: 'white', value: 'stop' }],
     });
@@ -81,7 +81,7 @@
         required: ['seconds'],
         run(a) {
           const t = start(Number(a.seconds), a.label ? String(a.label) : undefined);
-          return { say: `Timer für ${V.fmt.durationWords(t.total)} läuft.`, card: { type: 'icon', icon: 'timer', color: COLOR, title: V.fmt.duration(t.total), sub: t.label } };
+          return { say: `${t.label !== 'Timer' ? t.label + '-Timer' : 'Timer'} für ${V.fmt.durationWords(t.total)} läuft.`, card: { type: 'icon', icon: 'timer', color: COLOR, title: V.fmt.duration(t.total), sub: t.label } };
         },
       });
       V.actions.register('timer.stop', { desc: 'Stoppt alle laufenden Timer.', run() { const n = st().timers.length; stop(); return n ? 'Timer gestoppt.' : 'Es läuft kein Timer.'; } });
@@ -125,12 +125,12 @@
       let setSec = st().last || 300;
       let mode = active() ? 'run' : 'set';
 
-      const center = U.el('div', { class: 'vos-center', style: { position: 'absolute', inset: '0' } });
-      const big = U.el('div', { class: 'vos-num', style: { fontSize: '22cqw', fontWeight: 200, letterSpacing: '-.045em', lineHeight: 1, display: 'flex', marginTop: '-4cqw' } });
-      const sub = U.el('div', { class: 'vos-label', style: { marginTop: '2.4cqw', color: U.rgba(COLOR, 0.85) } });
-      const row = U.el('div', { style: { display: 'flex', gap: '4cqw', marginTop: '6cqw', alignItems: 'center' } });
+      const center = U.el('div', { style: { position: 'absolute', inset: '0', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '33cqw' } });
+      const big = U.el('div', { class: 'vos-num', style: { fontSize: '21cqw', fontWeight: 200, letterSpacing: '-.045em', lineHeight: 1, display: 'flex', height: '21cqw' } });
+      const sub = U.el('div', { class: 'vos-label', style: { marginTop: '2.2cqw', color: U.rgba(COLOR, 0.85) } });
+      const row = U.el('div', { style: { display: 'flex', gap: '4cqw', marginTop: '4.6cqw', alignItems: 'center' } });
       center.append(big, sub, row);
-      const presets = U.el('div', { style: { position: 'absolute', left: 0, right: 0, top: '17cqw', display: 'flex', justifyContent: 'center', gap: '1.6cqw' } });
+      const presets = U.el('div', { style: { position: 'absolute', left: 0, right: 0, top: '20.5cqw', display: 'flex', justifyContent: 'center', gap: '1.4cqw', zIndex: 2 } });
       root.append(presets, center);
       const digits = V.faces.rollDigits(big, { digitW: '0.58em', colonW: '0.28em' });
 
@@ -144,19 +144,19 @@
           digits.set(V.fmt.duration(setSec));
           sub.textContent = 'Am Rand drehen';
           for (const m of [1, 3, 5, 10, 25]) {
-            const c = U.el('button', { class: 'vos-chip' + (setSec === m * 60 ? ' on' : ''), text: m + ' Min', attrs: { type: 'button' }, style: setSec === m * 60 ? { background: COLOR, color: '#1a0d00' } : null });
+            const c = U.el('button', { class: 'vos-chip' + (setSec === m * 60 ? ' on' : ''), text: m + (m === 1 ? ' Min' : ''), attrs: { type: 'button', 'aria-label': m + ' Minuten' }, style: Object.assign({ minWidth: '10cqw', justifyContent: 'center' }, setSec === m * 60 ? { background: COLOR, color: '#1a0d00' } : {}) });
             V.ui.tap(c, () => { setSec = m * 60; render(); });
             presets.appendChild(c);
           }
           row.appendChild(V.ui.roundButton('play', { kind: 'lg', label: 'Start', style: { background: COLOR, color: '#1a0d00' }, onClick: () => { start(setSec); V.sound.play('success'); render(); } }));
-          ctx.rim.arc('main', { value: knobVal(), from: 0, color: COLOR, width: 16, r: 462, glow: 1.1, track: true, head: true, smooth: true });
+          ctx.rim.arc('main', { value: knobVal(), from: 0, color: COLOR, width: 12, r: 478, glow: 0.9, track: true, head: true, smooth: true });
         } else {
           const t = a;
           sub.textContent = t.paused ? 'Pausiert' : t.label === 'Timer' ? 'Endet um ' + V.fmt.time(new Date(t.end)) : t.label;
           row.appendChild(V.ui.roundButton('close', { label: 'Abbrechen', onClick: () => { stop(t.id); render(); } }));
           row.appendChild(V.ui.roundButton(t.paused ? 'play' : 'pause', { kind: 'lg', label: 'Pause', style: { background: U.rgba(COLOR, 0.22), color: COLOR }, onClick: () => { t.paused ? resume(t) : pause(t); render(); } }));
           row.appendChild(V.ui.roundButton('plus', { label: '+1 Minute', onClick: () => { add(t, 60); render(); } }));
-          const pl = U.el('div', { class: 'vos-small', style: { position: 'absolute', left: 0, right: 0, top: '20cqw', textAlign: 'center' }, text: V.fmt.durationWords(t.total) });
+          const pl = U.el('div', { class: 'vos-label', style: { textAlign: 'center', marginTop: '2.4cqw', color: 'rgba(255,255,255,.45)' }, text: V.fmt.durationWords(t.total) });
           presets.appendChild(pl);
         }
       }
@@ -188,7 +188,7 @@
         if (!a) { render(); return; }
         const l = leftOf(a);
         digits.set(V.fmt.duration(l));
-        ctx.rim.arc('main', { value: l / a.total, from: 0, color: COLOR, width: 16, r: 462, glow: 1.2, track: true, head: true, smooth: false, alpha: a.paused ? 0.5 : 1 });
+        ctx.rim.arc('main', { value: l / a.total, from: 0, color: COLOR, width: 12, r: 478, glow: 0.9, track: true, head: true, smooth: false, alpha: a.paused ? 0.5 : 1 });
       });
       return {
         crown(dA) {

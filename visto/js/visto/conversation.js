@@ -29,7 +29,7 @@
     aEl = U.el('div', { class: 'cv-text cv-a' });
     cardEl = U.el('div', { class: 'cv-card' });
     hintEl = U.el('div', { class: 'cv-hint' });
-    chipsEl = U.el('div', { style: { position: 'absolute', left: 0, right: 0, top: '75cqw', display: 'flex', justifyContent: 'center', gap: '1.8cqw', flexWrap: 'wrap', padding: '0 15cqw', pointerEvents: 'auto', transition: 'opacity .4s, transform .5s var(--ease)' } });
+    chipsEl = U.el('div', { style: { position: 'absolute', left: 0, right: 0, top: '70.5cqw', display: 'flex', justifyContent: 'center', gap: '1.8cqw', flexWrap: 'wrap', padding: '0 15cqw', pointerEvents: 'auto', transition: 'opacity .4s, transform .5s var(--ease)' } });
     root.append(qEl, aEl, cardEl, hintEl, chipsEl);
     root.style.opacity = '0';
     root.style.transition = 'opacity .35s ease';
@@ -64,7 +64,7 @@
   function scrimOn(on) {
     const s = V.display.scrim;
     s.style.transition = 'opacity .45s ease';
-    s.style.opacity = on ? '0.86' : '0';
+    s.style.opacity = on ? '0.93' : '0';
     s.style.pointerEvents = on ? 'auto' : 'none';
     root.style.opacity = on ? '1' : '0';
   }
@@ -87,7 +87,7 @@
   }
   function hint(text) {
     hintEl.textContent = text;
-    hintEl.style.top = '66cqw';
+    hintEl.style.top = '63.5cqw';
     hintEl.style.opacity = text ? '1' : '0';
   }
 

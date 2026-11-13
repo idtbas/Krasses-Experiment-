@@ -10,7 +10,7 @@
 (function () {
   const V = window.V;
   const renderers = [];
-  let cv, ctx, gl, gctx, W = 0, GW = 0, drewLast = true;
+  let cv, ctx, gl, gctx, bl, bctx, W = 0, GW = 0, drewLast = true, canBlur = false;
   const GLOW_DIV = 3;
 
   function setup() {
@@ -18,6 +18,10 @@
     ctx = cv.getContext('2d');
     gl = document.createElement('canvas');
     gctx = gl.getContext('2d');
+    // weiches Leuchten: wenn der Browser Zeichenfilter kann, den kleinen Puffer zusätzlich weichzeichnen
+    bl = document.createElement('canvas');
+    bctx = bl.getContext('2d');
+    try { bctx.filter = 'blur(2px)'; canBlur = bctx.filter === 'blur(2px)'; bctx.filter = 'none'; } catch (e) { canBlur = false; }
     resize();
     V.on('display:resize', resize);
     V.loop.add(frame, 100);
@@ -28,6 +32,7 @@
     cv.width = cv.height = W;
     GW = Math.max(32, Math.round(W / GLOW_DIV));
     gl.width = gl.height = GW;
+    bl.width = bl.height = GW;
     drewLast = true;
   }
 
@@ -60,7 +65,21 @@
     ctx.globalCompositeOperation = 'destination-over';
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(gl, 0, 0, GW, GW, 0, 0, W, W);
+    let src = gl;
+    if (canBlur) {
+      bctx.setTransform(1, 0, 0, 1, 0, 0);
+      bctx.clearRect(0, 0, GW, GW);
+      bctx.filter = 'blur(' + Math.max(1.5, GW / 260).toFixed(1) + 'px)';
+      bctx.drawImage(gl, 0, 0);
+      bctx.filter = 'none';
+      bctx.globalCompositeOperation = 'lighter';
+      bctx.globalAlpha = 0.55;
+      bctx.drawImage(gl, 0, 0);
+      bctx.globalAlpha = 1;
+      bctx.globalCompositeOperation = 'source-over';
+      src = bl;
+    }
+    ctx.drawImage(src, 0, 0, GW, GW, 0, 0, W, W);
     ctx.globalCompositeOperation = 'source-over';
   }
 

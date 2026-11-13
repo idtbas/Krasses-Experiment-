@@ -73,10 +73,10 @@
     else ctx.arc(500, 500, r, rad(lo), rad(hi));
     ctx.stroke();
     if (a.glow > 0) {
-      g.globalAlpha = 0.55 * a.glow * a.alpha;
+      g.globalAlpha = 0.4 * a.glow * a.alpha;
       g.strokeStyle = a.color;
       g.lineCap = 'round';
-      g.lineWidth = w * 3.2;
+      g.lineWidth = w * 2.4;
       g.beginPath();
       if (v >= 0.9995) g.arc(500, 500, r, 0, TAU); else g.arc(500, 500, r, rad(lo), rad(hi));
       g.stroke();
@@ -85,9 +85,9 @@
       const p = V.display.pt(a1, r);
       ctx.fillStyle = '#fff';
       ctx.beginPath(); ctx.arc(p.x, p.y, w * 0.32, 0, TAU); ctx.fill();
-      g.globalAlpha = a.alpha;
+      g.globalAlpha = a.alpha * 0.8;
       g.fillStyle = a.color;
-      g.beginPath(); g.arc(p.x, p.y, w * 2.4, 0, TAU); g.fill();
+      g.beginPath(); g.arc(p.x, p.y, w * 1.7, 0, TAU); g.fill();
     }
     ctx.globalAlpha = 1; g.globalAlpha = 1;
   }
@@ -178,8 +178,8 @@
       ctx.lineWidth = 6 + 6 * lvl;
       ctx.strokeStyle = mk(ctx, 0.75 * Math.min(1, lvl * 1.4));
       ctx.beginPath(); ctx.arc(500, 500, r, 0, TAU); ctx.stroke();
-      g.lineWidth = 60 + 70 * lvl;
-      g.strokeStyle = mk(g, 0.55 * Math.min(1, lvl * 1.2));
+      g.lineWidth = 34 + 46 * lvl;
+      g.strokeStyle = mk(g, 0.5 * Math.min(1, lvl * 1.2));
       g.beginPath(); g.arc(500, 500, 486, 0, TAU); g.stroke();
     } else {
       const n = 60;

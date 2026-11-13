@@ -110,7 +110,7 @@
     if (dayOff) d.setDate(d.getDate() + dayOff);
     else if (d <= now) {
       // ohne Tagesangabe: nächstes Vorkommen. Bei „um 7“ und es ist 9 Uhr → evtl. 19 Uhr
-      if (h < 12 && !/\b(morgens|früh|vormittags)\b/.test(t) && d.getTime() + 12 * 3600e3 > now.getTime()) d.setHours(d.getHours() + 12);
+      if (h < 12 && !/\b(morgens|früh|vormittags|weck|wecker|aufwachen)/.test(t) && d.getTime() + 12 * 3600e3 > now.getTime()) d.setHours(d.getHours() + 12);
       else d.setDate(d.getDate() + 1);
     }
     return { date: d, h: d.getHours(), m: d.getMinutes(), rel: false };
