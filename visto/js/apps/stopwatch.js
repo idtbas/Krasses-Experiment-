@@ -472,6 +472,8 @@
           if (lit) alpha = (major ? 0.7 : 0.46) + 0.5 * Math.exp(-behind / 30);
           else alpha = (major ? 0.5 : 0.2) + 0.4 * near * (active ? 1 : 0.45);
           alpha = Math.min(1, alpha + flash * 0.5);
+          // Visto-Zone unten: Striche treten zurück
+          alpha *= 1 - 0.68 * Math.exp(-Math.pow((a - 180) / 13, 2));
           const sn = Math.sin(U.rad(a)), cn = Math.cos(U.rad(a));
           g.strokeStyle = lit ? ya(alpha) : wa(alpha);
           g.lineWidth = major ? 4.4 : 2.5;
@@ -516,11 +518,11 @@
               g.beginPath(); g.moveTo(500 + sn * r0, 500 - cn * r0); g.lineTo(500 + sn * r1, 500 - cn * r1); g.stroke();
             }
             g.globalAlpha = 1;
-            if (isNew && popT < 0.9) {
-              const q = popT / 0.9;
+            if (isNew && popT < 0.6) {
+              const q = popT / 0.6;
               const p = pt(a, R_LAP);
-              g.strokeStyle = ya((1 - q) * (1 - q) * 0.9); g.lineWidth = 3;
-              g.beginPath(); g.arc(p.x, p.y, 10 + 42 * V.ease.outCubic(q), 0, TAU); g.stroke();
+              g.fillStyle = (col === '#ffffff' ? ya : (x) => U.rgba(col, x))((1 - q) * (1 - q) * 0.55);
+              g.beginPath(); g.arc(p.x, p.y, 8 + 26 * V.ease.outCubic(q), 0, TAU); g.fill();
             }
           }
         }
