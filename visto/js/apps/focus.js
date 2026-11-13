@@ -422,7 +422,7 @@
       const dotsSvg = U.svg('svg', { class: 'vos-svg', viewBox: '0 0 1000 1000', 'aria-hidden': 'true' });
       const dots = [];
       for (let i = 0; i < ROUNDS; i++) {
-        const p = V.display.pt((i - (ROUNDS - 1) / 2) * 8.6, 398);
+        const p = V.display.pt((i - (ROUNDS - 1) / 2) * 9.2, 384);
         const halo = U.svg('circle', { cx: p.x, cy: p.y, r: 19, fill: '#fff', opacity: 0 });
         const dot = U.svg('circle', { cx: p.x, cy: p.y, r: 8.5, fill: 'none', stroke: 'rgba(255,255,255,.3)', 'stroke-width': 2.6 });
         dotsSvg.append(halo, dot);
@@ -604,7 +604,7 @@
         c2.clearRect(0, 0, W, W);
         c2.setTransform(W / 1000, 0, 0, W / 1000, 0, 0);
         const breath = 1 + 0.028 * Math.sin(T * 0.85) + 0.012 * Math.sin(T * 2.1 + 1);
-        drawOrb(c2, T, { cx: 500, cy: mode === 'done' ? 400 : 428, R: 212 * sizeSp.value * breath, cols, a: Math.max(0, alphaSp.value) });
+        drawOrb(c2, T, { cx: 500, cy: mode === 'done' ? 400 : 428, R: 238 * sizeSp.value * breath, cols, a: Math.max(0, alphaSp.value) });
 
         if (mode === 'run' && s) {
           digits.set(V.fmt.duration(leftOf(s)));
