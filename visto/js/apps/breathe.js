@@ -247,7 +247,7 @@
 
       // — Einstellen
       const chips = CHOICES.map((m, i) => {
-        const x = 500 + (i - 1) * 232, y = i === 1 ? 668 : 650;
+        const x = 500 + (i - 1) * 232, y = i === 1 ? 652 : 632;
         const b = U.el('button', { class: 'br-chip', attrs: { type: 'button', 'aria-label': minWord(m) }, style: { left: x / 10 + 'cqw', top: y / 10 + 'cqw' } },
           U.el('span', { text: String(m) }), U.el('small', { text: 'Min.' }));
         V.ui.tap(b, () => choose(m));
@@ -260,7 +260,7 @@
       // — Übung
       const leftEl = U.el('div', { class: 'br-txt br-left', style: { top: '80.2cqw' } });
       const pausedRow = U.el('div', { class: 'br-row', style: { top: '40.5cqw', height: '19cqw', gap: '5cqw' } },
-        V.ui.roundButton('close', { label: 'Beenden', style: { width: '15cqw', height: '15cqw', background: 'rgba(255,255,255,.12)' }, onClick: () => end(false) }),
+        V.ui.roundButton('close', { label: 'Beenden', style: { width: '15cqw', height: '15cqw', background: '#202224', boxShadow: '0 0 0 .3cqw rgba(255,255,255,.08), 0 1cqw 4cqw rgba(0,0,0,.6)' }, onClick: () => end(false) }),
         V.ui.roundButton('play', { kind: 'lg', label: 'Weiter', style: { width: '19cqw', height: '19cqw', background: COLOR, color: '#032A1F' }, onClick: () => togglePause() }));
       views.run.append(leftEl, pausedRow);
 
@@ -294,8 +294,8 @@
         leftEl.style.opacity = (1 - U.clamp(v, 0, 1)).toFixed(3);
       });
       pauseSp.set(0);
-      const fy = V.spring(415, { response: 0.8, bounce: 0.12 });     // Mitte der Blüte (y)
-      const fs = V.spring(0.92, { response: 0.8, bounce: 0.12 });    // Größe
+      const fy = V.spring(392, { response: 0.8, bounce: 0.12 });     // Mitte der Blüte (y)
+      const fs = V.spring(1, { response: 0.8, bounce: 0.12 });       // Größe
       const fa = V.spring(0, { response: 0.9, bounce: 0 });          // Helligkeit
       const titleSp = V.spring(1, { response: 0.6, bounce: 0 });
       titleSp.onUpdate((v) => { title.el.style.opacity = U.clamp(v, 0, 1).toFixed(3); rhythm.el.style.opacity = (U.clamp(v, 0, 1) * (mode === 'setup' ? 1 : 0)).toFixed(3); });
@@ -378,7 +378,7 @@
           setPhase('');
           showView('setup');
           titleSp.to(1);
-          fy.to(415); fs.to(0.92); fa.to(1);
+          fy.to(392); fs.to(1); fa.to(1);
           ctx.rim.remove('total');
           return;
         }
@@ -389,7 +389,7 @@
         const d = today();
         doneH.textContent = complete ? 'Schön gemacht.' : 'Gut gemacht.';
         doneBody.textContent = KIND[(d.sessions + breaths) % KIND.length];
-        doneLab.textContent = `${complete ? minWord(minutes) : minShort(sec)} · ${breaths} ${breaths === 1 ? 'Atemzug' : 'Atemzüge'} · heute ${minShort(d.sec)}`;
+        doneLab.textContent = `${complete ? minWord(minutes) : minShort(sec)} · ${breaths} ${breaths === 1 ? 'Atemzug' : 'Atemzüge'}` + (d.sec > sec + 30 ? ` · heute ${minShort(d.sec)}` : '');
         showView('done');
         titleSp.to(1);
         title.set(complete ? 'Geschafft' : 'Atmen');
@@ -467,7 +467,7 @@
           const left = 'noch ' + V.fmt.duration(total - el);
           if (leftEl.textContent !== left) leftEl.textContent = left;
           ctx.rim.arc('pace', { value: pace, from: 0, color: COLOR, width: 12, r: 478, glow: 1, track: true, head: false, smooth: false, alpha: paceAlpha });
-          ctx.rim.arc('total', { value: el / total, from: 0, color: '#ffffff', width: 3, r: 457, glow: 0, track: false, smooth: false, alpha: 0.32 });
+          ctx.rim.arc('total', { value: el / total, from: 0, color: '#ffffff', width: 3, r: 494, glow: 0, track: false, smooth: false, alpha: 0.4 });
         } else if (mode === 'paused') {
           rotBase += dt * 1;
           const ph = pausedFrom === 'run' ? phaseAt(el) : null;
