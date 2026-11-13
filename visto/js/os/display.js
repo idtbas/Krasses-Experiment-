@@ -14,13 +14,15 @@
   const V = window.V, U = V.util;
 
   const D = (V.display = {
-    el: null, stage: null, scrim: null, convo: null, overlay: null, top: null, fx: null, dim: null, night: null,
+    el: null, back: null, light: null, stage: null, scrim: null, convo: null, overlay: null, top: null, fx: null, dim: null, night: null,
     size: 360,
     dpr: 1,
     _rect: null,
 
     mount(host) {
       const el = U.el('div', { class: 'vos-display', attrs: { role: 'application', 'aria-label': 'Visto-Display' } });
+      D.back = U.el('canvas', { class: 'vos-back' });     // Lumen: Lichtgrund unter allem (WebGL)
+      D.light = U.el('canvas', { class: 'vos-light' });   // Lumen: Licht über der Oberfläche (WebGL, additiv)
       D.stage = U.el('div', { class: 'vos-stage' });
       D.scrim = U.el('div', { class: 'vos-scrim' });
       D.convo = U.el('div', { class: 'vos-convo' });
@@ -29,7 +31,7 @@
       D.top = U.el('div', { class: 'vos-top' });
       D.night = U.el('div', { class: 'vos-night' });
       D.dim = U.el('div', { class: 'vos-dim' });
-      el.append(D.stage, D.scrim, D.convo, D.overlay, D.fx, D.top, D.night, D.dim);
+      el.append(D.back, D.stage, D.scrim, D.convo, D.overlay, D.light, D.fx, D.top, D.night, D.dim);
       host.appendChild(el);
       D.el = el;
       // Kontextmenü / Doppeltipp-Zoom unterdrücken

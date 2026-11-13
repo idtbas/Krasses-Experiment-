@@ -24,6 +24,7 @@
   let lastFrom = 'home';
   let backDrag = null;     // laufende Zurück-Geste
   let crownAcc = 0;
+  let lastBase = 0;
 
   const shell = (V.shell = {
     mode: 'boot',
@@ -158,6 +159,16 @@
       } else if (shell.mode === 'launcher') shell.home();
     },
 
+    /**
+     * Erweiterungspunkte für Systemmodule (statt shell.js zu ändern):
+     *   homeSwipeX {start(p), move(p), end(p, cancelled)}  waagerechtes Wischen auf dem Zifferblatt (Blicke)
+     *   homeCrown  {start(p), turn(dA, p), end(p)}          Drehen am Rand auf dem Zifferblatt (Zeitreise)
+     *   tap[]      fn(p, e) → true, wenn behandelt           (z. B. Live-Rand antippen)
+     *   long[]     fn(p, e) → true, wenn behandelt           (z. B. Tortenmenü)
+     *   baseDouble fn()                                      Doppeldruck auf die Sockeltaste (Karussell)
+     */
+    hooks: { homeSwipeX: null, homeCrown: null, tap: [], long: [], baseDouble: null },
+
     /** Taste am Sockel */
     homeButton() {
       // im Ruhemodus weckt die Taste nur (wie die erste Berührung)
@@ -165,6 +176,9 @@
       V.emit('activity');
       if (sleeping) return;
       if (shell.mode === 'setup' || shell.mode === 'boot') return;
+      const nowT = performance.now();
+      if (shell.hooks.baseDouble && nowT - lastBase < 380 && !V.notify.alertOpen) { lastBase = 0; V.safe(() => shell.hooks.baseDouble(), 'baseDouble'); return; }
+      lastBase = nowT;
       if (V.notify.alertOpen) return;
       if (V.convo && V.convo.active) { V.convo.close(); return; }
       if (V.control && V.control.isOpen) { V.control.close(); return; }
@@ -282,6 +296,7 @@
     if (V.control && V.control.isOpen) return V.control.crown ? (d) => V.control.crown(d) : null;
     if (shell.mode === 'app') return app && app.inst.crown ? (d) => app.inst.crown(d) : null;
     if (shell.mode === 'launcher') return (d) => V.launcher.crown(d);
+    if (shell.mode === 'home' && shell.hooks.homeCrown) return (d, p) => shell.hooks.homeCrown.turn(d, p);
     if (shell.mode === 'home') return (d) => {
       const b = U.clamp(V.store.get('settings.brightness', 0.9) + d / 300, 0.05, 1);
       V.store.set('settings.brightness', b);
@@ -293,7 +308,7 @@
   function attachGestures() {
     const root = V.display.el;
     let kind = null, ng = null, startLine = false, startTop = false, startEdge = false, startRim = false;
-    let crownFn = null, lastA = 0;
+    let crownFn = null, lastA = 0, crownHome = false;
 
     V.gesture(root, {
       start(p, e) {
@@ -329,26 +344,34 @@
           else if (shell.mode === 'home' && !visto && !(V.control && V.control.isOpen)) {
             if (vert && p.dy < 0 && ng !== 'y') kind = 'launcher';
             else if (vert && p.dy > 0 && ng !== 'y') kind = 'control';
-            else if (horiz && ng !== 'x') kind = 'face';
+            else if (horiz && ng !== 'x') kind = shell.hooks.homeSwipeX ? 'pager' : 'face';
             else kind = 'none';
           } else kind = 'none';
           if (kind !== 'none') { V.gesture.claim('shell'); shell.swallowClick = true; }
           if (kind === 'back') beginBack();
-          if (kind === 'crown') { lastA = p.dA; crownAcc = 0; }
+          if (kind === 'crown') {
+            lastA = p.dA; crownAcc = 0;
+            crownHome = shell.mode === 'home' && !!shell.hooks.homeCrown;
+            if (crownHome && shell.hooks.homeCrown.start) V.safe(() => shell.hooks.homeCrown.start(p), 'homeCrown');
+          }
+          if (kind === 'pager') V.safe(() => shell.hooks.homeSwipeX.start && shell.hooks.homeSwipeX.start(p), 'homeSwipeX');
         }
+        if (kind === 'pager') { V.safe(() => shell.hooks.homeSwipeX.move && shell.hooks.homeSwipeX.move(p), 'homeSwipeX'); return; }
         if (kind === 'back') moveBack(p);
         else if (kind === 'crown' && crownFn) {
           const d = p.dA - lastA; lastA = p.dA;
           crownAcc += d;
           // fühlbare Rastung alle 12°
           if (Math.abs(crownAcc) >= 12) { V.sound.play('tick'); V.haptic(3); crownAcc = 0; }
-          crownFn(d);
+          crownFn(d, p);
         }
       },
       end(p) {
         V.visto && V.visto.hover(false);
         const k = kind; kind = null;
         setTimeout(() => { shell.swallowClick = false; }, 0);
+        if (k === 'pager') { V.safe(() => shell.hooks.homeSwipeX && shell.hooks.homeSwipeX.end && shell.hooks.homeSwipeX.end(p, !!p.cancelled), 'homeSwipeX'); return; }
+        if (k === 'crown' && crownHome) { crownHome = false; V.safe(() => shell.hooks.homeCrown && shell.hooks.homeCrown.end && shell.hooks.homeCrown.end(p), 'homeCrown'); }
         if (!k || k === 'none' || p.cancelled) { if (k === 'back') endBack(p, true); return; }
         if (k === 'back') endBack(p);
         else if (k === 'visto') { if (p.dy < -40) V.convo && V.convo.activate({ via: 'swipe' }); }
@@ -359,12 +382,17 @@
       tap(p, e) {
         if (blocked()) return;
         if (isInteractive(e.target)) return;
+        for (const fn of shell.hooks.tap) if (V.safe(() => fn(p, e), 'hook tap')) return;
         if (lineZone(p.x, p.y) && !(V.convo && V.convo.active) && !(V.control && V.control.isOpen)) {
           V.convo && V.convo.activate({ via: 'tap' });
         }
       },
       long(p, e) {
-        if (blocked() || shell.mode !== 'home') return;
+        if (blocked()) return;
+        if (!(V.convo && V.convo.active) && !(V.control && V.control.isOpen) && !lineZone(p.x, p.y)) {
+          for (const fn of shell.hooks.long) if (V.safe(() => fn(p, e), 'hook long')) { shell.swallowClick = true; return; }
+        }
+        if (shell.mode !== 'home') return;
         if (V.convo && V.convo.active) return;
         if (V.control && V.control.isOpen) return;
         if (isInteractive(e.target)) return;

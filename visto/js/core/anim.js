@@ -223,6 +223,13 @@
   Object.defineProperty(Spring.prototype, 'moving', { get() { return !!this._off; } });
 
   V.spring = (value = 0, opts) => new Spring(value, opts);
+  /** Bewegungssprache des Systems – vier feste Federn. V.spring(0, V.motion.bouncy) */
+  V.motion = {
+    snappy: { response: 0.28, bounce: 0.1 },   // flink: Tippen, Schalter, kleine Elemente
+    smooth: { response: 0.5, bounce: 0 },      // weich: Ebenen, Seiten, Ein-/Ausblenden
+    bouncy: { response: 0.55, bounce: 0.26 },  // federnd: Erscheinen, Bestätigen, Spielerisches
+    gentle: { response: 0.9, bounce: 0 },      // sanft: Hintergrund, Licht, große Flächen
+  };
   V.Spring = Spring;
 
   /* ---------------------------------------------------------- Übergänge */

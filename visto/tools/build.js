@@ -9,8 +9,11 @@ const ROOT = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
 let html = read('index.html');
-const css = read('css/visto.css');
-html = html.replace('<link rel="stylesheet" href="css/visto.css">', () => '<style>\n' + css + '\n</style>');
+// alle eigenen Stylesheets einbetten (css/*.css)
+const cssFiles = Array.from(html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g));
+let css = '';
+for (const m0 of cssFiles) { css += '\n/* ===== ' + m0[1] + ' ===== */\n' + read(m0[1]); html = html.replace(m0[0], ''); }
+html = html.replace('</head>', () => '<style>\n' + css + '\n</style>\n</head>');
 const m = html.match(/<!-- BUNDLE:START -->([\s\S]*?)<!-- BUNDLE:END -->/);
 if (!m) throw new Error('BUNDLE-Markierung fehlt in index.html');
 const files = Array.from(m[1].matchAll(/<script src="([^"]+)"><\/script>/g)).map((x) => x[1]);
