@@ -527,9 +527,9 @@
         } else {
           const L = st().last;
           doneH.textContent = L.complete ? 'Geschafft.' : 'Gut gemacht.';
-          doneSub.textContent = `${rundenWort(L.rounds)} · ${minWords(L.sec)} konzentriert`;
+          doneSub.textContent = `${minShort(L.sec)} konzentriert`;
           const d = today();
-          doneLab.textContent = `Heute insgesamt ${minShort(d.sec)}`;
+          doneLab.textContent = `${rundenWort(L.rounds)} · heute ${minShort(Math.max(d.sec, L.sec))}`;
           title.set(L.complete ? 'Zyklus geschafft' : 'Fokus');
           alphaSp.to(1.1);
           sizeSp.to(1.12);
@@ -596,7 +596,10 @@
           pB = isBreak(s.phase) ? p : 1;
         } else if (mode === 'done') pF = 1;
         const fc = palette('focus', pF, T), bc = palette('break', pB, T);
-        const cols = fc.map((c, i) => (k <= 0.001 ? c : k >= 0.999 ? bc[i] : U.mix(c, bc[i], k)));
+        let cols = fc.map((c, i) => (k <= 0.001 ? c : k >= 0.999 ? bc[i] : U.mix(c, bc[i], k)));
+        // Abschluss: beide Farbwelten tanzen zusammen
+        const dk = U.clamp(doneSp.value, 0, 1);
+        if (dk > 0.001) { const mixd = [fc[0], bc[1], fc[1], bc[3]]; cols = cols.map((c, i) => U.mix(c, mixd[i], dk)); }
         const col = U.mix(tone('focus', pF, T), tone('break', pB, T), k);
 
         // Kugel

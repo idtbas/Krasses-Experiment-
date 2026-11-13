@@ -3,7 +3,7 @@
  *  „ES IST VIERTEL NACH SECHS“ in Fünf-Minuten-Schritten. Jede Zeile ist so lang, wie der Kreis auf
  *  ihrer Höhe breit ist – die Matrix ist selbst rund. Aktive Wörter leuchten (mit Lauflicht beim
  *  Wechsel), alle anderen Buchstaben bleiben als zarte Struktur. Die übrigen 1–4 Minuten zeigen
- *  vier Punkte an den „Ecken“ des Kreises (wie bei einer eckigen Wortuhr, nur rund gedacht).
+ *  vier Punkte oben am Rand.
  */
 'use strict';
 (function () {
@@ -146,10 +146,10 @@
             letters.push({ el, key: c.key, idx: c.idx, order: order++ });
           });
         });
-        // Minutenpunkte an den „Ecken“ des Kreises
+        // Minutenpunkte: eine kleine Krone aus vier Punkten oben am Rand
         dotsEl.innerHTML = '';
-        dots = [315, 45, 135, 225].map((a) => {
-          const p = V.display.pt(a, 466);
+        dots = [-10.5, -3.5, 3.5, 10.5].map((a) => {
+          const p = V.display.pt(a, 456);
           const d = U.el('div', { class: 'fwd-dot', style: { left: p.x / 10 + 'cqw', top: p.y / 10 + 'cqw' } });
           dotsEl.appendChild(d);
           return d;
