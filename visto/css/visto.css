@@ -410,7 +410,7 @@ body.emu-full .emu-exitfull { display: grid; }
 
 /* Kopfzeile in Apps: geschwungener Titel oben */
 .vos-apptitle { position: absolute; inset: 0; pointer-events: none; }
-.vos-apptitle text { fill: var(--fg2); font: 650 31px var(--font); letter-spacing: 5px; text-transform: uppercase; }
+/* Farbe, Größe und Sperrung kommen als Attribute aus V.ui.title */
 
 /* App-Container */
 .vos-app { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: #000; }

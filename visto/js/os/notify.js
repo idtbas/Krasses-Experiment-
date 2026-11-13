@@ -1,6 +1,6 @@
 /* VistoOS · os/notify.js — Hinweise, Alarme, kurze Meldungen
  *
- *  V.notify.banner({title, body, icon, color, onClick, sound: 'notify'})
+ *  V.notify.banner({title, body, icon, color, onClick, sound: 'notify', silent: false, duration})
  *  V.notify.alert({title, body, icon, color, buttons:[{label, kind, icon, value}], alarm:'chime', rimColor}) → Promise<value>
  *  V.notify.toast(text, icon)
  */
@@ -20,7 +20,7 @@
     const el = U.el('div', { class: 'vos-banner' }, icon, U.el('div', null, U.el('b', { text: o.title || '' }), o.body ? U.el('small', { text: o.body }) : null));
     V.display.overlay.appendChild(el);
     const dnd = V.store.get('settings.dnd');
-    if (!dnd) { V.sound.play(o.sound || 'notify'); V.haptic([10, 40, 10]); }
+    if (!dnd && !o.silent) { V.sound.play(o.sound || 'notify'); V.haptic([10, 40, 10]); }
     V.rim.pulse({ at: 0, color: o.color || V.store.get('settings.accent'), spread: 80 });
     V.emit('notify', o);
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on')));

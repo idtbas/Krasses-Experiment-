@@ -402,7 +402,7 @@
   function rubber(v, max) { return v < 0 ? v * 0.3 : v > max ? max + (v - max) * 0.3 : v; }
 
   function attachGestures(S) {
-    let kind = null, start = 0, lastTick = 0, edge = false, rim = false, crownAcc = 0;
+    let kind = null, start = 0, lastTick = 0, edge = false, rim = false;
     S.g = V.gesture(S.root, {
       start(p) {
         kind = null;
@@ -411,7 +411,6 @@
         rim = p.r0 > 372;
         start = S.mode === 'custom' ? S.optPos.value : S.pos.value;
         lastTick = Math.round(start);
-        crownAcc = 0;
       },
       move(p) {
         if (S.closing) return;
@@ -449,7 +448,6 @@
             const P = S.C.pages[S.optIdx];
             if (P && P.scrub) P.scrub(p.a);
             else if (P && P.step) {
-              crownAcc += p.dA - (crownAcc._last || 0);
               const steps = Math.trunc(p.dA / 28) - (P._steps || 0);
               if (steps) { P._steps = (P._steps || 0) + steps; P.step(Math.sign(steps)); }
             }

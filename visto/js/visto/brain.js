@@ -7,7 +7,7 @@
  *     V.actions registrierte Systemaktionen als Werkzeuge aus.
  *  3) Freundlicher Rückfall.
  *
- *  Antwort: String oder { say, card, emotion, open: 'appId' }
+ *  Antwort: String oder { say, card, emotion, open: 'appId', params: {…} }
  *    card: {type:'big', text, sub} | {type:'icon', icon, color, title, sub} | {type:'el', el}
  *
  *  Hilfen für Apps: V.brain.parseDuration(t) → Sekunden | null
@@ -324,7 +324,7 @@
           if (o.onTool) o.onTool(a);
           const r = await V.actions.run(a.name, input || {});
           if (r && typeof r === 'object' && r.card) brain._lastCard = r.card;
-          if (r && typeof r === 'object' && r.open) brain._lastOpen = r.open;
+          if (r && typeof r === 'object' && r.open) { brain._lastOpen = r.open; brain._lastParams = r.params; }
           return typeof r === 'string' ? r : r && r.say ? r.say : JSON.stringify(r === undefined ? 'erledigt' : r);
         },
       }));
@@ -335,7 +335,7 @@
       const res = await claude(msgs, opts);
       const out = stripTag(res.text);
       if (brain._lastCard) out.card = brain._lastCard;
-      if (brain._lastOpen) out.open = brain._lastOpen;
+      if (brain._lastOpen) { out.open = brain._lastOpen; out.params = brain._lastParams; }
       out.ai = true;
       return out;
     } catch (e) {

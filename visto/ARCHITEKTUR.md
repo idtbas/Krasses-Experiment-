@@ -95,7 +95,7 @@ CSS-Klassen: .vos-btn(.primary/.white/.danger/.ghost/.sm) .vos-round(.lg/.sm) .v
             .vos-h1 .vos-h2 .vos-body .vos-small .vos-label .vos-num .vos-hero .vos-switch(.on) .vos-center
 
 // Hinweise
-V.notify.banner({title, body, icon, color}) ; await V.notify.alert({title, body, icon, color, alarm, buttons:[{label, kind, value}]})
+V.notify.banner({title, body, icon, color, silent}) ; await V.notify.alert({title, body, icon, color, alarm, buttons:[{label, kind, value}]})
 V.notify.toast('Gespeichert', 'check')
 
 // Navigation
@@ -131,7 +131,7 @@ Aufräumen von `ctx.onFrame/on/rim/timeout/interval` geschieht automatisch.
 (klein, Zahlwörter → Ziffern, „ein/eine“ bleiben) oder eine Funktion `t → Treffer|null`.
 Achtung: `\b` funktioniert in JS **nicht** neben ä/ö/ü/ß – nutze `(?<![a-zäöüß])` bzw. `(?![a-zäöüß])`.
 Hilfen: `V.brain.parseDuration(t)` → Sekunden, `V.brain.parseTime(t)` → `{date, h, m, rel}`.
-Antwort: String oder `{say, card, emotion, open}`; `card`: `{type:'big', text, sub}` · `{type:'icon', icon, color, title, sub}` · `{type:'el', el}`.
+Antwort: String oder `{say, card, emotion, open, params}` (`open` öffnet die App nach der Antwort mit `params`); `card`: `{type:'big', text, sub}` · `{type:'icon', icon, color, title, sub}` · `{type:'el', el}`.
 `emotion`: happy, love, wink, sleepy, surprised, thinking, sad, confused. `say` kurz (≤ 2 Sätze).
 Aktionen (`V.actions.register`) werden Claude automatisch als Werkzeuge angeboten – Beschreibung präzise halten.
 

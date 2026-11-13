@@ -174,7 +174,7 @@
     let shown = streamed ? words.length : 0;
     if (streamed) words.forEach((w) => w.classList.add('on'));
     const reveal = (i) => { for (; shown <= Math.min(i + 1, words.length - 1); shown++) words[shown] && words[shown].classList.add('on'); };
-    if (res.open) setTimeout(() => { if (my === token) { convo.close(); setTimeout(() => V.shell.open(res.open), 380); } }, 1500);
+    if (res.open) setTimeout(() => { if (my === token) { convo.close(); setTimeout(() => V.shell.open(res.open, res.params || {}), 380); } }, 1500);
     await V.voice.speak(res.say, { onWord: reveal });
     if (my !== token || !active) return;
     words.forEach((w) => w.classList.add('on'));

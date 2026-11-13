@@ -9,6 +9,7 @@
 (function () {
   const V = window.V;
   let ctx = null, master = null, comp = null;
+  let forcing = false;   // Wecker/Alarme klingen auch bei ausgeschalteten Systemtönen
 
   function ensure() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume().catch(() => {}); return ctx; }
@@ -33,6 +34,7 @@
   window.addEventListener('keydown', unlock, { capture: true, passive: true });
 
   function tone(o) {
+    if (!o.force && !forcing && !V.store.get('settings.sounds', true)) return;
     const c = ensure(); if (!c) return;
     const t0 = c.currentTime + (o.at || 0);
     const osc = c.createOscillator();
@@ -93,7 +95,7 @@
         pulse: () => { tone({ f: 880, d: 0.12, g: 0.06, type: 'triangle' }); tone({ f: 880, at: 0.2, d: 0.12, g: 0.06, type: 'triangle' }); },
         sunrise: () => { const b = [392, 493.88, 587.33, 739.99]; b.forEach((f, k) => bell(f * (1 + (i % 3) * 0.122), k * 0.2, 0.025 + Math.min(i, 8) * 0.006, 1.4)); },
       }[kind] || (() => {});
-      const run = () => { if (!alive) return; i++; try { pattern(); } catch (e) { /* */ } V.haptic([60, 80, 60]); setTimeout(run, kind === 'sunrise' ? 1600 : 1400); };
+      const run = () => { if (!alive) return; i++; forcing = true; try { pattern(); } catch (e) { /* */ } forcing = false; V.haptic([60, 80, 60]); setTimeout(run, kind === 'sunrise' ? 1600 : 1400); };
       run();
       return () => { alive = false; };
     },
