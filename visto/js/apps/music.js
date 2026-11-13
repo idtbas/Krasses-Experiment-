@@ -505,14 +505,14 @@
   SP.rumble = function (t, vel) {
     this.vis(t, 'wave', vel * 0.8);
     if (!this.ac) return;
-    const ac = this.ac, s = this.noise(t, this.G.pink, 9), f = ac.createBiquadFilter(), g = ac.createGain();
+    const ac = this.ac, s = this.noise(t, this.G.pink, 5.8), f = ac.createBiquadFilter(), g = ac.createGain();
     f.type = 'lowpass';
     f.frequency.setValueAtTime(90, t);
     f.frequency.linearRampToValueAtTime(190, t + 1.2);
     f.frequency.setTargetAtTime(70, t + 1.5, 2);
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(1.4 * vel, t + 1.1);
-    g.gain.setTargetAtTime(0, t + 1.6, 2);
+    g.gain.setTargetAtTime(0, t + 1.6, 1.2);
     s.connect(f); f.connect(g); g.connect(this.bus('amb').in);
   };
   SP.crickets = function (t, vel) {
@@ -1138,14 +1138,14 @@
     .mu-spin canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
     .mu-groove { position: absolute; inset: 0; border-radius: 50%;
       background:
-        radial-gradient(circle, rgba(0,0,0,0) 0 40%, rgba(0,0,0,.26) 100%),
-        repeating-radial-gradient(circle, rgba(255,255,255,0) 0 .3cqw, rgba(0,0,0,.14) .36cqw .44cqw); }
+        radial-gradient(circle closest-side, rgba(0,0,0,0) 0 40%, rgba(0,0,0,.3) 100%),
+        repeating-radial-gradient(circle closest-side, rgba(255,255,255,0) 0 .3cqw, rgba(0,0,0,.14) .36cqw .44cqw); }
     .mu-sheen { position: absolute; inset: 0; border-radius: 50%; mix-blend-mode: screen; opacity: .85;
       background: conic-gradient(from -24deg, rgba(255,255,255,0) 0deg, rgba(255,255,255,.17) 22deg, rgba(255,255,255,0) 50deg,
         rgba(255,255,255,0) 180deg, rgba(255,255,255,.12) 206deg, rgba(255,255,255,0) 234deg);
-      -webkit-mask: radial-gradient(circle, transparent 0 37%, #000 43% 100%); mask: radial-gradient(circle, transparent 0 37%, #000 43% 100%); }
+      -webkit-mask: radial-gradient(circle closest-side, transparent 0 37%, #000 43% 100%); mask: radial-gradient(circle closest-side, transparent 0 37%, #000 43% 100%); }
     .mu-hub { position: absolute; left: 50%; top: 50%; width: 24.5cqw; height: 24.5cqw; margin: -12.25cqw 0 0 -12.25cqw; border-radius: 50%;
-      background: radial-gradient(circle, rgba(0,0,0,.5) 0 63%, rgba(255,255,255,.16) 64.5%, rgba(0,0,0,.35) 67%, rgba(0,0,0,0) 72%); }
+      background: radial-gradient(circle closest-side, rgba(0,0,0,.5) 0 80%, rgba(255,255,255,.2) 83%, rgba(0,0,0,.35) 88%, rgba(0,0,0,0) 100%); }
     .mu-arc { transform-origin: 50% 50%; will-change: transform, opacity; pointer-events: none; }
     .mu-time text { font-variant-numeric: tabular-nums; }
     .mu-btn { position: absolute; padding: 0; margin: 0; border: 0; border-radius: 50%; display: block; color: #fff; cursor: pointer; z-index: 4;
@@ -1395,6 +1395,7 @@
             const target = U.wrap(main.idx + dir, STATIONS.length);
             ensureSide(dir);
             const x0 = discX;
+            sliding = true;            // Ereignis von goStation soll nicht selbst animieren
             goStation(dir);
             sliding = false;
             slideTo(target, dir, x0);
@@ -1487,7 +1488,7 @@
       bassE += (bass - bassE) * Math.min(1, dt * 10);
     }
 
-    function draw(dt, T, f) {
+    function draw(dt, T, f, song) {
       const k = cw / 1000;
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.globalCompositeOperation = 'source-over';
@@ -1546,7 +1547,6 @@
       }
       // Abschnittsmarken am Rand und Halo um den Fortschrittskopf
       g.globalCompositeOperation = 'source-over';
-      const song = position().song;
       g.fillStyle = '#fff';
       for (const m of song.marks) {
         const p = V.display.pt(m * 360, 484);
@@ -1588,7 +1588,7 @@
       const s1 = V.fmt.duration(sec, { ceil: false }), s2 = '−' + V.fmt.duration(Math.max(0, P.dur - sec), { ceil: false });
       if (s1 !== lastT1) { tEl.set(s1); lastT1 = s1; }
       if (s2 !== lastT2) { tRem.set(s2); lastT2 = s2; }
-      draw(dt, T, f);
+      draw(dt, T, f, P.song);
     });
 
     /* ---------- Hinweis: Nachbarsender kurz zeigen */

@@ -555,7 +555,8 @@
     if (!S || S.closing) return;
     S.closing = true;
     st = null;
-    if (V.faces.home && V.shell.mode === 'home') V.faces.home.style.visibility = '';
+    // Zifferblatt wieder sichtbar machen; bei App-/Launcher-Wechsel blendet die Shell es selbst aus
+    if (V.faces.home) V.faces.home.style.visibility = '';
     if (o.cancel) {
       S.index = S.origIndex;
       S.focus = S.origIndex;

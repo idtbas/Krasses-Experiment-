@@ -47,7 +47,7 @@
 .st-back{position:absolute;left:28cqw;right:28cqw;top:0;height:12.5cqw;z-index:6;border:0;background:none;padding:0;cursor:pointer;border-radius:0 0 50% 50%}
 .st-back:active{background:radial-gradient(60% 80% at 50% 0%,rgba(255,255,255,.08),transparent)}
 .st-me{display:flex;flex-direction:column;align-items:center;text-align:center;margin:0 auto 4.2cqw;cursor:pointer}
-.st-me .st-mark{width:14cqw;height:14cqw;margin-bottom:2cqw;transition:transform .35s var(--spring)}
+.st-me .st-mark{width:12cqw;height:12cqw;margin-bottom:1.6cqw;transition:transform .35s var(--spring)}
 .st-me:active .st-mark{transform:scale(.92)}
 .st-me b{font-size:5.4cqw;font-weight:650;letter-spacing:-.015em}
 .st-me small{font-size:3.2cqw;color:var(--fg3);margin-top:.5cqw;font-weight:550}
@@ -78,7 +78,7 @@
 .st-gval .vos-label{display:block;margin-bottom:1.2cqw}
 .st-gnum{font-size:15cqw;font-weight:200;letter-spacing:-.045em;line-height:1;font-variant-numeric:tabular-nums}
 .st-gnum small{font-size:5cqw;font-weight:300;letter-spacing:0;margin-left:.6cqw;color:var(--fg2)}
-.st-gic{position:absolute;top:44.5cqw;width:6cqw;height:6cqw;color:var(--fg3);pointer-events:none}
+.st-gic{position:absolute;top:47cqw;width:5.4cqw;height:5.4cqw;color:var(--fg3);pointer-events:none}
 .st-gic svg{width:100%;height:100%}
 /* geschwungener Schieberegler */
 .st-curve svg{display:block;width:68.8cqw;height:12.6cqw;margin:0 auto;touch-action:none;overflow:visible;cursor:pointer}
@@ -256,8 +256,8 @@
     svg.append(defs, ticks, track, glow, fill, thumbG, thumb);
     const num = U.el('div', { class: 'st-gnum' });
     const val = U.el('div', { class: 'st-gval' }, U.el('span', { class: 'vos-label', text: o.label }), num);
-    const icL = U.el('div', { class: 'st-gic', style: { left: '13cqw' }, html: V.icon(o.iconMin || o.icon) });
-    const icR = U.el('div', { class: 'st-gic', style: { right: '13cqw', color: o.c1 }, html: V.icon(o.icon) });
+    const icL = U.el('div', { class: 'st-gic', style: { left: '18.4cqw' }, html: V.icon(o.iconMin || o.icon) });
+    const icR = U.el('div', { class: 'st-gic', style: { right: '18.4cqw', color: o.c1 }, html: V.icon(o.icon) });
     el.append(svg, val, icL, icR);
     const shown = V.spring(v, { response: 0.28, bounce: 0 });
     function paint() {
@@ -293,7 +293,7 @@
       return nv;
     }
     V.gesture(el, {
-      start(p) { center = V.display.centerOf(svg); center.y = center.y; prev = v; },
+      start() { center = V.display.centerOf(svg); prev = v; },
       move(p) { if (p.moved) setV(fromPoint(p), false, false); },
       tap(p) { setV(fromPoint(p), true, true); },
       end(p) { if (p.moved && o.onCommit) o.onCommit(v); },
@@ -399,7 +399,7 @@
     build(P, nav) {
       const me = U.el('div', { class: 'st-me', attrs: { role: 'button', tabindex: '0' } });
       const meName = U.el('b'), meSub = U.el('small');
-      me.append(vistoMark('14cqw'), meName, meSub);
+      me.append(vistoMark('12cqw'), meName, meSub);
       V.ui.tap(me, () => nav.push('about'));
       const items = () => {
         const name = get('user.name', '');
@@ -420,7 +420,7 @@
         ];
       };
       const list = V.ui.roundList({ items: items(), header: me });
-      list.el.style.paddingTop = '22cqw';
+      list.el.style.paddingTop = '19cqw';
       P.el.appendChild(list.el);
       return { list, refresh() { list.setItems(items()); } };
     },
@@ -632,7 +632,7 @@
       const commit = () => { if (get('settings.accent') !== hex) { set('settings.accent', hex); } };
       let on = false;
       V.gesture(P.el, {
-        start(p) { on = p.r0 > 320; if (on) { knob.classList.add('big'); fromAngle(p.a); } },
+        start(p, e) { on = p.r0 > 320 && !(e.target.closest && e.target.closest('.st-back')); if (on) { knob.classList.add('big'); fromAngle(p.a); } },
         move(p) { if (on) fromAngle(p.a); },
         end() { if (on) { knob.classList.remove('big'); commit(); } on = false; },
       }, { slop: 3 });
@@ -668,9 +668,10 @@
         const kids = [modeSeg.el];
         if (manual) {
           const n = V.time.now();
-          const hw = V.ui.wheel({ items: Array.from({ length: 24 }, (_, i) => U.pad(i)), index: n.getHours(), rows: 3, itemH: 10.5, size: 7.6, width: '19cqw', onChange: apply });
-          const mw = V.ui.wheel({ items: Array.from({ length: 60 }, (_, i) => U.pad(i)), index: n.getMinutes(), rows: 3, itemH: 10.5, size: 7.6, width: '19cqw', onChange: apply });
-          function apply() { const d = V.time.now(); d.setHours(hw.get(), mw.get(), 0, 0); V.time.setManual(d); tick(); }
+          let hw = null, mw = null;
+          const apply = () => { if (!hw || !mw) return; const d = V.time.now(); d.setHours(hw.get(), mw.get(), 0, 0); V.time.setManual(d); tick(); };
+          hw = V.ui.wheel({ items: Array.from({ length: 24 }, (_, i) => U.pad(i)), index: n.getHours(), rows: 3, itemH: 10.5, size: 7.6, width: '19cqw', onChange: apply });
+          mw = V.ui.wheel({ items: Array.from({ length: 60 }, (_, i) => U.pad(i)), index: n.getMinutes(), rows: 3, itemH: 10.5, size: 7.6, width: '19cqw', onChange: apply });
           kids.push(U.el('div', { class: 'st-wheels', style: { marginTop: '2.4cqw' } }, hw.el, U.el('div', { class: 'st-colon', text: ':' }), mw.el));
           kids.push(U.el('div', { class: 'st-note', text: 'Drehen zum Stellen – gilt sofort.' }));
           P.wheels = [hw, mw];
@@ -1142,11 +1143,15 @@
       B.intent({
         id: 'settings-24h', priority: 9,
         match: [/(?<!\d)(24|12)[ -]?(stunden|std\.?|h)(?![a-zäöüß])(?:[ -]?(format|anzeige|modus|uhr))?/],
-        run(m, t) { if (!/(format|anzeige|modus|uhr|zeig|stell|umstellen|wechsel|zeit)/.test(t)) return null; return V.actions.run('settings.time_format', { h24: m[1] === '24' }); },
+        run(m, t) {
+          if (/timer|wecker|erinner|countdown|alarm|in (12|24)/.test(t)) return null;
+          if (!/(format|anzeige|modus|(?<![a-zäöüß])uhr(?![a-zäöüß])|uhrzeit|zeitformat)/.test(t)) return null;
+          return V.actions.run('settings.time_format', { h24: m[1] === '24' });
+        },
       });
       B.intent({
         id: 'settings-about', priority: 7,
-        match: [/(infos?|informationen|details)( mal)? (über|zu) dir/, /welche (version|softwareversion|systemversion|software)/, /(deine|die) (version|softwareversion|build|systemversion)/, /über visto/, /(was für ein|welches) gerät bist du/, /(zeig|öffne).*(geräteinfo|systeminfo|über visto)/],
+        match: [/(infos?|informationen|details)( mal)? (über|zu|von) (dir|dich)(?![a-zäöüß])/, /(infos?|informationen) (über|zum gerät)$/, /welche (version|softwareversion|systemversion|software)/, /(deine|die) (version|softwareversion|build|systemversion)/, /über visto/, /(was für ein|welches) gerät bist du/, /(zeig|öffne).*(geräteinfo|systeminfo|über visto)/],
         async run(m, t) {
           const r = await V.actions.run('settings.info');
           if (/(zeig|öffne)/.test(t)) openPage('about');
@@ -1171,6 +1176,7 @@
         id: 'settings-wifi', priority: 6,
         match: [new RegExp(NB + '(wlan|wifi|wi-fi|wlan-netz)' + NA)],
         run(m, t, original) {
+          if (/welche|status|bin ich|sind wir|bist du/.test(t)) return V.actions.run('settings.wifi', {});
           const mm = original.match(/(?:mit|zu)\s+(?:dem\s+)?(?:wlan|wifi|netz(?:werk)?)?\s*[„"]?([^„"“]+?)[“"]?\s*(?:verbinden)?[.!?]?$/i);
           if (/verbind/.test(t) && mm && !/^(dem|einem)?\s*(wlan|wifi|netz)$/i.test(mm[1].trim())) return V.actions.run('settings.wifi', { network: mm[1].trim() });
           const on = onOff(t);

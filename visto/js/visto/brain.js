@@ -217,7 +217,8 @@
   const brain = (V.brain = {
     norm, parseDuration, parseTime, num: wordNum, calc,
     get history() { return history; },
-    get claudeReady() { return !!claude && V.store.get('settings.vistoAI', true); },
+    get claudeReady() { return (!!claude || !!(V.claude && V.claude.configured)) && V.store.get('settings.vistoAI', true); },
+    get claudeSource() { return V.claude && V.claude.configured ? 'api' : claude ? 'artifact' : null; },
 
     intent(def) {
       def.priority = def.priority || 0;
@@ -242,7 +243,7 @@
         } catch (e) { console.error('[VistoOS] Absicht', it.id, e); }
       }
       if (brain.claudeReady) {
-        const r = await askClaude(original, o);
+        const r = V.claude && V.claude.configured ? await askClaudeAPI(original, o) : await askClaude(original, o);
         if (r) { remember('assistant', r.say); return r; }
       }
       const fb = fallback(t);
@@ -313,7 +314,8 @@
     // abwechselnd, erste nach Regeln darf assistant sein
     for (const h of past) msgs.push({ role: h.role, content: h.content });
     msgs.push({ role: 'user', content: text });
-    const opts = { modelTier: 'quick', cache: false, signal: ctl.signal };
+    // Wunsch der Person: Claude Sonnet 5.5 (fällt automatisch auf die Standardstufe zurück, falls nicht verfügbar)
+    const opts = { model: 'claude-sonnet-5-5', modelTier: 'default', effort: 'low', cache: false, signal: ctl.signal };
     if (o.onText) opts.onText = ({ text: tx }) => o.onText(stripTag(tx).say);
     if (claudeTools) {
       opts.tools = V.actions.list().slice(0, 24).map((a) => ({
@@ -348,6 +350,43 @@
       return { say: 'Da ist gerade etwas schiefgelaufen. Frag mich gleich noch einmal.', emotion: 'sad' };
     }
   }
+  /** Claude über den eigenen API-Schlüssel der Organisation (V.claude, offizielles SDK) */
+  async function askClaudeAPI(text, o) {
+    const ctl = new AbortController();
+    brain._abort = () => ctl.abort();
+    const msgs = [];
+    for (const h of history.slice(0, -1).slice(-8)) {
+      if (!msgs.length && h.role !== 'user') continue;
+      const last = msgs[msgs.length - 1];
+      if (last && last.role === h.role) last.content += '\n' + h.content; else msgs.push({ role: h.role, content: h.content });
+    }
+    const last = msgs[msgs.length - 1];
+    if (last && last.role === 'user') last.content += '\n' + text; else msgs.push({ role: 'user', content: text });
+    try {
+      const r = await V.claude.ask(msgs, {
+        system: RULES + '\n\nKontext:\n' + context(),
+        signal: ctl.signal,
+        onText: (t) => o.onText && o.onText(stripTag(t).say),
+        onTool: o.onTool,
+      });
+      const out = stripTag(r.text);
+      if (!out.emotion && r.emotion) out.emotion = r.emotion;
+      if (r.card) out.card = r.card;
+      if (r.open) { out.open = r.open; out.params = r.params; }
+      if (!out.say) out.say = 'Erledigt.';
+      out.ai = true;
+      return out;
+    } catch (e) {
+      if (e && (e.code === 'cancelled' || e.name === 'AbortError' || /abort/i.test(e.name || ''))) return { say: '', silent: true };
+      const st = e && e.status;
+      if (st === 401 || st === 403) return { say: 'Mein API-Schlüssel wird nicht angenommen. Bitte prüfe ihn im Emulator-Menü unter „Claude verbinden“.', emotion: 'sad' };
+      if (st === 429 || st === 529) return { say: 'Claude ist gerade ausgelastet. Versuch es gleich noch einmal.', emotion: 'sleepy' };
+      if (st === 400) return { say: 'Die Anfrage wurde abgelehnt. Vielleicht passt das gewählte Modell nicht zu deinem Konto.', emotion: 'confused' };
+      if (/kein Schlüssel/.test(String(e && e.message))) return null;
+      return { say: 'Ich erreiche Claude gerade nicht. Prüfe die Internetverbindung.', emotion: 'sad' };
+    }
+  }
+
   function stripTag(t) {
     let s = String(t || '').trim();
     let emotion;

@@ -530,7 +530,7 @@
         match: [/(?<![a-zäöüß])weck(?:e)? mich(?![a-zäöüß])/, new RegExp('(?:stell|stelle|setz|setze|mach|mache|erstelle)(?![a-zäöüß]).*' + W), new RegExp(W + '.*(?:um|für|auf) \\d'), new RegExp('neuer? ' + W)],
         run(m, t, original) {
           const p = V.brain.parseTime(t);
-          if (!p) return { say: 'Um wie viel Uhr soll ich dich wecken?', emotion: 'thinking', open: 'alarm' };
+          if (!p) return { say: 'Um wie viel Uhr soll ich dich wecken? Du kannst die Zeit auch hier einstellen.', emotion: 'thinking', open: 'alarm', params: { new: true } };
           const days = daysFromText(t) || [];
           // Name: „namens Training“, „mit dem Namen Yoga“
           const lm = original.match(/(?:namens|mit dem Namen|Name)\s+„?([A-Za-zÄÖÜäöüß][\wÄÖÜäöüß-]{1,24})/);
@@ -600,7 +600,7 @@
       const addBtn = V.ui.button('Neuer Wecker', { icon: 'plus', cls: 'alm-add', onClick: () => openEdit(null) });
       head.append(addBtn);
       // nächster Wecker als Schrift am oberen Bogen
-      const nextArc = V.ui.arcText({ text: '', r: 397, size: 24, weight: 700, spacing: 3.2, color: U.rgba(COLOR, 0.95) });
+      const nextArc = V.ui.arcText({ text: '', r: 398, size: 23, weight: 650, spacing: 3.4, color: 'rgba(255,255,255,.66)' });
       nextArc.el.classList.add('alm-narc');
       const rl = V.ui.roundList({ items: [], header: head });
       rl.el.classList.add('alm-list');

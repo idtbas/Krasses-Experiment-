@@ -119,7 +119,7 @@
     if (e === 0 && !s.running) return { say: 'Die Stoppuhr steht auf null.', emotion: 'neutral' };
     const n = s.laps.length;
     return {
-      say: `${s.running ? 'Die Stoppuhr läuft seit' : 'Angehalten bei'} ${words(e)}${n ? `, ${n} ${n === 1 ? 'Runde' : 'Runden'}` : ''}.`,
+      say: `${s.running ? 'Die Stoppuhr läuft seit' : 'Angehalten bei'} ${words(e)}.${n ? ` Bisher ${n === 1 ? 'eine Runde' : n + ' Runden'}.` : ''}`,
       card: { type: 'big', text: fmtShort(e), sub: s.running ? 'Stoppuhr läuft' : 'Angehalten' },
     };
   }
@@ -400,7 +400,7 @@
       // nach oben wischen → Runden, nach unten → zurück
       V.gesture(root, {
         end(p) {
-          if (!p.moved || p.cancelled || p.r0 > 400) return;
+          if (!p.moved || p.cancelled || p.r0 > 400 || (p.y0 > 850 && Math.abs(p.x0 - 500) < 190)) return;
           if (Math.abs(p.dy) < Math.abs(p.dx) * 1.3) return;
           if (!lapsOpen && (p.dy < -70 || p.vy < -600)) showLaps(true);
           else if (lapsOpen && (p.dy > 70 || p.vy > 600) && list.scroller.scrollTop <= 2) showLaps(false);

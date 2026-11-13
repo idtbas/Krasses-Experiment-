@@ -23,6 +23,14 @@
   const T_DEG = T_SPAN / (T_MAX - T_MIN);  // 14° je Grad Celsius
   const PAGE_W = 560;                      // Wischweg für eine Seite (logisch)
   const COFFEE = '#C98A5B';
+  const HUE_A0 = 205, HUE_SPAN = 310;      // Farbrad: Lücke unten für Visto
+  const hueToAngle = (h) => HUE_A0 + (U.wrap(h, 360) / 360) * HUE_SPAN;
+  function angleToHue(a) {
+    let rel = U.wrap(a - HUE_A0, 360);
+    if (rel > HUE_SPAN) rel = rel > HUE_SPAN + (360 - HUE_SPAN) / 2 ? 0 : HUE_SPAN;
+    return Math.min(359, (rel / HUE_SPAN) * 360);
+  }
+  const inVistoZone = (x, y) => y > 868 && Math.abs(x - 500) < 175;
 
   /* ------------------------------------------------------------ Modell */
   const ROOMS = [
@@ -435,8 +443,8 @@
 
   /* ------------------------------------------------------------ Stile */
   function styles() {
-    const hueStops = [];
-    for (let h = 0; h <= 360; h += 20) hueStops.push(hueHex(h % 360));
+    const hueStops = [], ringStops = [];
+    for (let h = 0; h <= 360; h += 20) { hueStops.push(hueHex(h % 360)); ringStops.push(hueHex(h % 360) + ' ' + ((h / 360) * HUE_SPAN).toFixed(1) + 'deg'); }
     V.css('home', `
 .hm-root { overflow: hidden; }
 .hm-root .vos-svg { pointer-events: none; }
@@ -458,6 +466,7 @@
   box-shadow: inset 0 0 0 .22cqw rgba(255,255,255,.2), inset 0 -.9cqw 1.6cqw rgba(0,0,0,.22);
   transition: transform .45s var(--spring), box-shadow .35s ease; }
 .hm-chip.on .hm-dot { transform: scale(1.14); box-shadow: 0 0 0 .5cqw #000, 0 0 0 .85cqw rgba(255,255,255,.95), 0 0 4.5cqw var(--g); }
+.hm-chip.sel .hm-dot { box-shadow: 0 0 0 .5cqw #000, 0 0 0 .85cqw rgba(255,255,255,.3); }
 .hm-wheel .hm-dot { background: conic-gradient(${hueStops.join(',')}); }
 .hm-wheel .hm-dot::after { content: ''; position: absolute; inset: 1.9cqw; border-radius: 50%; background: #000; }
 .hm-side { position: absolute; width: 12cqw; height: 12cqw; margin: -6cqw 0 0 -6cqw; border-radius: 50%; border: 0; padding: 0;
@@ -479,9 +488,10 @@
 .hm-scene.on { background: radial-gradient(circle at 50% 30%, var(--cl), var(--c) 70%); color: #0b0b0e; box-shadow: 0 0 8cqw var(--c4); }
 .hm-scenelbl { position: absolute; width: 32cqw; margin-left: -16cqw; text-align: center; font-size: 3.5cqw; font-weight: 600; color: rgba(255,255,255,.7); white-space: nowrap; }
 .hm-subview { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: #000; will-change: transform, opacity; }
-.hm-huering { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(${hueStops.join(',')});
+.hm-huering { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from ${HUE_A0}deg, ${ringStops.join(',')}, transparent ${HUE_SPAN}deg);
   -webkit-mask: radial-gradient(circle closest-side, transparent 80.5%, #000 81.2%, #000 95.8%, transparent 96.5%);
   mask: radial-gradient(circle closest-side, transparent 80.5%, #000 81.2%, #000 95.8%, transparent 96.5%); }
+.hm-cap { position: absolute; width: 7.3cqw; height: 7.3cqw; margin: -3.65cqw 0 0 -3.65cqw; border-radius: 50%; pointer-events: none; }
 .hm-knob { position: absolute; width: 9cqw; height: 9cqw; margin: -4.5cqw 0 0 -4.5cqw; border-radius: 50%; pointer-events: none;
   box-shadow: 0 0 0 .7cqw #fff, 0 .8cqw 2.4cqw rgba(0,0,0,.55); }
 .hm-card { display: flex; align-items: center; gap: 3.4cqw; background: rgba(255,255,255,.08); padding: 2.4cqw 6cqw 2.4cqw 2.4cqw; border-radius: 99cqw; }
@@ -932,7 +942,7 @@
       const CHIPS = [
         { tone: 'kerze' }, { tone: 'warm' }, { tone: 'neutral' }, { tone: 'kalt' }, { tone: 'hue' }, { wheel: true },
       ];
-      const CHIP_A = [240, 216, 192, 168, 144, 120], CHIP_R = 318;
+      const CHIP_A = [235, 213, 191, 169, 147, 125], CHIP_R = 318;
       const BULB_TOP = 150;                  // logisch
       const GLASS_Y = BULB_TOP + (106 / 300) * 300;
 
@@ -944,7 +954,7 @@
         const B = buildBulb();
         bulb.appendChild(B.svg);
         const pct = U.el('div', { class: 'hm-pct vos-num', style: { top: '47.4cqw' } });
-        const tone = U.el('div', { class: 'hm-sub vos-label', style: { top: '62.2cqw' } });
+        const tone = U.el('div', { class: 'hm-sub vos-label', style: { top: '61.8cqw', letterSpacing: '.11em' } });
         el.append(halo, bulb, pct, tone);
         tap(bulb, () => {
           const x = roomState(room.id);
@@ -989,11 +999,12 @@
           el,
           refresh() {
             const x = roomState(room.id);
-            tone.textContent = x.on ? (x.tone === 'hue' ? hueEntry(x.hue).name : TONES[x.tone].name + ' · ' + TONES[x.tone].k + ' K') : room.name + ' · aus';
-            tone.style.color = x.on ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.32)';
+            tone.textContent = x.on ? (x.tone === 'hue' ? hueEntry(x.hue).name : TONES[x.tone].name + ' · ' + TONES[x.tone].k + ' K') : 'Zum Einschalten antippen';
+            tone.style.color = x.on ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.3)';
             for (const ch of chips) {
               const on = !ch.c.wheel && (ch.c.tone === x.tone);
               ch.b.classList.toggle('on', on && x.on);
+              ch.b.classList.toggle('sel', on && !x.on);
               if (!ch.c.wheel) {
                 const col = ch.c.tone === 'hue' ? hueHex(x.tone === 'hue' ? x.hue : st().customHue) : TONES[ch.c.tone].hex;
                 ch.dot.style.background = `radial-gradient(circle at 50% 32%, ${U.mix(col, '#ffffff', 0.35)}, ${col} 58%, ${U.mix(col, '#000000', 0.2)})`;
@@ -1018,6 +1029,7 @@
             lastKey = key;
             paintBulb(B, lvl, c);
             const lit = 1 - Math.pow(1 - lvl, 3);
+            B.svg.style.filter = lit > 0.01 ? `drop-shadow(0 0 ${(1 + 3 * lit).toFixed(2)}cqw ${U.rgba(c, 0.25 + 0.45 * lit)})` : 'none';
             halo.style.background = `radial-gradient(circle, ${U.rgba(c, 0.62 * lit)} 0%, ${U.rgba(c, 0.26 * lit)} 22%, ${U.rgba(c, 0.08 * lit)} 44%, ${U.rgba(c, 0)} 64%)`;
             halo.style.transform = `scale(${(0.62 + 0.42 * Math.sqrt(lvl)).toFixed(4)})`;
             const x = roomState(room.id);
@@ -1152,10 +1164,13 @@
         const gid = U.uid('hmsky');
         const defs = U.svg('defs');
         const lg = U.svg('linearGradient', { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 });
-        lg.append(U.svg('stop', { offset: '0%', 'stop-color': '#3d7ccf', 'stop-opacity': 0.55 }), U.svg('stop', { offset: '55%', 'stop-color': '#9fc3e8', 'stop-opacity': 0.22 }), U.svg('stop', { offset: '100%', 'stop-color': '#ffcf8a', 'stop-opacity': 0.16 }));
-        defs.appendChild(lg);
+        lg.append(U.svg('stop', { offset: '0%', 'stop-color': '#2a6fd6', 'stop-opacity': 0.75 }), U.svg('stop', { offset: '58%', 'stop-color': '#8ec0f0', 'stop-opacity': 0.42 }), U.svg('stop', { offset: '100%', 'stop-color': '#ffc27a', 'stop-opacity': 0.34 }));
+        const sun = U.svg('radialGradient', { id: gid + 's' });
+        sun.append(U.svg('stop', { offset: '0%', 'stop-color': '#fff6e0', 'stop-opacity': 0.95 }), U.svg('stop', { offset: '18%', 'stop-color': '#ffd99a', 'stop-opacity': 0.55 }), U.svg('stop', { offset: '100%', 'stop-color': '#ffb85c', 'stop-opacity': 0 }));
+        defs.append(lg, sun);
         svg.appendChild(defs);
         svg.appendChild(U.svg('rect', { x: 0, y: 0, width: 1000, height: 1000, fill: `url(#${gid})` }));
+        svg.appendChild(U.svg('circle', { cx: 720, cy: 300, r: 260, fill: `url(#${gid}s)` }));
         // Fensterkreuz
         svg.appendChild(U.svg('path', { d: 'M 500 0 V 1000 M 0 560 H 1000', stroke: 'rgba(0,0,0,.55)', 'stroke-width': 14 }));
         const shade = U.svg('g');
@@ -1165,7 +1180,7 @@
           shade.appendChild(U.svg('rect', { x: 0, y: y + 2, width: 1000, height: 3, fill: 'rgba(0,0,0,.6)' }));
         }
         shade.appendChild(U.svg('rect', { x: 0, y: -16, width: 1000, height: 16, fill: '#3a3a3e' }));
-        shade.appendChild(U.svg('rect', { x: 450, y: -6, width: 100, height: 14, rx: 7, fill: '#8e8e93' }));
+        shade.appendChild(U.svg('rect', { x: 0, y: -16, width: 1000, height: 2, fill: 'rgba(255,255,255,.18)' }));
         svg.appendChild(shade);
         const title = V.ui.arcText({ text: 'Rollo · ' + room.name, r: 404, size: 25, weight: 700, spacing: 4.5, color: 'rgba(255,255,255,.85)' });
         const big = U.el('div', { class: 'hm-pct vos-num', style: { top: '40cqw', textShadow: '0 0 4cqw rgba(0,0,0,.85)' } });
@@ -1221,41 +1236,48 @@
         const name = U.el('div', { class: 'hm-sub', style: { top: '51cqw', fontSize: '6.4cqw', fontWeight: 600, letterSpacing: '-.02em' } });
         const hint = U.el('div', { class: 'hm-sub vos-label', style: { top: '60cqw' }, text: 'Am Ring wählen' });
         const done = V.ui.roundButton('check', { kind: 'sm', label: 'Fertig', style: Object.assign(at(500, 738), { position: 'absolute', margin: '-6cqw 0 0 -6cqw', background: '#fff', color: '#000' }) });
-        tap(done, () => closeSub());
-        el.append(halo, ring, knob, bulbBox, name, hint, done);
+        const caps = [HUE_A0, HUE_A0 + HUE_SPAN].map((a, i) => {
+          const p = V.display.pt(a, 442.5);
+          return U.el('div', { class: 'hm-cap', style: Object.assign(at(p.x, p.y), { background: hueHex(i ? 359 : 0) }) });
+        });
+        el.append(halo, ring, ...caps, knob, bulbBox, name, hint, done);
         const x0 = roomState(id);
         let hue = x0.tone === 'hue' ? x0.hue : st().customHue;
+        let touched = x0.tone === 'hue' && x0.on;
         function apply(h, save) {
           hue = U.wrap(Math.round(h), 360);
+          touched = true;
           setLight(id, { tone: 'hue', hue }, 'ui');
           V.emit('home:changed', { what: 'light', rooms: [id], src: 'ui', drag: !save });
           if (save) V.store.save();
         }
+        tap(done, () => { if (!touched) { apply(hue, true); } closeSub(); });
         let lastH = -1, lastKey = '';
         const o = {
           el, kind: 'hue', room: id,
           frame() {
-            const sh = shown[id];
-            const c = U.rgbToHex(sh.r.v, sh.g.v, sh.b.v), lvl = U.clamp(sh.lvl.v, 0, 1);
+            const c = hueHex(hue), lvl = touched ? Math.max(0.4, U.clamp(shown[id].lvl.v, 0, 1)) : 0.75;
             const key = c + lvl.toFixed(3);
             if (key !== lastKey) {
               lastKey = key;
-              paintBulb(B, Math.max(lvl, 0.35), c);
-              halo.style.background = `radial-gradient(circle, ${U.rgba(c, 0.55)} 0%, ${U.rgba(c, 0.2)} 24%, ${U.rgba(c, 0)} 60%)`;
+              paintBulb(B, lvl, c);
+              B.svg.style.filter = `drop-shadow(0 0 3cqw ${U.rgba(c, 0.55)})`;
+              halo.style.background = `radial-gradient(circle, ${U.rgba(c, 0.5)} 0%, ${U.rgba(c, 0.18)} 24%, ${U.rgba(c, 0)} 60%)`;
               halo.style.transform = 'scale(.8)';
             }
             if (hue !== lastH) {
               lastH = hue;
-              const p = V.display.pt(hue, 442);
+              const p = V.display.pt(hueToAngle(hue), 442.5);
               Object.assign(knob.style, at(p.x, p.y));
-              knob.style.background = hueHex(hue);
+              knob.style.background = c;
+              knob.style.boxShadow = `0 0 0 .7cqw #fff, 0 0 5cqw ${U.rgba(c, 0.7)}, 0 .8cqw 2.4cqw rgba(0,0,0,.55)`;
               name.textContent = hueEntry(hue).name;
             }
           },
-          start(p) { if (p.r0 >= 330) { V.haptic(4); apply(p.a); return { mode: 'ring', lastName: hueEntry(hue).name }; } return null; },
+          start(p) { if (p.r0 >= 330) { V.haptic(4); apply(angleToHue(p.a)); return { mode: 'ring', lastName: hueEntry(hue).name }; } return null; },
           move(p, g) {
             if (!g || g.mode !== 'ring') return;
-            apply(p.a);
+            apply(angleToHue(p.a));
             const n = hueEntry(hue).name;
             if (n !== g.lastName) { g.lastName = n; V.sound.play('tick'); V.haptic(3); }
           },
@@ -1297,6 +1319,7 @@
       V.gesture(root, {
         start(p) {
           suppressClick = false;
+          if (inVistoZone(p.x0, p.y0)) { G = null; return; }
           if (sub) { G = { sub: true, inner: sub.start ? sub.start(p) : null }; return; }
           const pg = curPage();
           const settled = Math.abs(pos.v - Math.round(pos.v)) < 0.08;

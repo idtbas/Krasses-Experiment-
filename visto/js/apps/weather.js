@@ -819,7 +819,7 @@
       else if (maxP >= 0.25) say = `Wahrscheinlich nicht. Das Regenrisiko liegt bei ${pct} Prozent.`;
       else say = `Nein, ${label} bleibt es trocken.`;
     }
-    const code = r ? r.code : nowWet ? hrs[0].code : (off ? dayRec(c, addDays(midnight(now), off)).code : hrs[0].code);
+    const code = r ? (WET[r.code] ? r.code : 'rain') : nowWet ? hrs[0].code : (off ? dayRec(c, addDays(midnight(now), off)).code : hrs[0].code);
     const night = !off && hrs[0].night && !r;
     let card;
     if (kind === 'umbrella') {
@@ -832,11 +832,11 @@
   function sayTemp(c, off) {
     if (!off) {
       const w = current(c.id);
-      const fe = Math.round(w.feels) !== Math.round(w.temp) ? `, gefühlt ${Math.round(w.feels)}` : '';
+      const fe = Math.round(w.feels) !== Math.round(w.temp) ? `, gefühlt ${Math.round(w.feels)} Grad` : '';
       const extra = w.temp < 3 ? ' Zieh dich warm an.' : w.temp > 27 ? ' Viel trinken nicht vergessen.' : '';
       return {
         say: `In ${c.name} sind es gerade ${Math.round(w.temp)} Grad${fe}.${extra}`,
-        card: { type: 'big', text: deg(w.temp), sub: `Gefühlt ${deg(w.feels)} · ${w.text}` },
+        card: { type: 'big', text: deg(w.temp), sub: `Gefühlt ${deg(w.feels)} · ${c.name}` },
         emotion: w.temp < 3 ? 'surprised' : w.temp > 27 ? 'surprised' : 'happy',
       };
     }

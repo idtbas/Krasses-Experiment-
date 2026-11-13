@@ -687,6 +687,8 @@
           const e = lb.it.e;
           let al = alpha * U.smoothstep(0.3, 1, g) * (e.end <= t ? 0.42 : 0.95);
           if (sel && sel !== e.id) al *= 1 - (sel === '__draft' ? 1 : 0.75) * U.clamp(selK.value, 0, 1);
+          // nicht über die Visto-Linie unten
+          al *= U.smoothstep(13, 26, Math.abs(U.angDiff(180, lb.mid + off)));
           if (al <= 0.01) return;
           c.globalAlpha = al;
           c.fillStyle = soft(e.color, 0.35);
@@ -906,7 +908,7 @@
         pg._sub = el('cal-sub', '');
         const row = U.el('div', { class: 'cal-row cal-arow' });
         const cancel = V.ui.roundButton('close', { kind: 'sm', label: 'Abbrechen', onClick: closeAdd });
-        pg._dur = U.el('button', { class: 'cal-chip', attrs: { type: 'button', 'aria-label': 'Dauer' } });
+        pg._dur = U.el('button', { class: 'cal-chip cal-durchip', attrs: { type: 'button', 'aria-label': 'Dauer ändern' } });
         V.ui.tap(pg._dur, () => {
           const i = DURS.indexOf(draft.dur);
           draft.dur = DURS[(i + 1) % DURS.length];
@@ -934,7 +936,8 @@
         const cat = CATS[draft.cat];
         pg._big.textContent = tm(draft.start);
         pg._ttl.textContent = cat.name + ' · bis ' + tm(draft.start + draft.dur * MIN);
-        pg._dur.textContent = durWords(draft.dur);
+        const d = draft.dur;
+        pg._dur.textContent = d < 60 ? d + ' Min.' : (d % 60 ? Math.floor(d / 60) + '½' : d / 60) + ' Std.';
         pg._dots.forEach((b, i) => b.classList.toggle('on', PICK[i] === draft.cat));
       }
 
@@ -1194,6 +1197,7 @@
     .cal-addp .cal-big { font-size: 14.5cqw; margin-top: 1.4cqw; }
     .cal-addp .cal-ttl { font-size: 5cqw; margin-top: 1.4cqw; }
     .cal-arow { top: 46.5cqw; }
+    .cal-durchip { width: 21cqw; min-width: 0; padding: 0; }
     .cal-dots { position: absolute; inset: 0; pointer-events: none; }
     .cal-dot { position: absolute; width: 11cqw; height: 11cqw; margin: -5.5cqw 0 0 -5.5cqw; border-radius: 50%; border: 0; padding: 0;
       display: grid; place-items: center; cursor: pointer; pointer-events: auto; color: var(--c);

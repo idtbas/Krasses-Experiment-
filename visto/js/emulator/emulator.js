@@ -59,6 +59,7 @@
       U.el('h3', { text: 'Emulator' }),
       U.el('p', { class: 'sub', text: 'Visto V1 · 7″ OLED, kreisrund, 1080 × 1080, 90 Hz. Dieses Display ist maßstabsgetreu verkleinert.' }),
       st,
+      claudeRow(),
       row('90-Hz-Taktung', 'Zeichnet genau wie das echte Display höchstens 90 Bilder pro Sekunde.', switchEl(V.loop.cap90, (v) => { V.loop.cap90 = v; try { localStorage.setItem('vistoos.cap90', v ? '1' : '0'); } catch (e) { /* */ } })),
       row('Umgebungslicht', 'Simulierter Lichtsensor für die automatische Helligkeit.', lux),
       row('Zeitlupe', 'Alle Animationen verlangsamt ansehen.', slow),
@@ -74,6 +75,57 @@
       stats.fps.textContent = String(V.loop.fps);
     }, 400);
   }
+  /** Claude verbinden: eigener API-Schlüssel der Organisation, bleibt nur in diesem Browser */
+  function claudeRow() {
+    const wrap = U.el('div', { class: 'emu-claude' });
+    const status = U.el('small');
+    const btn = U.el('button', { class: 'emu-btn', attrs: { type: 'button' } });
+    const panel = U.el('div', { class: 'emu-claude-panel', attrs: { hidden: true } });
+    const key = U.el('input', { attrs: { id: 'emu-claude-key', type: 'password', placeholder: 'sk-ant-…', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Anthropic-API-Schlüssel' } });
+    const sel = U.el('select', { attrs: { id: 'emu-claude-model', 'aria-label': 'Modell' } });
+    for (const m of V.claude.MODELS) sel.appendChild(U.el('option', { attrs: { value: m.id }, text: m.label }));
+    sel.value = V.claude.model;
+    const go = U.el('button', { class: 'emu-btn primary', text: 'Verbinden und testen', attrs: { type: 'button' } });
+    const off = U.el('button', { class: 'emu-btn danger', text: 'Trennen', attrs: { type: 'button' } });
+    const msg = U.el('p', { class: 'emu-claude-msg' });
+    const note = U.el('p', { class: 'emu-claude-note', text: 'Den Schlüssel erstellst du in der Claude Console deiner Organisation (platform.claude.com → API Keys). Er wird nur in diesem Browser gespeichert und direkt an Anthropic gesendet – nutze ihn nur auf deinem eigenen Gerät. Im Claude-Artefakt braucht Visto keinen Schlüssel.' });
+    panel.append(U.el('label', { attrs: { for: 'emu-claude-key' }, text: 'API-Schlüssel' }), key, U.el('label', { attrs: { for: 'emu-claude-model' }, text: 'Modell' }), sel, U.el('div', { class: 'emu-claude-acts' }, go, off), msg, note);
+    function refresh() {
+      const src = V.brain.claudeSource;
+      status.textContent = src === 'api' ? 'Verbunden · ' + (V.claude.MODELS.find((m) => m.id === V.claude.model) || { label: V.claude.model }).label.split(' (')[0]
+        : src === 'artifact' ? 'Verbunden über dein Claude-Konto (Artefakt)' : 'Nicht verbunden · Visto antwortet nur lokal';
+      btn.textContent = V.claude.configured ? 'Ändern' : 'Verbinden';
+      off.hidden = !V.claude.configured;
+    }
+    btn.addEventListener('click', () => { panel.hidden = !panel.hidden; if (!panel.hidden) key.focus(); });
+    sel.addEventListener('change', () => { V.claude.setModel(sel.value); refresh(); });
+    off.addEventListener('click', () => { V.claude.setKey(''); key.value = ''; msg.textContent = 'Getrennt.'; refresh(); });
+    go.addEventListener('click', async () => {
+      const k = key.value.trim();
+      if (k) V.claude.setKey(k);
+      if (!V.claude.configured) { msg.textContent = 'Bitte zuerst einen Schlüssel eingeben.'; return; }
+      V.claude.setModel(sel.value);
+      msg.textContent = 'Verbinde …';
+      go.disabled = true;
+      try {
+        const t = await V.claude.test();
+        msg.textContent = '✓ ' + t + ' Visto nutzt jetzt ' + sel.options[sel.selectedIndex].text.split(' (')[0] + '.';
+        key.value = '';
+        V.store.set('settings.vistoAI', true);
+      } catch (e) {
+        msg.textContent = e && (e.status === 401 || e.status === 403) ? 'Der Schlüssel wurde abgelehnt. Bitte prüfen.' : 'Verbindung fehlgeschlagen: ' + ((e && e.message) || e);
+      }
+      go.disabled = false;
+      refresh();
+    });
+    V.on('brain:ai', refresh);
+    refresh();
+    const r = row('Claude verbinden', '', btn);
+    r.querySelector('small') ? r.querySelector('small').replaceWith(status) : r.firstChild.appendChild(status);
+    wrap.append(r, panel);
+    return wrap;
+  }
+
   /** zweistufig bestätigen (Dialoge wie confirm() sind nicht überall erlaubt) */
   function resetBtn() {
     let armed = false, t = 0;

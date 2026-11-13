@@ -273,6 +273,22 @@ button { font: inherit; color: inherit; }
 .emu-range { width: 120px; accent-color: #fff; flex: none; }
 .emu-foot { margin-top: 14px; font-size: 11.5px; color: var(--fg4); text-align: center; line-height: 1.5; }
 
+.emu-claude-panel { display: grid; gap: 8px; padding: 4px 2px 14px; }
+.emu-claude-panel[hidden] { display: none; }
+.emu-claude-panel label { font-size: 12.5px; color: var(--fg3); font-weight: 600; margin-top: 4px; }
+.emu-claude-panel input, .emu-claude-panel select {
+  height: 44px; border-radius: 12px; border: 0; padding: 0 12px; width: 100%; min-width: 0;
+  background: rgba(255,255,255,.08); color: #fff; font: 500 15px var(--font); outline: none;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+.emu-claude-panel input:focus, .emu-claude-panel select:focus { box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+.emu-claude-panel option { background: #1b1c21; }
+.emu-claude-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.emu-btn.primary { background: #fff; color: #000; }
+.emu-btn:disabled { opacity: .5; }
+.emu-claude-msg { margin: 2px 0 0; font-size: 13px; color: var(--fg2); min-height: 1em; }
+.emu-claude-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--fg3); }
+
 /* Vollbild: nur das Display */
 body.emu-full .emu-head, body.emu-full .emu-talk, body.emu-full .device-neck, body.emu-full .device-base { display: none; }
 body.emu-full .emu { justify-content: center; }
