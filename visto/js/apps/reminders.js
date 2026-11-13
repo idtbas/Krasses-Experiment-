@@ -105,7 +105,8 @@
       return 'in ' + (m < 60 ? (m === 1 ? 'einer Minute' : m + ' Minuten') : V.fmt.durationWords(m * 60).replace(/^1 Stunde/, 'einer Stunde'));
     }
     const diff = Math.round((day0(at) - day0(t)) / DAY);
-    const time = 'um ' + V.fmt.time(new Date(at)) + ' Uhr';
+    const d = new Date(at);
+    const time = 'um ' + d.getHours() + (d.getMinutes() ? ':' + U.pad(d.getMinutes()) : '') + ' Uhr';
     if (diff === 0) return time;
     if (diff === 1) return 'morgen ' + time;
     if (diff === 2) return 'übermorgen ' + time;
@@ -189,7 +190,9 @@
   function addReply(it, phrase, rel) {
     const w = it.at ? whenWords(it.at, rel) : '';
     const conn = phrase && /^(an |ans |daran)/i.test(phrase);
-    const say = !it.at ? `Gemerkt: ${it.text}.` : conn ? `Mach ich. Ich erinnere dich ${w} ${phrase}.` : `Mach ich. Ich erinnere dich ${w}: ${it.text}.`;
+    // „…, Mama anzurufen“ / „…, Brot zu kaufen“ → „daran, Mama anzurufen“
+    const inf = phrase && !conn && /(?:\S+zu\S+en|\szu \S+en)$/i.test(phrase);
+    const say = !it.at ? `Gemerkt: ${it.text}.` : conn ? `Mach ich. Ich erinnere dich ${w} ${phrase}.` : inf ? `Mach ich. Ich erinnere dich ${w} daran, ${phrase}.` : `Mach ich. Ich erinnere dich ${w}: ${it.text}.`;
     return {
       say,
       card: { type: 'icon', icon: 'list', color: COLOR, title: it.text, sub: it.at ? when(it.at) : 'Erinnerungen' },
@@ -239,7 +242,7 @@
         run() {
           const list = open();
           if (!list.length) return { say: 'Du hast keine offenen Erinnerungen. Alles erledigt!', card: { type: 'el', el: countCard(0) }, emotion: 'happy' };
-          const names = list.slice(0, 3).map((i) => i.text + (i.at && i.at - now() < DAY && i.at > now() ? ' um ' + V.fmt.time(new Date(i.at)) : ''));
+          const names = list.slice(0, 3).map((i) => i.text + (i.at && i.at - now() < DAY && i.at > now() ? ' um ' + V.fmt.time24(new Date(i.at)) : ''));
           const more = list.length > 3 ? ` und ${list.length - 3} weitere` : '';
           const lead = list.length === 1 ? 'Du hast eine offene Erinnerung: ' : `Du hast ${list.length} offene Erinnerungen: `;
           const joined = names.length > 1 && !more ? names.slice(0, -1).join(', ') + ' und ' + names[names.length - 1] : names.join(', ') + more;

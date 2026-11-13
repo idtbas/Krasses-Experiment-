@@ -441,7 +441,9 @@
     const list = sorted();
     if (!list.length) return { say: 'Du hast keinen Wecker gestellt.', card: { type: 'icon', icon: 'alarm', color: COLOR, title: 'Keine Wecker', sub: 'Sag „Weck mich um 7“' } };
     const on = list.filter((a) => a.on && a.next).sort((x, y) => x.next - y.next);
-    const parts = (on.length ? on : list).slice(0, 4).map((a) => daysWords(a) + ' um ' + spokenTime(a.h, a.m));
+    const src = on.length ? on : list;
+    const parts = src.slice(0, src.length > 4 ? 3 : 4).map((a) => daysWords(a) + ' um ' + spokenTime(a.h, a.m));
+    if (src.length > 4) parts.push((src.length - 3) + ' weitere');
     const joined = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' und ' + parts[parts.length - 1] : parts[0];
     let say;
     if (!on.length) say = `Du hast ${list.length === 1 ? 'einen Wecker' : list.length + ' Wecker'}, aber keiner ist an.`;
@@ -466,7 +468,9 @@
     changed();
     const n = hit.length;
     return {
-      say: n === 1 ? `Der Wecker um ${spokenTime(hit[0].h, hit[0].m)} ist gelöscht.` : `Alle ${n} Wecker sind gelöscht.`,
+      say: n === 1 ? `Der Wecker um ${spokenTime(hit[0].h, hit[0].m)} ist gelöscht.`
+        : tm && !args.all ? `${n === 2 ? 'Beide' : 'Die ' + n} Wecker um ${spokenTime(hit[0].h, hit[0].m)} sind gelöscht.`
+        : n === 2 ? 'Beide Wecker sind gelöscht.' : `Alle ${n} Wecker sind gelöscht.`,
       card: { type: 'icon', icon: 'trash', color: COLOR, title: n === 1 ? hm(hit[0].h, hit[0].m) : n + ' Wecker', sub: 'Gelöscht' },
     };
   }
@@ -512,7 +516,12 @@
       V.brain.intent({
         id: 'alarm-list', priority: 9,
         match: [new RegExp('(?:welche|zeig|liste|wie viele|was für)(?![a-zäöüß]).*' + W), new RegExp(W + '.*(?:habe ich|hab ich|sind gestellt|gestellt|an sind)'), /\bwann (?:klingelt|weckst du mich|werde ich geweckt|muss ich aufstehen)\b/, /\bwann klingelt (?:der|mein) wecker\b/],
-        run: () => actList(),
+        run(m, t) {
+          // „Wann klingelt mein Wecker?“ → nur der nächste
+          const a = /^wann/.test(t) && upcoming();
+          if (a) return { say: `Dein nächster Wecker klingelt ${whenWord(a.next)} um ${spokenTime(new Date(a.next).getHours(), new Date(a.next).getMinutes())}. Das ist ${inWords(a.next - now())}.`, card: alarmCard(a) };
+          return actList();
+        },
       });
       V.brain.intent({
         id: 'alarm-delete', priority: 9,
@@ -527,7 +536,7 @@
       });
       V.brain.intent({
         id: 'alarm-set', priority: 8,
-        match: [/(?<![a-zäöüß])weck(?:e)? mich(?![a-zäöüß])/, new RegExp('(?:stell|stelle|setz|setze|mach|mache|erstelle)(?![a-zäöüß]).*' + W), new RegExp(W + '.*(?:um|für|auf) \\d'), new RegExp('neuer? ' + W)],
+        match: [/(?<![a-zäöüß])weck(?:e)? mich(?![a-zäöüß])/, /^(?!wann|wer|wie|warum)(?=.*\d).*(?<![a-zäöüß])(?:wecken|aufwecken)(?![a-zäöüß])/, new RegExp('(?:stell|stelle|setz|setze|mach|mache|erstelle)(?![a-zäöüß]).*' + W), new RegExp(W + '.*(?:um|für|auf) \\d'), new RegExp('neuer? ' + W)],
         run(m, t, original) {
           const p = V.brain.parseTime(t);
           if (!p) return { say: 'Um wie viel Uhr soll ich dich wecken? Du kannst die Zeit auch hier einstellen.', emotion: 'thinking', open: 'alarm', params: { new: true } };

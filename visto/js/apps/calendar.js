@@ -134,6 +134,8 @@
 
   /* ---------------------------------------------------------- Formate */
   const tm = (ms) => V.fmt.time(new Date(ms));
+  /** für gesprochene Antworten: immer 24 h, ohne „:00“ („15“, „9:30“) – „2:00 Uhr“ für 14 Uhr wäre missverständlich */
+  const tmS = (ms) => { const d = new Date(ms); return d.getHours() + (d.getMinutes() ? ':' + U.pad(d.getMinutes()) : ''); };
   function durWords(min) {
     min = Math.round(min);
     const h = Math.floor(min / 60), m = min % 60;
@@ -403,11 +405,11 @@
     const all = eventsOfDay(d0);
     const evs = off === 0 ? all.filter((e) => e.end > t) : all;
     const card = { type: 'el', el: miniRing(d0, String(evs.length), off === 0 ? 'offen' : evs.length === 1 ? 'Termin' : 'Termine') };
-    const items = (list) => list.map((e) => tm(e.start) + ' ' + e.title);
+    const items = (list) => list.map((e) => tmS(e.start) + ' Uhr ' + e.title);
     if (off === 0) {
       if (!evs.length) {
         const nx = nextEvent(t);
-        return { say: 'Heute steht nichts mehr an.' + (nx ? ` ${whenWords(nx.start).replace(/^./, (c) => c.toUpperCase())} geht es um ${tm(nx.start)} Uhr mit ${nx.title} weiter.` : ' Genieß die freie Zeit!'), card, emotion: 'happy' };
+        return { say: 'Heute steht nichts mehr an.' + (nx ? ` ${whenWords(nx.start).replace(/^./, (c) => c.toUpperCase())} geht es um ${tmS(nx.start)} Uhr mit ${nx.title} weiter.` : ' Genieß die freie Zeit!'), card, emotion: 'happy' };
       }
       if (evs.length === 1) return { say: `Heute steht noch ein Termin an: ${items(evs)[0]}.`, card };
       if (evs.length <= 4) return { say: `Heute stehen noch ${evs.length} Termine an: ${joinList(items(evs))}.`, card };
@@ -418,8 +420,8 @@
     if (!evs.length) return { say: off < 0 ? `${W} hattest du keine Termine.` : yesNo ? `Nein, ${w} ist dein Kalender frei.` : `${W} ist dein Kalender frei.`, card, emotion: 'happy' };
     if (off < 0) return { say: `${W} hattest du ${evs.length === 1 ? 'einen Termin' : evs.length + ' Termine'}: ${joinList(items(evs).slice(0, 4))}.`, card };
     const lead = yesNo ? `Ja, ${w}` : W;
-    if (evs.length === 1) return { say: `${lead} hast du einen Termin: um ${tm(evs[0].start)} Uhr ${evs[0].title}.`, card };
-    return { say: `${lead} hast du ${evs.length} Termine. Der erste ist um ${tm(evs[0].start)} Uhr: ${evs[0].title}.`, card };
+    if (evs.length === 1) return { say: `${lead} hast du einen Termin: um ${tmS(evs[0].start)} Uhr ${evs[0].title}.`, card };
+    return { say: `${lead} hast du ${evs.length} Termine. Der erste ist um ${tmS(evs[0].start)} Uhr:${evs[0].title}.`, card };
   }
 
   function parseDayArg(day) {
@@ -460,7 +462,7 @@
           const e = addEvent({ title: String(a.title || 'Termin'), start: d.getTime(), end: d.getTime() + minutes * MIN });
           const when = whenWords(e.start);
           return {
-            say: `Erledigt: ${e.title}, ${when} um ${tm(e.start)} Uhr.`,
+            say: `Erledigt: ${e.title}, ${when} um ${tmS(e.start)} Uhr.`,
             card: { type: 'icon', icon: CATS[e.cat].icon, color: e.color, title: e.title, sub: when.replace(/^./, (c) => c.toUpperCase()) + ' · ' + tm(e.start) + '–' + tm(e.end) },
             emotion: 'happy',
           };
@@ -481,7 +483,7 @@
           const hit = sorted().filter((e) => e.title.toLowerCase().includes(q)).sort((x, y) => (x.end < t) - (y.end < t) || x.start - y.start)[0];
           if (!q || !hit) return { say: 'Diesen Termin finde ich nicht.', emotion: 'confused' };
           removeEvent(hit.id);
-          return { say: `Gelöscht: ${hit.title}, ${whenWords(hit.start)} um ${tm(hit.start)} Uhr.` };
+          return { say: `Gelöscht: ${hit.title}, ${whenWords(hit.start)} um ${tmS(hit.start)} Uhr.` };
         },
       });
 
@@ -516,7 +518,7 @@
           if (!e) return { say: 'In den nächsten zwei Wochen steht nichts an.', emotion: 'happy' };
           const when = whenWords(e.start);
           const soon = e.start - now() < 3 * HOUR ? ` – ${relIn(e.start - now()).replace('Min.', 'Minuten').replace('Std.', 'Stunden')}` : '';
-          return { say: `Dein nächster Termin: ${e.title}, ${when} um ${tm(e.start)} Uhr${soon}.`, card: { type: 'icon', icon: CATS[e.cat] ? CATS[e.cat].icon : 'calendar', color: e.color, title: e.title, sub: when.replace(/^./, (c) => c.toUpperCase()) + ' · ' + tm(e.start) } };
+          return { say: `Dein nächster Termin: ${e.title}, ${when} um ${tmS(e.start)} Uhr${soon}.`, card: { type: 'icon', icon: CATS[e.cat] ? CATS[e.cat].icon : 'calendar', color: e.color, title: e.title, sub: when.replace(/^./, (c) => c.toUpperCase()) + ' · ' + tm(e.start) } };
         },
       });
       V.brain.intent({
@@ -528,10 +530,25 @@
           /\b(?:meine|welche|alle) termine\b/,
           /\btermine?\b.*(?:heute|morgen|gestern|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)\b/,
           /(?:heute|morgen|gestern)\b.*\btermine?\b/,
-          /\bwas (?:habe|hab) ich (?:heute |morgen |übermorgen )?(?:noch )?vor\b/,
-          /\bwie (?:sieht|ist) (?:mein|der) (?:tag|kalender)\b/,
+          /\bwas (?:habe|hab) ich (?:heute |morgen |übermorgen |am (?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag) |diese woche |nächste woche )?(?:noch )?vor\b/,
+          /\bwie (?:sieht|ist) (?:mein|der) (?:tag|kalender|woche)\b/,
+          /(?:diese|nächste|kommende)n? woche\b.*\b(?:termine?|kalender|an$|vor$)/,
         ],
-        run(m, t) { return agenda(dayOffsetFrom(t), /^(?:habe?|hab|hast|gibt|ist|bin)\b/.test(t)); },
+        run(m, t) {
+          if (/(?<![a-zäöüß])woche(?![a-zäöüß])/.test(t)) {
+            // Wochenüberblick: Rest dieser Woche bzw. nächste Woche (Mo–So)
+            const nextW = /(?<![a-zäöüß])(nächste|kommende)n?(?![a-zäöüß])/.test(t);
+            const d0 = todayD0();
+            const toMon = 7 - ((new Date(d0).getDay() + 6) % 7);
+            const from = nextW ? addDays(d0, toMon) : now();
+            const evs = eventsIn(from, addDays(d0, toMon + (nextW ? 7 : 0)));
+            const w = nextW ? 'Nächste Woche' : 'Diese Woche';
+            if (!evs.length) return { say: `${w} ${nextW ? 'ist' : 'ist noch'} dein Kalender frei.`, emotion: 'happy' };
+            const first = evs[0];
+            return { say: `${w} hast du ${nextW ? '' : 'noch '}${evs.length === 1 ? 'einen Termin' : evs.length + ' Termine'}. ${evs.length === 1 ? 'Er ist' : 'Der erste ist'} ${whenWords(first.start)} um ${tmS(first.start)} Uhr: ${first.title}.`, open: /zeig|öffne/.test(t) ? 'calendar' : undefined };
+          }
+          return agenda(dayOffsetFrom(t), /^(?:habe?|hab|hast|gibt|ist|bin)\b/.test(t));
+        },
       });
     },
 

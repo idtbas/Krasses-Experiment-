@@ -1531,11 +1531,12 @@
         match: (t) => {
           if (/^(spiel|spiele|play)\b/.test(t) || NOT_HERE.test(t)) return null;
           if (/(?<![a-zäöüß])(öffne|öffnen|starte|app)(?![a-zäöüß])/.test(t)) return null;   // „Öffne Wetter“ öffnet die App
-          const w = /(?<![a-zäöüß])(wetter|wetterbericht|wettervorhersage|vorhersage)(?![a-zäöüß])/.test(t);
+          const w = /(?<![a-zäöüß])(wetter|wetterbericht|wettervorhersage|vorhersage)(?![a-zäöüß])/.test(t)
+            || /^wie (?:wird|ist|war)(?: es|'s)(?: heute| morgen| übermorgen| am (?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|wochenende))?(?: so)? draußen$|^wie wird(?: es|'s) (?:heute|morgen|übermorgen|am (?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|wochenende))$/.test(t);
           const umbrella = /(?<![a-zäöüß])(regen)?schirm(?![a-zäöüß])/.test(t);
           const rain = /(?<![a-zäöüß])(regnet|regnen|regen|nass|niederschlag|nieselt)(?![a-zäöüß])/.test(t);
           const snow = /(?<![a-zäöüß])(schneit|schnee|schneien)(?![a-zäöüß])/.test(t);
-          const temp = /wie (warm|kalt|heiß)|(?<![a-zäöüß])(temperatur|temperaturen)(?![a-zäöüß])|wie ?viel grad|(ist|wird) es (draußen |heute |morgen )?(warm|kalt|heiß)|brauche ich (eine )?jacke|grad (hat es|sind es|ist es) draußen/.test(t);
+          const temp = /wie (warm|kalt|heiß)(?![a-zäöüß])|(?<![a-zäöüß])(temperatur|temperaturen)(?![a-zäöüß])|wie ?viel grad|(ist|wird) es (draußen |heute |morgen )?(warm|kalt|heiß)|brauche ich (eine )?jacke|grad (hat es|sind es|ist es) draußen/.test(t);
           const sun = (/(wann|wie spät|um wie viel uhr).*sonne.*(?<![a-zäöüß])(auf|unter)(?![a-zäöüß])|sonnen(auf|unter)gang|wann wird es (hell|dunkel)/.test(t)) && !/weck/.test(t);
           const sunny = /(?<![a-zäöüß])sonnig(?![a-zäöüß])|scheint .*sonne|sonne scheint|sonnenschein/.test(t);
           const storm = /(?<![a-zäöüß])gewitter(?![a-zäöüß])/.test(t);

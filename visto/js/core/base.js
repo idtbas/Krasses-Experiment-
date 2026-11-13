@@ -7,6 +7,7 @@
   V.device = { name: 'Visto', model: 'V1', display: '7″ OLED · rund · 1080 × 1080 · 90 Hz' };
 
   const TAU = Math.PI * 2;
+  const rgbCache = new Map();
 
   const U = (V.util = {
     TAU,
@@ -62,10 +63,16 @@
 
     /* Farben */
     hexToRgb(hex) {
+      // Zwischenspeicher: wird pro Bild sehr oft mit denselben Farben aufgerufen (Verläufe, Leuchten)
+      const hit = rgbCache.get(hex);
+      if (hit) return hit;
       let h = String(hex).replace('#', '');
       if (h.length === 3) h = h.split('').map((c) => c + c).join('');
       const n = parseInt(h, 16);
-      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      const out = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      if (rgbCache.size > 600) rgbCache.clear();
+      rgbCache.set(hex, out);
+      return out;
     },
     rgbToHex: (r, g, b) => '#' + [r, g, b].map((v) => U.clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join(''),
     rgba(hex, a) { const [r, g, b] = U.hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; },
@@ -152,6 +159,8 @@
     bus.get(name).add(fn);
     return () => { const s = bus.get(name); if (s) s.delete(fn); };
   };
+  /** Anzahl aller Zuhörer (Leck-Suche) */
+  V.on.count = () => { let n = 0; for (const s of bus.values()) n += s.size; return n; };
   V.once = function (name, fn) {
     const off = V.on(name, (d) => { off(); fn(d); });
     return off;

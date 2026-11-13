@@ -1349,7 +1349,7 @@
     },
   });
   V.actions.register('system.wifi', {
-    desc: 'Nennt das verbundene WLAN oder verbindet Visto mit einem anderen Netz (name). Bekannte Netze: ' + NETS.map((n) => n.name).join(', ') + '.',
+    desc: 'Nennt das verbundene WLAN oder verbindet Visto mit einem anderen Netz (name). Bekannte Netze: ' + NETS.map((n) => n.name).join(', ') + '. Zum Ein- oder Ausschalten des WLANs settings.wifi nutzen.',
     params: { name: { type: 'string', description: 'Name des WLANs (leer = nur abfragen)' } },
     run(a) {
       const want = String(a.name || '').trim();

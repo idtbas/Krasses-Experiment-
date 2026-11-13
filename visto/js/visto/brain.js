@@ -164,9 +164,12 @@
     mass: { g: 0.001, gramm: 0.001, kg: 1, kilo: 1, kilogramm: 1, pfund: 0.45359237, lb: 0.45359237, unze: 0.0283495, unzen: 0.0283495, tonne: 1000, tonnen: 1000 },
     volume: { ml: 0.001, milliliter: 0.001, l: 1, liter: 1, gallone: 3.78541, gallonen: 3.78541, tasse: 0.24, tassen: 0.24, esslöffel: 0.015, teelöffel: 0.005 },
   };
-  const UNIT_NAME = { mm: 'Millimeter', cm: 'Zentimeter', m: 'Meter', km: 'Kilometer', zoll: 'Zoll', inch: 'Zoll', fuß: 'Fuß', fuss: 'Fuß', feet: 'Fuß', yard: 'Yard', meile: 'Meilen', meilen: 'Meilen', g: 'Gramm', kg: 'Kilogramm', kilo: 'Kilogramm', pfund: 'Pfund', lb: 'Pfund', unze: 'Unzen', unzen: 'Unzen', tonne: 'Tonnen', tonnen: 'Tonnen', ml: 'Milliliter', l: 'Liter', gallone: 'Gallonen', gallonen: 'Gallonen', tasse: 'Tassen', tassen: 'Tassen' };
+  const UNIT_NAME = { mm: 'Millimeter', cm: 'Zentimeter', m: 'Meter', km: 'Kilometer', zoll: 'Zoll', inch: 'Zoll', fuß: 'Fuß', fuss: 'Fuß', feet: 'Fuß', yard: 'Yard', meile: 'Meilen', meilen: 'Meilen', g: 'Gramm', kg: 'Kilogramm', kilo: 'Kilogramm', pfund: 'Pfund', lb: 'Pfund', unze: 'Unzen', unzen: 'Unzen', tonne: 'Tonnen', tonnen: 'Tonnen', ml: 'Milliliter', l: 'Liter', millimeter: 'Millimeter', zentimeter: 'Zentimeter', meter: 'Meter', kilometer: 'Kilometer', gramm: 'Gramm', kilogramm: 'Kilogramm', milliliter: 'Milliliter', liter: 'Liter', esslöffel: 'Esslöffel', teelöffel: 'Teelöffel', gallone: 'Gallonen', gallonen: 'Gallonen', tasse: 'Tassen', tassen: 'Tassen' };
   function convert(t) {
-    const m = t.match(/(-?\d+(?:[.,]\d+)?)\s*(grad )?([a-zäöüß]+)\s+(?:sind wie viele |in |nach |zu |sind |=\s*)\s*(grad )?([a-zäöüß]+)/);
+    let m = t.match(/(-?\d+(?:[.,]\d+)?)\s*(grad )?([a-zäöüß]+)\s+(?:sind wie viele |in |nach |zu |sind |=\s*)\s*(grad )?([a-zäöüß]+)/);
+    // „Wie viele Zentimeter sind 12 Zoll?“
+    const r = !m && t.match(/wie ?viele? (grad )?([a-zäöüß]+) (?:sind|ergeben|hat|haben|entsprechen) (-?\d+(?:[.,]\d+)?)\s*(grad )?([a-zäöüß]+)/);
+    if (r) m = [r[0], r[3], r[4], r[5], r[1], r[2]];
     if (!m) return null;
     const v = parseFloat(m[1].replace(',', '.'));
     const a = m[3], b = m[5];
@@ -403,12 +406,36 @@
   I({ id: 'time', priority: 1, match: [/\b(wie spät|wie viel uhr|wieviel uhr|uhrzeit|welche zeit)\b/],
     run() {
       const d = V.time.now();
-      return { say: `Es ist ${V.fmt.time(d)} Uhr.`, card: { type: 'big', text: V.fmt.time(d), sub: V.fmt.dateLong(d) } };
+      return { say: `Es ist ${V.fmt.time24(d).replace(/^0(?=\d)/, '')} Uhr.`, card: { type: 'big', text: V.fmt.time(d), sub: V.fmt.dateLong(d) } };
     } });
-  I({ id: 'date', priority: 1, match: [/\b(welcher tag|welches datum|datum|der wievielte|den wievielten|welchen tag haben)\b/],
-    run() {
+  I({ id: 'date', priority: 1, match: [/\b(welcher tag|welches datum|datum|der wievielte|den wievielten|welchen tag haben)\b/, /(?<![a-zäöüß])(wochentag|kalenderwoche|kw)(?![a-zäöüß])/, /^was (?:ist|war) (?:heute|morgen|übermorgen|gestern|vorgestern) für (?:ein )?tag$/, /^was für (?:ein )?tag (?:ist|war|haben wir) (?:heute|morgen|übermorgen|gestern|vorgestern)$/],
+    run(m, t) {
       const d = V.time.now();
-      return { say: `Heute ist ${V.fmt.weekday(d)}, der ${d.getDate()}. ${V.fmt.MON[d.getMonth()]} ${d.getFullYear()}.`, card: { type: 'big', text: String(d.getDate()), sub: V.fmt.weekday(d) + ' · ' + V.fmt.MON[d.getMonth()] } };
+      let off = 0, w = 'Heute';
+      if (/(?<![a-zäöüß])übermorgen(?![a-zäöüß])/.test(t)) { off = 2; w = 'Übermorgen'; }
+      else if (/(?<![a-zäöüß])morgen(?![a-zäöüß])/.test(t)) { off = 1; w = 'Morgen'; }
+      else if (/(?<![a-zäöüß])vorgestern(?![a-zäöüß])/.test(t)) { off = -2; w = 'Vorgestern'; }
+      else if (/(?<![a-zäöüß])gestern(?![a-zäöüß])/.test(t)) { off = -1; w = 'Gestern'; }
+      d.setDate(d.getDate() + off);
+      if (/kalenderwoche|(?<![a-zäöüß])kw(?![a-zäöüß])/.test(t)) {
+        // ISO-Kalenderwoche
+        const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        x.setUTCDate(x.getUTCDate() + 4 - (x.getUTCDay() || 7));
+        const kw = Math.ceil(((x - Date.UTC(x.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7);
+        return { say: off ? `${w} ${off < 0 ? 'war' : 'ist'} Kalenderwoche ${kw}.` : `Wir sind in Kalenderwoche ${kw}.`, card: { type: 'big', text: 'KW ' + kw, sub: V.fmt.weekday(d) + ', ' + d.getDate() + '. ' + V.fmt.MON[d.getMonth()] } };
+      }
+      return { say: `${w} ${off < 0 ? 'war' : 'ist'} ${V.fmt.weekday(d)}, der ${d.getDate()}. ${V.fmt.MON[d.getMonth()]} ${d.getFullYear()}.`, card: { type: 'big', text: String(d.getDate()), sub: V.fmt.weekday(d) + ' · ' + V.fmt.MON[d.getMonth()] } };
+    } });
+  I({ id: 'days-until', priority: 2, match: [/wie ?(?:viele|lange)(?: tage)? (?:sind es |ist es |dauert es )?(?:noch )?bis (?:zu )?(?:weihnachten|heiligabend|silvester|neujahr)/],
+    run(m, t) {
+      const now = V.time.now();
+      const [name, mo, day] = /silvester/.test(t) ? ['Silvester', 11, 31] : /neujahr/.test(t) ? ['Neujahr', 0, 1] : /heiligabend/.test(t) ? ['Heiligabend', 11, 24] : ['Weihnachten', 11, 24];
+      const d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      let target = new Date(now.getFullYear(), mo, day);
+      if (target < d0) target = new Date(now.getFullYear() + 1, mo, day);
+      const n = Math.round((target - d0) / 864e5);
+      const say = n === 0 ? `Heute ist ${name}!` : n === 1 ? `Morgen ist schon ${name}.` : `Bis ${name} sind es noch ${n} Tage.`;
+      return { say, card: { type: 'big', text: String(n), sub: n === 1 ? 'Tag bis ' + name : 'Tage bis ' + name }, emotion: 'happy' };
     } });
   I({ id: 'greet', priority: 0, match: [/^(hallo|hi|hey|servus|moin|grüß dich|guten (morgen|tag|abend)|na)\b/],
     run() {
@@ -460,7 +487,7 @@
   I({ id: 'home', priority: 5, match: [/^(zurück|schließen|schließe( die app)?|zum zifferblatt|zeig (die )?uhr|startbildschirm|nach hause gehen)$/],
     run() { setTimeout(() => V.shell.home(), 900); return { say: 'Gern.', emotion: 'happy' }; } });
 
-  I({ id: 'face', priority: 5, match: [/\b(zifferblatt|uhr ?design|uhrdesign|watchface)\b.*\b(wechsel|ändern|ander|nächste|neu)/, /\b(anderes|nächstes|neues) (zifferblatt|uhrdesign)\b/, /\bzeig (mir )?(die |das )?(analoguhr|analog|monolith|chronos|wortuhr|ringe|orbit|flux|stapel|nacht)\b/],
+  I({ id: 'face', priority: 5, match: [/\b(zifferblatt|uhr ?design|uhrdesign|watchface)\b.*\b(wechsel|ändern|ander|nächste|neu)/, /\b(anderes|nächstes|neues) (zifferblatt|uhrdesign)\b/, /(?<![a-zäöüß])(wechsel\w*|änder\w*|tausch\w*)(?![a-zäöüß]).*(?<![a-zäöüß])(zifferblatt|uhrdesign|watchface)(?![a-zäöüß])/, /\bzeig (mir )?(die |das )?(analoguhr|analog|monolith|chronos|wortuhr|ringe|orbit|flux|stapel|nacht)\b/],
     run(m, t) {
       const list = V.faces.list();
       const named = list.find((f) => t.includes(f.name.toLowerCase()) || t.includes(f.id) || (f.id === 'analog' && /analog/.test(t)));
@@ -473,22 +500,22 @@
       V.store.set('settings.accent', COLOR_WORDS[w]);
       return { say: `Erledigt, alles leuchtet jetzt in ${w === 'weiß' ? 'Weiß' : w.charAt(0).toUpperCase() + w.slice(1)}.`, emotion: 'happy' };
     } });
-  I({ id: 'brightness', priority: 5, match: [/\b(heller|dunkler|helligkeit)\b/],
+  I({ id: 'brightness', priority: 5, match: [/\b(heller|dunkler|helligkeit)\b/, /(display|bildschirm).*dimm|dimm\w* (?:das |den )?(display|bildschirm)/],
     run(m, t) {
       let b = V.store.get('settings.brightness', 0.9);
-      const n = t.match(/(\d{1,3}) ?(%|prozent)/);
+      const n = t.match(/(\d{1,3}) ?(%|prozent)/) || t.match(/(?<![a-zäöüß])auf (\d{1,3})$/);
       if (n) b = +n[1] / 100;
       else if (/heller|max|voll/.test(t)) b = Math.min(1, b + 0.25);
-      else if (/dunkler|min/.test(t)) b = Math.max(0.05, b - 0.25);
+      else if (/dunkler|min|dimm/.test(t)) b = Math.max(0.05, b - 0.25);
       b = U.clamp(b, 0.05, 1);
       V.store.set('settings.brightness', b);
       V.rim.level('Helligkeit', b, { color: '#FFD60A' });
       return { say: `Helligkeit auf ${Math.round(b * 100)} Prozent.`, card: { type: 'icon', icon: 'brightness', color: '#FFD60A', title: Math.round(b * 100) + ' %', sub: 'Helligkeit' } };
     } });
-  I({ id: 'volume', priority: 5, match: [/\b(lauter|leiser|lautstärke|stumm|ton aus|ton an)\b/],
+  I({ id: 'volume', priority: 5, match: [/(?<![a-zäöüß])(lauter|leiser|lautstärke|stumm|stummschalten|stummschaltung|ton aus|ton an)(?![a-zäöüß])/],
     run(m, t) {
       let v = V.store.get('settings.volume', 0.6);
-      const n = t.match(/(\d{1,3}) ?(%|prozent)/);
+      const n = t.match(/(\d{1,3}) ?(%|prozent)/) || t.match(/(?<![a-zäöüß])auf (\d{1,3})$/);
       if (n) v = +n[1] / 100;
       else if (/lauter|ton an/.test(t)) v = Math.min(1, Math.max(0.2, v + 0.2));
       else if (/leiser/.test(t)) v = Math.max(0, v - 0.2);
@@ -498,21 +525,22 @@
       V.rim.level('Lautstärke', v, { color: '#FFFFFF' });
       return { say: v === 0 ? 'Ich bin jetzt stumm.' : `Lautstärke auf ${Math.round(v * 100)} Prozent.`, card: { type: 'icon', icon: v === 0 ? 'mute' : 'volume', color: '#8E8E93', title: Math.round(v * 100) + ' %', sub: 'Lautstärke' } };
     } });
-  I({ id: 'night', priority: 5, match: [/\bnachtmodus\b/, /^gute nacht\b/],
+  const GOODNIGHT = /^(?:gute nacht|schlaf gut|ich geh(?:e)? (?:jetzt )?(?:schlafen|ins bett)|ich bin (?:dann )?(?:mal )?im bett)(?![a-zäöüß])/;
+  I({ id: 'night', priority: 5, match: [/\bnachtmodus\b/, GOODNIGHT],
     run(m, t) {
-      if (/^gute nacht/.test(t)) {
+      if (GOODNIGHT.test(t)) {
         V.store.set('settings.night', 'on');
         V.emit('visto:goodnight');
         setTimeout(() => { V.shell.home(); setTimeout(() => V.ambient.sleep(), 1500); }, 2600);
         return { say: `Gute Nacht${nameOf() ? ', ' + nameOf() : ''}. Schlaf gut, ich dimme das Licht.`, emotion: 'sleepy' };
       }
-      const on = !/\baus\b|\bdeaktiv/.test(t);
+      const on = !/(?<![a-zäöüß])(aus|ausschalten|ausmachen|abschalten|beenden|beende)(?![a-zäöüß])|deaktiv/.test(t);
       V.store.set('settings.night', on ? 'on' : 'auto');
       return { say: on ? 'Nachtmodus ist an.' : 'Nachtmodus ist wieder automatisch.', emotion: on ? 'sleepy' : 'happy' };
     } });
   I({ id: 'dnd', priority: 5, match: [/\bnicht stören\b/],
     run(m, t) {
-      const on = !/\baus\b|\bbeende|\bdeaktiv/.test(t);
+      const on = !/(?<![a-zäöüß])(aus|ausschalten|ausmachen|abschalten|beenden|beende)(?![a-zäöüß])|deaktiv/.test(t);
       V.store.set('settings.dnd', on);
       return { say: on ? 'Nicht stören ist an. Ich bleibe still.' : 'Nicht stören ist aus.', card: { type: 'icon', icon: on ? 'moon' : 'bell', color: '#5E5CE6', title: on ? 'An' : 'Aus', sub: 'Nicht stören' } };
     } });
@@ -528,7 +556,7 @@
     run(m, t) {
       if (/automatisch|internet|richtig|zurück/.test(t)) {
         V.time.setAuto();
-        return { say: `Die Uhr läuft wieder automatisch. Es ist ${V.fmt.time(V.time.now())} Uhr.`, card: { type: 'big', text: V.fmt.time(V.time.now()), sub: 'Automatisch' } };
+        return { say: `Die Uhr läuft wieder automatisch. Es ist ${V.fmt.time24(V.time.now()).replace(/^0(?=\d)/, '')} Uhr.`, card: { type: 'big', text: V.fmt.time(V.time.now()), sub: 'Automatisch' } };
       }
       if (/\b(24|zwölf|12)\b.*\bstunden/.test(t)) {
         const h24 = /24/.test(t);
@@ -540,7 +568,7 @@
       const d = V.time.now();
       d.setHours(p.h, p.m, 0, 0);
       V.time.setManual(d);
-      return { say: `Erledigt, die Uhr steht jetzt auf ${V.fmt.time(d)}.`, card: { type: 'big', text: V.fmt.time(d), sub: 'Manuell gestellt' }, emotion: 'happy' };
+      return { say: `Erledigt, die Uhr steht jetzt auf ${V.fmt.time24(d).replace(/^0(?=\d)/, '')} Uhr.`, card: { type: 'big', text: V.fmt.time(d), sub: 'Manuell gestellt' }, emotion: 'happy' };
     } });
 
   /* Systemaktionen für Claude */
@@ -562,27 +590,27 @@
     run(a) { const app = V.apps.get(String(a.id)); if (!app) return 'Diese App gibt es nicht.'; return { say: app.name + ' wird geöffnet.', open: app.id }; },
   });
   V.actions.register('system.set_accent', {
-    desc: 'Setzt die Akzentfarbe des Systems (Hex wie #7CC8FF).',
+    desc: 'Setzt die Akzentfarbe des ganzen Systems (Ring von Visto, Zifferblatt-Akzente) als Hex. Passende Werte: Rot #FF453A, Orange #FF9A4D, Gelb #F5E663, Grün/Mint #5EE6B0, Türkis #64D2FF, Blau #7CC8FF, Lila #B79CFF, Pink #FF8FD1, Weiß #F2F2F7, Koralle #FF5E7A.',
     params: { color: { type: 'string', description: 'Farbe als Hex' } }, required: ['color'],
     run(a) { if (!/^#[0-9a-f]{6}$/i.test(a.color)) return 'Ungültige Farbe.'; V.store.set('settings.accent', a.color); return 'Akzentfarbe gesetzt.'; },
   });
   V.actions.register('system.set_brightness', {
-    desc: 'Setzt die Display-Helligkeit in Prozent (5–100).',
-    params: { percent: { type: 'number' } }, required: ['percent'],
+    desc: 'Setzt die Helligkeit des Visto-Displays in Prozent (5–100). Nicht für das Licht zuhause – dafür home.light.',
+    params: { percent: { type: 'number', description: 'Prozent 5–100' } }, required: ['percent'],
     run(a) { const b = U.clamp(Number(a.percent) / 100, 0.05, 1); V.store.set('settings.brightness', b); V.rim.level('Helligkeit', b, { color: '#FFD60A' }); return 'Helligkeit ' + Math.round(b * 100) + ' %.'; },
   });
   V.actions.register('system.set_volume', {
-    desc: 'Setzt die Lautstärke in Prozent (0–100).',
-    params: { percent: { type: 'number' } }, required: ['percent'],
+    desc: 'Setzt die Gesamtlautstärke von Visto (Stimme, Töne, Musik) in Prozent (0–100; 0 = stumm).',
+    params: { percent: { type: 'number', description: 'Prozent 0–100' } }, required: ['percent'],
     run(a) { const v = U.clamp(Number(a.percent) / 100, 0, 1); V.store.set('settings.volume', v); V.rim.level('Lautstärke', v); return 'Lautstärke ' + Math.round(v * 100) + ' %.'; },
   });
   V.actions.register('system.set_face', {
-    desc: 'Wechselt das Zifferblatt. id: ' + 'monolith, analog, stack, rings, words, orbit, flux, night',
+    desc: 'Wechselt das Zifferblatt und zeigt es an. id: monolith (Monolith, große Ziffern), analog (Chronos, Analoguhr mit Zeigern), stack (Stapel), rings (Ringe), words (Wortuhr, Zeit in Worten), orbit (Orbit), flux (Flux), night (Nacht, gedimmt rot). Für Farben oder Optionen eines Zifferblatts face.set_option nutzen.',
     params: { id: { type: 'string' } }, required: ['id'],
     run(a) { if (!V.faces.get(a.id)) return 'Unbekanntes Zifferblatt.'; setTimeout(() => { V.shell.home(); setTimeout(() => V.faces.show(a.id, { dir: 1 }), 500); }, 1200); return 'Zifferblatt gewechselt.'; },
   });
   V.actions.register('system.night_mode', {
-    desc: 'Schaltet den Nachtmodus: on = an, auto = automatisch, off = aus.',
+    desc: 'Schaltet den Nachtmodus des Displays (gedimmte, rötliche Anzeige): on = an, auto = automatisch nach Uhrzeit, off = nie. Für „Gute Nacht“ zusätzlich passend: home.scene mit name nacht.',
     params: { mode: { type: 'string', enum: ['on', 'auto', 'off'] } }, required: ['mode'],
     run(a) { V.store.set('settings.night', ['on', 'auto', 'off'].includes(a.mode) ? a.mode : 'auto'); return 'Nachtmodus: ' + a.mode; },
   });

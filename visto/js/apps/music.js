@@ -1789,6 +1789,8 @@
           if (/^(musik|radio)( an| ein| bitte)?$/.test(t)) return { st: null };
           if (mus && (strong || weak)) return { st };
           if (strong && st) return { st };
+          // „Musik zum Einschlafen“, „Radio mit Regen“
+          if (/^(?:etwas |ein bisschen |bisschen )?(?:musik|radio|beats|klänge)(?: zum| zur| für| mit)(?![a-zäöüß])/.test(t)) return { st };
           if (/^(weiter|weiterspielen|fortsetzen|play)$/.test(t) && M.started && !M.playing) return { st: null };
           return null;
         },

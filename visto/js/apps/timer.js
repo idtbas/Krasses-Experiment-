@@ -92,7 +92,7 @@
 
       V.brain.intent({
         id: 'timer-stop', priority: 9,
-        match: [/\btimer\b.*\b(stopp|stop|stoppen|aus|abbrechen|beenden|löschen)\b/, /\b(stopp|stoppe|beende|lösche)\b.*\btimer\b/],
+        match: [/\btimer\b.*(?<![a-zäöüß])(stopp|stop|stoppen|aus|abbrechen|beenden|löschen|entfernen|ausschalten)(?![a-zäöüß])/, /(?<![a-zäöüß])(stopp|stoppe|beende|lösch|lösche|entferne|brich)(?![a-zäöüß]).*\btimer\b/],
         run() { return V.actions.run('timer.stop'); },
       });
       V.brain.intent({

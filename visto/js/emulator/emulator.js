@@ -17,11 +17,18 @@
   function size() {
     const w = window.innerWidth, h = window.innerHeight;
     const full = document.body.classList.contains('emu-full');
+    // Handy quer: Gerät links, Eingabe rechts (sonst passt das Display nicht auf den Bildschirm)
+    const land = !full && w > h && h <= 600 && w >= 500;
+    document.body.classList.toggle('emu-land', land);
     const ring = 2 * (0.028 + 0.022);           // Rahmen relativ zu D
     let D;
     if (full) D = Math.min(w - 24, h - 24) / (1 + ring);
-    else {
-      const maxW = Math.min(w - 32, 560) / (1 + ring);
+    else if (land) {
+      // Höhe: Rahmen + Hals/Sockel (~0,18 D) + Ränder; Breite: rechts bleiben mind. 260 px für die Eingabe
+      D = Math.max(180, Math.min((h - 30) / (1 + ring + 0.18), (w - 32 - 16 - 260) / (1 + ring)));
+    } else {
+      // Breite bis 720 px (Tablet), solange die Höhe reicht
+      const maxW = Math.min(w - 32, 720) / (1 + ring);
       const maxH = (h - 300) / (1 + ring + 0.2);
       D = Math.max(220, Math.min(maxW, Math.max(maxH, Math.min(maxW, 300))));
     }
@@ -56,7 +63,8 @@
     slow.addEventListener('input', () => { V.loop.slow = slow.value / 100; });
     sheet.append(
       U.el('div', { class: 'grab' }),
-      U.el('h3', { text: 'Emulator' }),
+      U.el('div', { class: 'emu-sheet-head' }, U.el('h3', { text: 'Emulator' }),
+        U.el('button', { class: 'emu-iconbtn', attrs: { type: 'button', 'aria-label': 'Schließen' }, html: V.icon('close'), on: { click: () => toggleSheet(false) } })),
       U.el('p', { class: 'sub', text: 'Visto V1 · 7″ OLED, kreisrund, 1080 × 1080, 90 Hz. Dieses Display ist maßstabsgetreu verkleinert.' }),
       st,
       claudeRow(),
@@ -69,6 +77,7 @@
       U.el('div', { class: 'emu-foot', html: `VistoOS ${V.version} · Build ${V.build}<br>Wischen, Tippen, Halten und Drehen am Rand funktionieren wie auf dem Gerät.` }),
     );
     document.body.append(sheetBack, sheet);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheet.classList.contains('on')) toggleSheet(false); });
     setInterval(() => {
       if (!sheet.classList.contains('on')) return;
       stats.hz.textContent = V.loop.hz + ' Hz';

@@ -407,6 +407,7 @@
       return { say: 'Die Heizung ist aus.', card: thermoCard() };
     }
     let v = th.target;
+    const old = th.target;
     if (a.temp !== undefined && a.temp !== null && a.temp !== '' && isFinite(Number(a.temp))) {
       v = Number(a.temp);
       if (v > T_MAX) note = ` Mehr als ${T_MAX} Grad geht nicht.`;
@@ -417,7 +418,9 @@
     changed({ what: 'thermo', focus: 'klima', src });
     pulse(modeColor(thermoMode()));
     const m = thermoMode();
-    const tail = m === 'heat' ? ' Ich heize auf.' : m === 'cool' ? ' Ich lasse es etwas abkühlen.' : '';
+    // nicht widersprechen: „Es ist zu warm“ senkt das Ziel – dann kein „Ich heize auf“
+    const nt = st().thermo.target;
+    const tail = m === 'heat' ? (nt < old ? ' Ich heize etwas weniger.' : ' Ich heize auf.') : m === 'cool' ? (nt > old ? '' : ' Ich lasse es etwas abkühlen.') : '';
     return { say: `Die Heizung steht auf ${fmtT(st().thermo.target)} Grad.${note || tail}`, card: thermoCard(), emotion: 'happy' };
   }
 
@@ -597,6 +600,8 @@
     init() {
       styles();
       st();
+      // „Gute Nacht“ an Visto: auch die Wohnung schlafen legen
+      V.on('visto:goodnight', () => V.safe(() => sceneCommand('nacht'), 'home goodnight'));
       V.info = V.info || {};
       V.info.home = () => {
         const s = st();
@@ -671,7 +676,7 @@
           if (RE.light.test(t)) return { k: 'light' };
           if (RE.coffee.test(t)) return { k: 'coffee' };
           if (RE.blinds.test(t)) return { k: 'blinds' };
-          if (RE.heat.test(t) || (/(wie warm|wie kalt|welche temperatur|wie viel grad|wieviel grad)/.test(t) && RE.indoor.test(t))) return { k: 'heat' };
+          if (RE.heat.test(t) || (/(wie warm|wie kalt|welche temperatur|wie viel grad|wieviel grad)/.test(t) && (RE.indoor.test(t) || roomFrom(t)))) return { k: 'heat' };
           return null;
         },
         run(m, t) {
@@ -709,7 +714,7 @@
           const which = (s) => /guten morgen|morgen|aufwachen|aufstehen/.test(s) ? 'morgen' : /film|kino/.test(s) ? 'film' : /gute ?nacht|schlafen|nachtruhe/.test(s) ? 'nacht' : /alles aus|(?<![a-zäöüß])aus$/.test(s) ? 'aus' : null;
           if (W('szene|szenen|stimmung|routine').test(t) || /^(?:aktiviere|starte|spiel)\w* (?:die )?(?:guten morgen|gute nacht|film)/.test(t)) return { s: which(t.replace(/szenen?|stimmung|routine/g, '')) };
           if (/^(?:bitte )?(?:mach |schalte |schalt )?(?:überall |hier )?alles aus(?: bitte)?$/.test(t)) return { s: 'aus' };
-          if (W('filmabend|filmmodus|kinomodus|kinoabend|heimkino|filmzeit').test(t) || /zeit für (?:einen|nen) film/.test(t)) return { s: 'film' };
+          if (W('film-?abend|film-? ?modus|kino-? ?modus|kino-?abend|heimkino|filmzeit').test(t) || /zeit für (?:einen|nen) film/.test(t)) return { s: 'film' };
           return null;
         },
         run(m, t) { return opt(sceneCommand(m.s), t, 'szenen'); },
@@ -730,8 +735,8 @@
           let pos = null;
           const pm = t.match(RE.pct);
           if (pm) pos = +pm[1];
-          else if (W('runter|herunter|hinunter|zu|schließen|schließe|schliess\\w*|dicht|unten|zumachen|ab|abdunkeln').test(t)) pos = 0;
           else if (W('halb|halbe|hälfte|halbwegs').test(t)) pos = 50;
+          else if (W('runter|herunter|hinunter|zu|schließen|schließe|schliess\\w*|dicht|unten|zumachen|ab|abdunkeln').test(t)) pos = 0;
           else if (W('hoch|rauf|herauf|hinauf|auf|öffnen|öffne|oben|aufmachen|aufziehen').test(t)) pos = 100;
           const id = roomFrom(t);
           if (pos === null) {
@@ -751,6 +756,10 @@
           if (RE.exclude.test(t)) return null;
           if (RE.light.test(t)) return {};
           if (/^(?:(?:mach|schalte|schalt) )?(?:das |die |den )?(?:im |in der )?(?:wohnzimmer|küche|schlafzimmer|arbeitszimmer|flur|büro) (?:an|aus|ein)$/.test(t)) return {};
+          // „Mach es dunkel im Wohnzimmer“, „Mach es heller in der Küche“
+          if (/^(?:bitte )?(?:mach|mache)(?: es| mal| es mal)? (?:dunkel|dunkler|hell|heller|gemütlich)(?![a-zäöüß])/.test(t) && roomFrom(t)) return {};
+          // „Dimme das Wohnzimmer auf 20 Prozent“
+          if (/^(?:bitte )?dimm\w*(?![a-zäöüß])/.test(t) && roomFrom(t)) return {};
           return null;
         },
         run(m, t) {
@@ -777,6 +786,8 @@
           }
           if (RE.off.test(t)) a.on = false;
           else if (RE.on.test(t) && a.brightness === undefined && !a.delta) a.on = true;
+          // „Mach Licht im Flur“ heißt einschalten, nicht umschalten
+          else if (/^(?:bitte )?(?:mach|mache)(?![a-zäöüß])/.test(t) && !c && a.brightness === undefined && !a.delta) a.on = true;
           if (a.delta === 0) delete a.delta;
           const res = lightCommand(a, 'voice');
           return opt(res, t, all ? defaultRoom() : id || defaultRoom());

@@ -50,6 +50,8 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; min-height: 100%; background: #000; color: var(--fg); }
+/* iOS/Android vergrößern Text im Querformat sonst eigenmächtig (Zeilen in Listen werden zu hoch) */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
@@ -219,7 +221,11 @@ button { font: inherit; color: inherit; }
 .talk-btn.send:disabled { opacity: .25; }
 .talk-btn.mic.live { background: linear-gradient(135deg, var(--v1), var(--v3) 55%, var(--v4)); animation: micpulse 1.4s ease-in-out infinite; }
 @keyframes micpulse { 50% { box-shadow: 0 0 0 7px rgba(180,107,255,.18); } }
-.talk-chips { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 4px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+.talk-chips {
+  display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 4px; margin: 0 -16px; padding-left: 16px; padding-right: 16px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 22px), transparent);
+}
 .talk-chips::-webkit-scrollbar { display: none; }
 .talk-chip {
   flex: none; height: 34px; padding: 0 13px; border-radius: 999px; border: 0; cursor: pointer;
@@ -247,6 +253,9 @@ button { font: inherit; color: inherit; }
 .emu-sheet.on { transform: none; }
 .emu-sheet .grab { width: 38px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.2); margin: 0 auto 12px; }
 .emu-sheet h3 { margin: 6px 2px 4px; font-size: 20px; letter-spacing: -.01em; }
+.emu-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.emu-sheet-head .emu-iconbtn { width: 32px; height: 32px; flex: none; }
+.emu-sheet-head .emu-iconbtn svg { width: 16px; height: 16px; }
 .emu-sheet p.sub { margin: 0 2px 14px; color: var(--fg3); font-size: 13px; line-height: 1.45; }
 .emu-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
 .emu-stat { background: rgba(255,255,255,.05); border-radius: 16px; padding: 10px 12px; }
@@ -289,6 +298,17 @@ button { font: inherit; color: inherit; }
 .emu-claude-msg { margin: 2px 0 0; font-size: 13px; color: var(--fg2); min-height: 1em; }
 .emu-claude-note { margin: 0; font-size: 12px; line-height: 1.45; color: var(--fg3); }
 
+/* Handy quer: Gerät links, Kopf und Eingabe rechts (Klasse setzt emulator.js) */
+body.emu-land .emu {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto;
+  column-gap: 20px; row-gap: 10px; align-items: center; align-content: center; justify-content: center;
+  padding-top: max(env(safe-area-inset-top), 10px); padding-bottom: max(env(safe-area-inset-bottom), 10px);
+}
+body.emu-land .emu-stage { grid-column: 1; grid-row: 1 / span 2; margin-top: 0; align-self: center; }
+body.emu-land .emu-head { grid-column: 2; grid-row: 1; max-width: 560px; align-self: end; }
+body.emu-land .emu-talk { grid-column: 2; grid-row: 2; max-width: 560px; align-self: start; margin-top: 0; }
+body.emu-land .talk-chips { margin: 0 -16px 0 0; padding-left: 2px; }
+
 /* Vollbild: nur das Display */
 body.emu-full .emu-head, body.emu-full .emu-talk, body.emu-full .device-neck, body.emu-full .device-base { display: none; }
 body.emu-full .emu { justify-content: center; }
@@ -314,7 +334,9 @@ body.emu-full .emu-exitfull { display: grid; }
   touch-action: none;
   color: var(--fg);
   font-family: var(--font);
-  font-size: 4cqw;
+  /* cqw am Container selbst bezöge sich auf das Fenster (Querformat: riesige Grundschrift) –
+     daher an --D koppeln; 0.052·D entspricht dem bisherigen Wert am Referenz-Handy (390 px, D 300) */
+  font-size: calc(var(--D) * .052);
   line-height: 1.25;
   -webkit-user-select: none;
   user-select: none;

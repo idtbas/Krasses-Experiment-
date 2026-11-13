@@ -888,7 +888,7 @@
       });
       V.brain.intent({
         id: 'photos-show', priority: 7,
-        match: [/(?<![a-zäöüß])(zeig\w*|öffne\w*|sehen|anschauen|ansehen)(?![a-zäöüß]).*(?<![a-zäöüß])(fotos?|bilder|photos?|urlaubsbilder|galerie)(?![a-zäöüß])/, /^(meine |die )?(fotos|bilder|galerie)$/],
+        match: [/(?<![a-zäöüß])(zeig\w*|öffne\w*|sehen|anschauen|ansehen)(?![a-zäöüß]).*(fotos?|bilder|photos?|galerie)(?![a-zäöüß])/, /^(meine |die )?(fotos|bilder|galerie)$/],
         run() {
           request({ play: true });
           return { say: 'Hier sind deine Fotos.', open: 'photos', emotion: 'happy' };

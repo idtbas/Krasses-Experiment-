@@ -66,6 +66,7 @@
     hz: 60,        // gemessene Bildwiederholrate des Handys
     fps: 60,       // tatsächlich gezeichnete Bilder pro Sekunde
     slow: 1,       // Zeitlupe für Tests
+    get count() { return subs.length; },   // Anzahl Abonnenten (Leck-Suche)
     add(fn, z = 0) {
       const s = { fn, z, dead: false };
       subs.push(s);

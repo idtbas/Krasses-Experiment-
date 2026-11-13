@@ -19,7 +19,10 @@
   let stage, homeEl;
   let app = null;            // {def, ctx, inst, el, content, origin, from}
   let busy = false;
-  let backDrag = null;       // laufende Zurück-Geste
+  let openGen = 0;           // jüngster open()-Aufruf
+  let closing = null;        // Promise des laufenden Schließens
+  let lastFrom = 'home';
+  let backDrag = null;     // laufende Zurück-Geste
   let crownAcc = 0;
 
   const shell = (V.shell = {
@@ -48,7 +51,11 @@
     async home(o = {}) {
       if (shell.mode === 'setup' || shell.mode === 'boot') return;
       if (V.control && V.control.isOpen) V.control.close();
-      if (shell.mode === 'app') { await closeApp({ to: 'home' }); return; }
+      if (shell.mode === 'app') {
+        openGen++;
+        if (!app) await settleApp();
+        if (app) { await closeApp({ to: 'home' }); return; }
+      }
       if (shell.mode === 'home') return;
       shell.mode = 'home';
       V.launcher.hide();
@@ -59,7 +66,11 @@
 
     async launcher() {
       if (shell.mode === 'setup' || shell.mode === 'boot') return;
-      if (shell.mode === 'app') { await closeApp({ to: 'launcher' }); return; }
+      if (shell.mode === 'app') {
+        openGen++;
+        if (!app) await settleApp();
+        if (app) { await closeApp({ to: 'launcher' }); return; }
+      }
       if (shell.mode === 'launcher') return;
       shell.mode = 'launcher';
       hideHome();
@@ -74,14 +85,23 @@
       const def = V.apps.get(id);
       if (!def) { console.warn('[VistoOS] App fehlt:', id); return null; }
       if (shell.mode === 'setup' || shell.mode === 'boot') return null;
-      if (busy) await U.sleep(380);
+      // rasch aufeinanderfolgende Aufrufe: nur der jüngste gewinnt, laufendes Schließen abwarten
+      const gen = ++openGen;
+      while (closing) await closing;
+      if (gen !== openGen) return null;
       if (app && app.def.id === id) {
         if (app.inst.params) V.safe(() => app.inst.params(params || {}));
         return app;
       }
       if (V.control && V.control.isOpen) V.control.close();
       let from = shell.mode;
-      if (shell.mode === 'app') { from = app.from; await closeApp({ to: null, quick: true }); }
+      if (shell.mode === 'app') {
+        from = app ? app.from : lastFrom;
+        if (app) await closeApp({ to: null, quick: true });
+        while (closing) await closing;
+        if (gen !== openGen) return null;
+      }
+      if (from === 'app') from = 'home';
       busy = true;
       origin = origin || { x: 500, y: 560, r: 70 };
       const el = U.el('div', { class: 'vos-screen vos-app', data: { app: id } });
@@ -92,7 +112,8 @@
       const ctx = V.apps.makeContext(def, content, params);
       let inst = {};
       try { inst = def.create(ctx) || {}; } catch (e) { console.error('[VistoOS] App-Start', id, e); }
-      app = { def, ctx, inst, el, content, origin, from };
+      const me = (app = { def, ctx, inst, el, content, origin, from });
+      lastFrom = from;
       shell.mode = 'app';
       V.emit('shell:mode', 'app');
       V.emit('app:open', id);
@@ -103,7 +124,7 @@
       const endR = (500 + dist + 20) / 10;
       const startR = Math.max(4, (origin.r || 60) / 10);
       content.style.transformOrigin = `${origin.x / 10}% ${origin.y / 10}%`;
-      const sp = V.spring(0, { response: 0.5, bounce: 0.06 });
+      const sp = (me.sp = V.spring(0, { response: 0.5, bounce: 0.06 }));
       sp.onUpdate((t) => {
         const k = U.clamp(t, 0, 1);
         el.style.clipPath = `circle(${U.lerp(startR, endR, t).toFixed(2)}% at ${origin.x / 10}% ${origin.y / 10}%)`;
@@ -113,6 +134,8 @@
         if (under) { under.style.transform = `scale(${(1 - 0.12 * k).toFixed(4)})`; under.style.opacity = (1 - 0.85 * k).toFixed(3); }
       });
       await sp.to(1);
+      me.sp = null;
+      if (app !== me) return null;   // während des Öffnens geschlossen
       el.style.clipPath = '';
       el.style.background = '#000';
       content.style.transform = '';
@@ -129,6 +152,7 @@
       if (V.control && V.control.isOpen) { V.control.close(); return; }
       if (V.faceEditor && V.faceEditor.isOpen) { V.faceEditor.close(); return; }
       if (shell.mode === 'app') {
+        if (!app) { shell.home(); return; }   // gerade im Übergang
         if (app.inst.back && V.safe(() => app.inst.back())) return;
         closeApp({ to: app.from === 'launcher' ? 'launcher' : 'home' });
       } else if (shell.mode === 'launcher') shell.home();
@@ -136,13 +160,16 @@
 
     /** Taste am Sockel */
     homeButton() {
+      // im Ruhemodus weckt die Taste nur (wie die erste Berührung)
+      const sleeping = !!(V.ambient && V.ambient.on);
       V.emit('activity');
+      if (sleeping) return;
       if (shell.mode === 'setup' || shell.mode === 'boot') return;
       if (V.notify.alertOpen) return;
       if (V.convo && V.convo.active) { V.convo.close(); return; }
       if (V.control && V.control.isOpen) { V.control.close(); return; }
       if (V.faceEditor && V.faceEditor.isOpen) { V.faceEditor.close(); return; }
-      if (shell.mode === 'app') closeApp({ to: 'home' });
+      if (shell.mode === 'app') shell.home();
       else if (shell.mode === 'launcher') shell.home();
       else shell.launcher();
     },
@@ -181,11 +208,26 @@
   }
 
   /** App schließen, zurück zu Symbol bzw. Mitte. o.to: 'home' | 'launcher' | null, o.from = Fortschritt der Geste */
-  async function closeApp(o = {}) {
-    if (!app) return;
+  function closeApp(o = {}) {
+    if (!app) return closing || Promise.resolve();
+    const p = closeAppNow(o);
+    const done = (closing = p.catch((e) => { console.error('[VistoOS] closeApp', e); busy = false; }).then(() => { if (closing === done) closing = null; }));
+    return done;
+  }
+  /** nach einem abgebrochenen Wechsel (Modus „app“ ohne App) wieder einen festen Zustand herstellen */
+  async function settleApp() {
+    while (closing) await closing;
+    if (shell.mode === 'app' && !app) {
+      shell.mode = lastFrom === 'launcher' && V.launcher.visible ? 'launcher' : 'home';
+      if (shell.mode === 'home') { homeEl.style.visibility = ''; homeEl.style.opacity = ''; homeEl.style.transform = ''; }
+      V.emit('shell:mode', shell.mode);
+    }
+  }
+  async function closeAppNow(o) {
     const a = app;
     app = null;
     busy = true;
+    if (a.sp) { a.sp.stop(); a.sp = null; }   // Öffnen läuft noch → abbrechen
     const to = o.to === undefined ? 'home' : o.to;
     const under = to === 'launcher' || (to === null && a.from === 'launcher') ? V.launcher.el : homeEl;
     if (to === 'launcher' && !V.launcher.visible) V.launcher.show({ instant: true, reset: false });
@@ -216,6 +258,10 @@
     a.ctx._destroy();
     el.remove();
     if (under) { under.style.transform = ''; under.style.opacity = ''; }
+    // die andere Ebene kann vom Öffnen noch verkleinert/abgedunkelt sein
+    const other = under === homeEl ? V.launcher.el : homeEl;
+    if (other) { other.style.transform = ''; other.style.opacity = ''; }
+    if (to === 'launcher') homeEl.style.visibility = 'hidden';
     busy = false;
     V.emit('app:close', a.def.id);
     if (to === 'home') { shell.mode = 'home'; homeEl.style.opacity = ''; homeEl.style.transform = ''; V.emit('shell:mode', 'home'); }
