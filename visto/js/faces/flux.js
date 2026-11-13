@@ -145,7 +145,7 @@
         f.clearRect(0, 0, field.width, field.height);
         f.setTransform(s, 0, 0, s, -BOX.x * s, -BOX.y * s);
         // Grundton
-        f.fillStyle = U.mix(cols[1], '#000000', 0.15);
+        f.fillStyle = U.mix(cols[1], '#000000', 0.3);
         f.fillRect(BOX.x, BOX.y, BOX.w, BOX.h);
         // wandernde Lichtflecken
         const n = cols.length;
@@ -164,7 +164,7 @@
         // feiner heller Glanz, der langsam durch die Ziffern zieht
         const sx = 500 + Math.sin(T * 0.09) * 520;
         const sh = f.createLinearGradient(sx - 160, 300, sx + 160, 700);
-        sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,.22)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+        sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,.13)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
         f.fillStyle = sh;
         f.fillRect(BOX.x, BOX.y, BOX.w, BOX.h);
         // mit der Schrift ausstanzen
