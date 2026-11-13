@@ -1161,7 +1161,7 @@
       background: radial-gradient(circle closest-side, rgba(0,0,0,.5) 0 80%, rgba(255,255,255,.2) 83%, rgba(0,0,0,.35) 88%, rgba(0,0,0,0) 100%); }
     .mu-arc { transform-origin: 50% 50%; will-change: transform, opacity; pointer-events: none; }
     .mu-time text { font-variant-numeric: tabular-nums; }
-    .mu-btn { position: absolute; padding: 0; margin: 0; border: 0; border-radius: 50%; display: block; color: #fff; cursor: pointer; z-index: 4;
+    .mu-btn { position: absolute; padding: 0; margin: 0; border: 0; border-radius: 50%; display: block; color: #fff; cursor: pointer; z-index: 4; overflow: hidden;
       background: rgba(14,14,18,.46); -webkit-backdrop-filter: blur(1.4cqw) saturate(1.4); backdrop-filter: blur(1.4cqw) saturate(1.4);
       box-shadow: inset 0 0 0 .22cqw rgba(255,255,255,.17), 0 1.2cqw 4cqw rgba(0,0,0,.4);
       transition: transform .32s var(--spring), opacity .3s ease, background .2s; }
@@ -1169,7 +1169,7 @@
     .mu-play { left: 40.5cqw; top: 40.5cqw; width: 19cqw; height: 19cqw; }
     .mu-prev, .mu-next { top: 43.6cqw; width: 12.8cqw; height: 12.8cqw; }
     .mu-prev { left: 25.8cqw; } .mu-next { left: 61.4cqw; }
-    .mu-ic { position: absolute; inset: 0; display: grid; place-items: center; transition: opacity .25s ease, transform .5s var(--spring); }
+    .mu-ic { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; transition: opacity .25s ease, transform .5s var(--spring); }
     .mu-play svg { width: 8.2cqw; height: 8.2cqw; }
     .mu-play .mu-ic-play svg { transform: translateX(.45cqw); }
     .mu-prev svg, .mu-next svg { width: 4.6cqw; height: 4.6cqw; }
@@ -1364,9 +1364,8 @@
       scrubSec.textContent = SECTION[b.name];
     }
     const gest = V.gesture(root, {
-      start(p, e) {
+      start(p) {
         gm = null;
-        if (e.target && e.target.closest && e.target.closest('button')) return;
         if (sliding) return;
         if (p.r0 >= 418) {
           const head = position().frac * 360;
